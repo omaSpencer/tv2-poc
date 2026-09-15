@@ -4,6 +4,8 @@ import { environmentFile, validateConfig } from './config.js';
 import { DatabaseModule } from './database.js';
 import { HealthController } from './health.js';
 import { ContentModule } from './content/content.module.js';
+import { MessagingModule } from './messaging/messaging.module.js';
+import { OpsModule } from './ops/ops.module.js';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { ContentModule } from './content/content.module.js';
     }),
     DatabaseModule,
     ContentModule,
+    MessagingModule,
+    OpsModule,
   ],
   controllers: [HealthController],
 })

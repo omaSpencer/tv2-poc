@@ -75,9 +75,15 @@ describe('M0 application base', () => {
   });
   it('accepts validated config and rejects unavailable integrations', () => {
     expect(validateConfig(base).PORT).toBe(0);
-    for (const flag of ['FEATURE_IDENTITY', 'FEATURE_SEARCH', 'FEATURE_MEDIA', 'FEATURE_OUTBOX_RELAY']) {
+    expect(validateConfig({
+      ...base,
+      FEATURE_OUTBOX_RELAY: 'on',
+      NATS_URL: 'nats://127.0.0.1:4222',
+    }).FEATURE_OUTBOX_RELAY).toBe('on');
+    for (const flag of ['FEATURE_IDENTITY', 'FEATURE_SEARCH', 'FEATURE_MEDIA']) {
       expect(() => validateConfig({ ...base, [flag]: 'on' })).toThrow(ConfigurationError);
     }
+    expect(() => validateConfig({ ...base, FEATURE_OUTBOX_RELAY: 'on' })).toThrow(ConfigurationError);
   });
   it('boots, exposes OpenAPI and reports DB down independently of liveness', async () => {
     const app = await start();

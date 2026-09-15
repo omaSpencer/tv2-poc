@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
-import { ConfigurationError } from './config.js';
+import { ConfigurationError, disabledIntegrationNames, type AppConfig } from './config.js';
 
 async function bootstrap() {
   // Dynamic import keeps config/module evaluation inside the sanitized error boundary.
@@ -26,7 +26,13 @@ async function bootstrap() {
   } catch (error) { await app.close(); throw error; }
   // Independent of configured log level: the smoke parent learns the actual bound port.
   process.stdout.write(JSON.stringify({ event: 'listening', url: await app.getUrl() }) + '\n');
-  log.info({ event: 'integrations_disabled', integrations: ['identity', 'outbox', 'search', 'media'] });
+  const flags = {
+    FEATURE_IDENTITY: config.getOrThrow<AppConfig['FEATURE_IDENTITY']>('FEATURE_IDENTITY'),
+    FEATURE_OUTBOX_RELAY: config.getOrThrow<AppConfig['FEATURE_OUTBOX_RELAY']>('FEATURE_OUTBOX_RELAY'),
+    FEATURE_SEARCH: config.getOrThrow<AppConfig['FEATURE_SEARCH']>('FEATURE_SEARCH'),
+    FEATURE_MEDIA: config.getOrThrow<AppConfig['FEATURE_MEDIA']>('FEATURE_MEDIA'),
+  };
+  log.info({ event: 'integrations_disabled', integrations: disabledIntegrationNames(flags) });
 }
 
 bootstrap().catch(error => {

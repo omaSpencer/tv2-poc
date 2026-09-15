@@ -4,23 +4,11 @@
  * The server generates a slug only inside the publish transaction, from the
  * title read there. A manual slug is validated, never transliterated silently.
  */
+import npmSlugify from 'slugify';
 import { LIMITS } from '../schema.js';
 
-/** Hungarian letters that do not decompose to a plain ASCII base character. */
-const EXTRA_TRANSLITERATION: Readonly<Record<string, string>> = {
-  ő: 'o', ű: 'u', ß: 'ss', đ: 'd', ł: 'l', ø: 'o', æ: 'ae', œ: 'oe',
-};
-
 export function slugify(title: string): string {
-  let lowered = title.toLowerCase();
-  for (const [from, to] of Object.entries(EXTRA_TRANSLITERATION)) {
-    lowered = lowered.replaceAll(from, to);
-  }
-  return lowered
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return npmSlugify(title, { lower: true, strict: true, locale: 'hu' });
 }
 
 /** Truncation may leave a trailing hyphen; the final slug never keeps one. */

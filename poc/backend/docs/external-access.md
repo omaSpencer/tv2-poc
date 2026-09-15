@@ -24,6 +24,6 @@ Authentik-független tokenellenőrzési próbák (L1) külső hozzáférés nél
 a valódi tokenes kapu (L2) viszont nem helyettesíthető, és hiányában pendingként
 jelölendő, nem sikerként.
 
-Az E01 hiánya miatt a full Compose profil elindítása és az image-digestek
-rögzítése nem történt meg. A definíció és a konfigurációs validálás elkészült
-(`docker compose --profile full config -q`), a futás M0-16b marad.
+Az E01 hiánya miatt az image-digestek továbbra is nyitottak. Az M3 próbák
+Compose NATS-szal vagy külső `NATS_URL` / `SMOKE_EXTERNAL_NATS_URL` mellett
+futtathatók; mock brokerrel M3 nem zárható.

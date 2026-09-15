@@ -19,6 +19,7 @@ import {
 import type { OperationContext } from '../identity/actor.js';
 import { ContentRepository, type ContentPatch } from './content.repository.js';
 import { OutboxRepository } from '../outbox/outbox.repository.js';
+import { OutboxWake } from '../outbox/outbox.wake.js';
 import { slugCandidates } from './slug.js';
 
 const orderChangedFields = (fields: Iterable<ChangedField>): ChangedField[] => {
@@ -55,6 +56,7 @@ export class ContentService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(ContentRepository) private readonly repository: ContentRepository,
     @Inject(OutboxRepository) private readonly outbox: OutboxRepository,
+    @Inject(OutboxWake) private readonly wake: OutboxWake,
   ) {}
 
   async create(command: CreateContentCommand, context: OperationContext): Promise<ContentRow> {
@@ -117,7 +119,7 @@ export class ContentService {
   }
 
   async publish(id: string, command: VersionedCommand, context: OperationContext): Promise<ContentRow> {
-    return this.database.transaction(async tx => {
+    const row = await this.database.transaction(async tx => {
       const current = await this.requireLocked(tx, id, command.expectedVersion);
       if (current.status === 'published') {
         throw new ApiError('content_already_published', 'The content is already published.');
@@ -134,52 +136,57 @@ export class ContentService {
         publishedAt: occurredAt,
       };
       const changed: ChangedField[] = ['status'];
-      let row: ContentRow;
+      let next: ContentRow;
       if (current.slug === null) {
-        row = await this.saveWithGeneratedSlug(tx, id, current.title, patch);
+        next = await this.saveWithGeneratedSlug(tx, id, current.title, patch);
         changed.push('slug');
       } else {
-        row = await this.repository.update(tx, id, patch);
+        next = await this.repository.update(tx, id, patch);
       }
-      await this.writeAudit(tx, row, 'published', orderChangedFields(changed), occurredAt, context);
+      await this.writeAudit(tx, next, 'published', orderChangedFields(changed), occurredAt, context);
       await this.outbox.append(tx, {
         eventId: randomUUID(),
         eventType: 'content.published',
-        aggregateId: row.id,
-        aggregateVersion: row.version,
+        aggregateId: next.id,
+        aggregateVersion: next.version,
         occurredAt,
         correlationId: context.correlationId,
       });
-      return row;
+      return next;
     });
+    // Wake only after commit: latency hint for the relay, never part of the TX.
+    this.wake.signal();
+    return row;
   }
 
   async withdraw(id: string, command: VersionedCommand, context: OperationContext): Promise<ContentRow> {
-    return this.database.transaction(async tx => {
+    const row = await this.database.transaction(async tx => {
       const current = await this.requireLocked(tx, id, command.expectedVersion);
       if (current.status !== 'published') {
         throw new ApiError('content_not_published', 'Only a published content can be withdrawn.');
       }
       const occurredAt = new Date();
       // Withdrawal keeps the slug reserved; releasing it is an explicit edit.
-      const row = await this.repository.update(tx, id, {
+      const next = await this.repository.update(tx, id, {
         status: 'withdrawn',
         version: current.version + 1,
         updatedAt: occurredAt,
         updatedBy: context.actor.sub,
         withdrawnAt: occurredAt,
       });
-      await this.writeAudit(tx, row, 'withdrawn', ['status'], occurredAt, context);
+      await this.writeAudit(tx, next, 'withdrawn', ['status'], occurredAt, context);
       await this.outbox.append(tx, {
         eventId: randomUUID(),
         eventType: 'content.withdrawn',
-        aggregateId: row.id,
-        aggregateVersion: row.version,
+        aggregateId: next.id,
+        aggregateVersion: next.version,
         occurredAt,
         correlationId: context.correlationId,
       });
-      return row;
+      return next;
     });
+    this.wake.signal();
+    return row;
   }
 
   async findForAdmin(id: string): Promise<ContentRow> {

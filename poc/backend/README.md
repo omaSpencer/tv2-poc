@@ -1,12 +1,13 @@
 # IndaPlay / TV2 PoC backend
 
-NestJS moduláris monolit. Jelen állapot: **M0 alap + infrastruktúra és M1
-tranzakciós CMS-életciklus implementálva**, valódi PostgreSQL 17 elleni futási
-bizonyítékkal. Identity (M2), JetStream relay (M3), kereső (M4) és média (M6)
-még nincs bekötve.
+NestJS moduláris monolit. Jelen állapot: **M0 alap + M1 tranzakciós CMS + M3
+outbox→JetStream relay implementálva**, valódi PostgreSQL 17 és NATS JetStream
+elleni futási bizonyítékkal. Identity (M2), kereső (M4) és média (M6) még nincs
+bekötve.
 
 A terv és a döntések: [../README.md](../README.md), [../DECISIONS.md](../DECISIONS.md),
-[../M0-IMPLEMENTATION.md](../M0-IMPLEMENTATION.md), [../M1-IMPLEMENTATION.md](../M1-IMPLEMENTATION.md).
+[../M0-IMPLEMENTATION.md](../M0-IMPLEMENTATION.md), [../M1-IMPLEMENTATION.md](../M1-IMPLEMENTATION.md),
+[../M3-IMPLEMENTATION.md](../M3-IMPLEMENTATION.md), [../M3-EVIDENCE.md](../M3-EVIDENCE.md).
 
 ## Előfeltételek
 
@@ -53,13 +54,16 @@ open http://localhost:3000/docs
 | `npm start` | A lefordított alkalmazás indítása |
 | `npm run lint` | oxlint a `src`, `scripts` és `test` fákon |
 | `npm test` | Teljes Vitest futás (alap + integrációs próbák) |
-| `npm run test:integration:m1` | Csak a T01–T23 integrációs próbák |
+| `npm run test:integration:m1` | M1 T01–T23 integrációs próbák |
+| `npm run test:integration:m3` | M3 T01–T20 relay próbák (NATS_URL + TEST_DATABASE_URL) |
 | `npm run db:migrate` | A hiányzó migrációk alkalmazása a `DATABASE_URL`-en |
 | `npm run db:generate` | Új migráció generálása a `src/schema.ts` alapján |
 | `npm run db:reset` | **Csak** a `TEST_DATABASE_URL` eldobható adatbázisának újraépítése |
 | `npm run contracts:emit` | A v1 esemény JSON Schema újragenerálása |
 | `npm run smoke:m0` | Az M0 core smoke (izolált Compose-projekt, saját childok) |
+| `npm run smoke:full` | Full-profil smoke: NATS szakasz; kereső pending (M4) |
 | `npm run demo:m1` | Az M1 mintafolyamat HTTP-listener nélkül |
+| `npm run demo:m3` | Outbox → publish ACK → kézbesítés, relay stop/start mellett |
 
 ## Migráció
 

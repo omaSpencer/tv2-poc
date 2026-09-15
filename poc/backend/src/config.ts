@@ -29,6 +29,9 @@ const schema = z.object({
   NATS_URL: optional,
   NATS_STREAM: optional,
   NATS_SUBJECT: optional,
+  NATS_PUBLISH_ACK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  NATS_RELAY_BATCH: z.coerce.number().int().positive().default(100),
+  NATS_RELAY_POLL_MS: z.coerce.number().int().positive().default(1000),
   MEILI_A_URL: optional,
   MEILI_A_KEY: optional,
   MEILI_B_URL: optional,
@@ -46,7 +49,22 @@ const REQUIRED_KEYS = {
   FEATURE_MEDIA: ['ANTMEDIA_BASE_URL', 'ANTMEDIA_TOKEN'],
 } as const satisfies Record<string, readonly (keyof AppConfigShape)[]>;
 
+/**
+ * Integrations whose verifying adapter exists. M2 adds FEATURE_IDENTITY; M3
+ * adds FEATURE_OUTBOX_RELAY. Everything else still fails startup when enabled.
+ */
+export const IMPLEMENTED_ADAPTERS = ['FEATURE_OUTBOX_RELAY'] as const satisfies readonly (keyof typeof REQUIRED_KEYS)[];
+
 export const INTEGRATIONS = Object.keys(REQUIRED_KEYS) as (keyof typeof REQUIRED_KEYS)[];
+
+/** Short names used in the startup `integrations_disabled` diagnostic. */
+export const INTEGRATION_DIAGNOSTIC_NAMES = {
+  FEATURE_IDENTITY: 'identity',
+  FEATURE_OUTBOX_RELAY: 'outbox',
+  FEATURE_SEARCH: 'search',
+  FEATURE_MEDIA: 'media',
+} as const satisfies Record<(typeof INTEGRATIONS)[number], string>;
+
 type AppConfigShape = z.infer<typeof schema>;
 export type AppConfig = AppConfigShape;
 
@@ -77,8 +95,15 @@ export function validateConfig(input: Record<string, unknown>): AppConfig {
   // so a missing key is reported as that key and not as the feature flag.
   const missing = enabled.flatMap(key => REQUIRED_KEYS[key].filter(required => config[required] === undefined));
   if (missing.length) throw new ConfigurationError([...new Set(missing)]);
-  // No feature may be enabled until its verifying adapter exists. There is no
-  // auth bypass and no partially wired integration.
-  if (enabled.length) throw new ConfigurationError([...enabled]);
+  // Features without a verifying adapter still refuse to start.
+  const unimplemented = enabled.filter(key => !(IMPLEMENTED_ADAPTERS as readonly string[]).includes(key));
+  if (unimplemented.length) throw new ConfigurationError([...unimplemented]);
   return config;
+}
+
+/** Names of integrations that are currently off, for the startup diagnostic. */
+export function disabledIntegrationNames(config: Pick<AppConfig, (typeof INTEGRATIONS)[number]>): string[] {
+  return INTEGRATIONS
+    .filter(key => config[key] !== 'on')
+    .map(key => INTEGRATION_DIAGNOSTIC_NAMES[key]);
 }

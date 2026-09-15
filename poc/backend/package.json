@@ -12,15 +12,20 @@
     "start:dev": "tsc -p tsconfig.json --watch",
     "lint": "oxlint src scripts test",
     "test": "vitest run",
-    "test:integration:m1": "vitest run test/integration",
+    "test:integration:m1": "vitest run test/integration/schema.test.ts test/integration/lifecycle.test.ts test/integration/concurrency.test.ts test/integration/rollback.test.ts test/integration/http.test.ts test/integration/contracts.test.ts",
+    "test:integration:m3": "vitest run test/integration/relay.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:reset": "node scripts/db-reset.mjs",
     "contracts:emit": "npm run build && node scripts/emit-contracts.mjs",
     "demo:m1": "npm run build && node scripts/demo-m1.mjs",
-    "smoke:m0": "node scripts/smoke-m0.mjs"
+    "demo:m3": "npm run build && node scripts/demo-m3.mjs",
+    "smoke:m0": "node scripts/smoke-m0.mjs",
+    "smoke:full": "npm run build && node scripts/smoke-full.mjs"
   },
   "dependencies": {
+    "@nats-io/jetstream": "3.4.0",
+    "@nats-io/transport-node": "3.4.0",
     "@nestjs/common": "12.0.3",
     "@nestjs/config": "12.0.0",
     "@nestjs/core": "12.0.3",
@@ -32,6 +37,7 @@
     "pino": "10.3.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "slugify": "1.6.9",
     "zod": "4.6.5"
   },
   "devDependencies": {

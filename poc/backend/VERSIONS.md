@@ -26,6 +26,8 @@ Minden közvetlen függőség pontos verziót kap, a `package-lock.json` commito
 | `drizzle-kit` | 0.31.10 | Migrációs formátum, fájlnév és saját napló |
 | `pg` | 8.23.0 | PostgreSQL driver |
 | `pino` | 10.3.1 | Strukturált log |
+| `@nats-io/transport-node` | 3.4.0 | NATS kapcsolat (M3 relay) |
+| `@nats-io/jetstream` | 3.4.0 | JetStream publish / stream menedzsment |
 | `zod` | 4.6.5 | Konfiguráció, HTTP-DTO és eseményszerződés |
 | `reflect-metadata` | 0.2.2 | Nest DI |
 | `rxjs` | 7.8.2 | Nest peer |
@@ -69,7 +71,7 @@ Authentik alapértékek javaslatok, az M4, illetve M2 munkája erősíti meg ők
 ## Ami ellenőrzött és ami nem
 
 - Ellenőrzött: telepítés, fordítás, DI-indulás, migráció és ismételt migráció,
-  teljes tesztfutás valódi PostgreSQL 17-en, core smoke, M1 demó.
-- Nem ellenőrzött: konténerimage-ek húzása és indulása, a full profil futása,
-  Authentik/NATS/Meilisearch tényleges viselkedése. Ezek M0-16b, M2, M3 és M4
-  eredményei.
+  teljes tesztfutás valódi PostgreSQL 17-en, core smoke, M1 demó, M3 relay
+  JetStream ellen (ha NATS elérhető).
+- Nem ellenőrzött: konténerimage-ek digest pinelése, a full profil teljes
+  Authentik/Meilisearch indulása. Ezek M0-16b, M2 és M4 eredményei.

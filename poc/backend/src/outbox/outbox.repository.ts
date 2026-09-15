@@ -1,9 +1,10 @@
 /**
- * M1-04 – outbox recording only. `delivered_at` stays null until the M3 relay
- * writes it after a JetStream publish ACK; nothing here contacts a broker.
+ * Outbox recording (M1) and delivery marking (M3). `delivered_at` stays null
+ * until the relay writes it after a JetStream publish ACK; nothing here
+ * contacts a broker.
  */
 import { Injectable } from '@nestjs/common';
-import { asc, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { Executor, Transaction } from '../database.js';
 import { outboxEvent, type OutboxEventRow } from '../schema.js';
 import { contentEventV1Schema, EVENT_SCHEMA_VERSION, type ContentEventV1 } from '../contracts/events.js';
@@ -22,6 +23,21 @@ const PAYLOAD_STATUS = {
   'content.published': 'published',
   'content.withdrawn': 'withdrawn',
 } as const;
+
+/** Rebuild the wire envelope from stored columns — same mapping as `append`. */
+export function envelopeFromRow(row: OutboxEventRow): unknown {
+  return {
+    eventId: row.eventId,
+    schemaVersion: row.schemaVersion,
+    eventType: row.eventType,
+    aggregateId: row.aggregateId,
+    aggregateVersion: row.aggregateVersion,
+    occurredAt: row.occurredAt.toISOString(),
+    correlationId: row.correlationId,
+    payload: row.payload,
+  };
+}
+
 
 @Injectable()
 export class OutboxRepository {
@@ -60,13 +76,17 @@ export class OutboxRepository {
     return inserted[0]!;
   }
 
-  /** M3 relay and the later processing-status endpoint read through here. */
+  /**
+   * Ordered pending read for the relay. Sort is occurred_at, then
+   * aggregate_version, then event_id so a published → withdrawn pair on the
+   * same timestamp stays deterministic.
+   */
   async pending(executor: Executor, limit = 100): Promise<OutboxEventRow[]> {
     return executor
       .select()
       .from(outboxEvent)
       .where(isNull(outboxEvent.deliveredAt))
-      .orderBy(asc(outboxEvent.occurredAt), asc(outboxEvent.eventId))
+      .orderBy(asc(outboxEvent.occurredAt), asc(outboxEvent.aggregateVersion), asc(outboxEvent.eventId))
       .limit(limit);
   }
 
@@ -79,5 +99,18 @@ export class OutboxRepository {
       .from(outboxEvent)
       .where(isNull(outboxEvent.deliveredAt));
     return rows[0] ?? { pending: 0, oldestOccurredAt: null };
+  }
+
+  /**
+   * Marks delivery only after a publish ACK. The `delivered_at IS NULL` guard
+   * makes a second mark a no-op so the timestamp does not move.
+   */
+  async markDelivered(executor: Executor, eventId: string, deliveredAt = new Date()): Promise<boolean> {
+    const updated = await executor
+      .update(outboxEvent)
+      .set({ deliveredAt })
+      .where(and(eq(outboxEvent.eventId, eventId), isNull(outboxEvent.deliveredAt)))
+      .returning({ eventId: outboxEvent.eventId });
+    return updated.length > 0;
   }
 }

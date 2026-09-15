@@ -8,6 +8,7 @@ import type { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../../src/database.js';
 import { ContentRepository } from '../../src/content/content.repository.js';
 import { OutboxRepository } from '../../src/outbox/outbox.repository.js';
+import { OutboxWake } from '../../src/outbox/outbox.wake.js';
 import { ContentService } from '../../src/content/content.service.js';
 import type { Actor, OperationContext } from '../../src/identity/actor.js';
 
@@ -38,9 +39,10 @@ export function createServices(
   url = testDatabaseUrl(),
   repository: ContentRepository = new ContentRepository(),
   outbox: OutboxRepository = new OutboxRepository(),
+  wake: OutboxWake = new OutboxWake(),
 ): Services {
   const database = new DatabaseService(fakeConfig(url));
-  return { database, repository, outbox, service: new ContentService(database, repository, outbox) };
+  return { database, repository, outbox, service: new ContentService(database, repository, outbox, wake) };
 }
 
 export async function truncateAll(url = testDatabaseUrl()): Promise<void> {

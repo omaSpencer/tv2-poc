@@ -22,6 +22,10 @@ fi
 nvm install "$NODE_VERSION"
 nvm alias default "$NODE_VERSION"
 nvm use "$NODE_VERSION"
+# Force the selected toolchain to the front of PATH so it wins regardless of any
+# other node that may already be on PATH.
+export PATH="$(dirname "$(nvm which "$NODE_VERSION")"):$PATH"
+echo "Using node $(node -v) / npm $(npm -v)"
 
 echo "== PostgreSQL ${PG_MAJOR} =="
 if [ ! -x "/usr/lib/postgresql/${PG_MAJOR}/bin/postgres" ]; then

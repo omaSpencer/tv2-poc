@@ -11,10 +11,14 @@ BACKEND="$REPO_ROOT/poc/backend"
 PG_MAJOR="17"
 PG_PORT="5432"
 
+NODE_VERSION="$(tr -d '[:space:]' < "$BACKEND/.nvmrc")"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 # shellcheck disable=SC1091
 . "$NVM_DIR/nvm.sh"
-nvm use "$(tr -d '[:space:]' < "$BACKEND/.nvmrc")" >/dev/null
+nvm use "$NODE_VERSION" >/dev/null
+# Force the selected toolchain to the front of PATH so it wins regardless of any
+# other node that may already be on PATH.
+export PATH="$(dirname "$(nvm which "$NODE_VERSION")"):$PATH"
 
 echo "== Starting PostgreSQL ${PG_MAJOR} cluster =="
 sudo pg_ctlcluster "$PG_MAJOR" main start 2>/dev/null || true

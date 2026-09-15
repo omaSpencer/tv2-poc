@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,6 +50,20 @@ async function start(extra: Record<string, string> = {}) {
 
 function get(url: string, path: string, options?: RequestInit) {
   return fetch(url + path, { ...options, signal: AbortSignal.timeout(4000) });
+}
+
+const SAMPLE_ID = '2ad0a7ef-bb1b-4c8e-8f4e-2e6d1f8a1b11';
+
+async function countContents(connectionString: string): Promise<number> {
+  const { default: pg } = await import('pg');
+  const client = new pg.Client({ connectionString });
+  await client.connect();
+  try {
+    const result = await client.query('select count(*)::int as count from content');
+    return Number(result.rows[0].count);
+  } finally {
+    await client.end();
+  }
 }
 
 describe('M0 application base', () => {
@@ -108,11 +122,54 @@ describe('M0 application base', () => {
     const missing = await start({ ENV_FILE: '/missing/tv2-env-file' });
     expect(missing.exit).not.toBe(0);
     expect(missing.logs()).toContain('ENV_FILE');
-    const identity = await start({ FEATURE_IDENTITY: 'on' });
-    expect(identity.exit).not.toBe(0);
-    expect(identity.url).toBeUndefined();
-    expect(identity.logs()).toContain('FEATURE_IDENTITY');
+    // An enabled integration first demands its own keys...
+    const withoutKeys = await start({ FEATURE_IDENTITY: 'on' });
+    expect(withoutKeys.exit).not.toBe(0);
+    expect(withoutKeys.url).toBeUndefined();
+    expect(withoutKeys.logs()).toContain('OIDC_ISSUER_URL');
+    expect(withoutKeys.logs()).toContain('OIDC_AUDIENCE');
+
+    // ...and even with them it refuses to start while no adapter can verify a token.
+    const withoutAdapter = await start({
+      FEATURE_IDENTITY: 'on',
+      OIDC_ISSUER_URL: 'https://idp.invalid/application/o/poc/',
+      OIDC_AUDIENCE: 'poc-backend',
+    });
+    expect(withoutAdapter.exit).not.toBe(0);
+    expect(withoutAdapter.url).toBeUndefined();
+    expect(withoutAdapter.logs()).toContain('FEATURE_IDENTITY');
   });
+  it.skipIf(!process.env.TEST_DATABASE_URL)('T19: blocks real admin operations against a live database', async () => {
+    const database = process.env.TEST_DATABASE_URL!;
+    const app = await start({ DATABASE_URL: database });
+    expect((await get(app.url!, '/health/ready')).status).toBe(200);
+    const before = await countContents(database);
+    const operations: Array<[string, string, unknown]> = [
+      ['POST', '/admin/contents', { title: 'Tiltott létrehozás' }],
+      ['PATCH', `/admin/contents/${SAMPLE_ID}`, { expectedVersion: 1, title: 'Tiltott módosítás' }],
+      ['POST', `/admin/contents/${SAMPLE_ID}/publish`, { expectedVersion: 1 }],
+      ['POST', `/admin/contents/${SAMPLE_ID}/withdraw`, { expectedVersion: 1 }],
+      ['GET', `/admin/contents/${SAMPLE_ID}`, undefined],
+      ['GET', '/admin/processing-status', undefined],
+    ];
+    for (const [method, path, body] of operations) {
+      const response = await get(app.url!, path, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          'x-actor': 'publisher',
+          'x-test-actor': Buffer.from('{"sub":"forged","roles":["publisher"]}').toString('base64'),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect(response.status).toBe(503);
+      expect((await response.json()).code).toBe('dependency_unavailable');
+    }
+    // The public catalog stays reachable and reveals nothing new.
+    expect((await get(app.url!, `/catalog/contents/${SAMPLE_ID}`)).status).toBe(404);
+    expect(await countContents(database)).toBe(before);
+  });
+
   it.skipIf(!process.env.TEST_DATABASE_URL)('reports ready against a real PostgreSQL instance', async () => {
     const app = await start({ DATABASE_URL: process.env.TEST_DATABASE_URL! });
     const response = await get(app.url!, '/health/ready');

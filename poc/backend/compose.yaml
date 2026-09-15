@@ -1,0 +1,152 @@
+# M0-15 / M0-16a – local dependencies for the PoC.
+#
+# Default (core) profile: PostgreSQL only. That is what the M0 gate and the core
+# smoke need, and what `docker compose up -d postgres` starts.
+#
+# `--profile full` adds NATS JetStream (M3), the two Meilisearch instances (M4)
+# and Authentik (M2). Their definitions belong to M0; starting them is the job of
+# the milestone that integrates them (DECISIONS D02).
+#
+# Every image is referenced through a variable so an exact tag or digest can be
+# pinned in the env file without editing this file. See VERSIONS.md.
+
+name: ${COMPOSE_PROJECT_NAME:-indaplay-poc}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-poc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+      POSTGRES_DB: ${POSTGRES_DB:-poc}
+      # Deterministic collation for slug ordering across machines.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    command:
+      - postgres
+      - -c
+      - max_connections=100
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-poc} -d ${POSTGRES_DB:-poc}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  nats:
+    image: ${NATS_IMAGE:-nats:2-alpine}
+    profiles: ["full"]
+    command:
+      - "-js"
+      - "-sd"
+      - "/data"
+      - "-m"
+      - "8222"
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8222/healthz || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  # Two separate instances so the application-side fan-out is exercised. They
+  # are not independent failure domains; both run on this one host.
+  meilisearch-a: &meilisearch
+    image: ${MEILI_IMAGE:-getmeili/meilisearch:v1.15}
+    profiles: ["full"]
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_A_KEY:?set MEILI_A_KEY in the env file}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "${MEILI_A_PORT:-7700}:7700"
+    volumes:
+      - meili-a-data:/meili_data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7700/health || wget -q -O- http://127.0.0.1:7700/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  meilisearch-b:
+    <<: *meilisearch
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_B_KEY:?set MEILI_B_KEY in the env file}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "${MEILI_B_PORT:-7701}:7700"
+    volumes:
+      - meili-b-data:/meili_data
+
+  # Authentik keeps its own database and cache; it never shares the PoC content
+  # database.
+  authentik-postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    profiles: ["full"]
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?set AUTHENTIK_POSTGRES_PASSWORD in the env file}
+      POSTGRES_DB: authentik
+    volumes:
+      - authentik-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  authentik-redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    profiles: ["full"]
+    command: ["--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - authentik-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  authentik-server: &authentik
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2025.8}
+    profiles: ["full"]
+    command: ["server"]
+    environment: &authentik-env
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?set AUTHENTIK_SECRET_KEY in the env file}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?set AUTHENTIK_POSTGRES_PASSWORD in the env file}
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    ports:
+      - "${AUTHENTIK_PORT:-9000}:9000"
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  authentik-worker:
+    <<: *authentik
+    command: ["worker"]
+    environment: *authentik-env
+    ports: []
+
+volumes:
+  postgres-data:
+  nats-data:
+  meili-a-data:
+  meili-b-data:
+  authentik-postgres-data:
+  authentik-redis-data:

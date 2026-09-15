@@ -3,17 +3,20 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { pino } from 'pino';
-import { ApiExceptionFilter, requestBoundary } from './http.js';
+import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
 import { ConfigurationError } from './config.js';
 
 async function bootstrap() {
   // Dynamic import keeps config/module evaluation inside the sanitized error boundary.
   const { AppModule } = await import('./app.module.js');
-  const app = await NestFactory.create(AppModule, { logger: false, abortOnError: false });
+  const app = await NestFactory.create(AppModule, { logger: false, abortOnError: false, bodyParser: false });
   app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const log = pino({ level: config.getOrThrow<string>('LOG_LEVEL') });
-  app.use(requestBoundary(log));
+  // Identity is off until M2, so the whole /admin prefix answers 503.
+  app.use(requestBoundary(log, { blockAdmin: config.getOrThrow<string>('FEATURE_IDENTITY') !== 'on' }));
+  app.use(jsonBody());
+  app.use(jsonBodyErrors());
   app.useGlobalFilters(new ApiExceptionFilter());
   const document = SwaggerModule.createDocument(app, new DocumentBuilder()
     .setTitle('IndaPlay PoC backend').setVersion('0.0.0').build());

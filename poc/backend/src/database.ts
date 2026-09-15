@@ -1,22 +1,90 @@
-import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Injectable, Module, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import * as schema from './schema.js';
+import { ApiError } from './contracts/errors.js';
+
+export type Database = NodePgDatabase<typeof schema>;
+/** The connection a business transaction runs on; savepoints nest from here. */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+export type Executor = Database | Transaction;
+
+/** The driver error may be wrapped by the query builder; walk the cause chain. */
+function* causes(error: unknown): Generator<Record<string, unknown>> {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current !== null && typeof current === 'object'; depth += 1) {
+    yield current as Record<string, unknown>;
+    current = (current as { cause?: unknown }).cause;
+  }
+}
+
+/** PostgreSQL unique violation; the constraint name tells the cases apart. */
+export function uniqueViolation(error: unknown): string | null {
+  for (const candidate of causes(error)) {
+    if (candidate.code !== '23505') continue;
+    return typeof candidate.constraint === 'string' ? candidate.constraint : '';
+  }
+  return null;
+}
+
+const CONNECTION_FAILURE_CODES = new Set([
+  'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET', 'EPIPE',
+  '08000', '08003', '08006', '08001', '08004', '57P01', '57P02', '57P03', '53300',
+]);
+
+/** A dependency outage is a 503, not a leaked internal error. */
+export function isConnectionFailure(error: unknown): boolean {
+  for (const candidate of causes(error)) {
+    if (typeof candidate.code === 'string' && CONNECTION_FAILURE_CODES.has(candidate.code)) return true;
+    if (typeof candidate.message === 'string' && /timeout exceeded when trying to connect|Connection terminated/i.test(candidate.message)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
   private readonly pool: Pool;
+  readonly db: Database;
+
   constructor(@Inject(ConfigService) config: ConfigService) {
     this.pool = new Pool({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
-      max: 5, connectionTimeoutMillis: 1000, idleTimeoutMillis: 10000,
-      statement_timeout: 1000, query_timeout: 1500,
+      max: 10, connectionTimeoutMillis: 1000, idleTimeoutMillis: 10000,
+      statement_timeout: 5000, query_timeout: 5500,
     });
     // pg emits idle-connection errors. Never log the raw connection/error object.
     this.pool.on('error', () => {});
+    this.db = drizzle(this.pool, { schema });
   }
+
   async ready(): Promise<boolean> {
     try { await this.pool.query('SELECT 1'); return true; }
     catch { return false; }
   }
+
+  /**
+   * One business transaction on one connection. Content, audit and outbox all
+   * receive this handle; nothing commits separately and nothing checks out a
+   * second pooled connection mid-operation.
+   */
+  async transaction<T>(work: (tx: Transaction) => Promise<T>): Promise<T> {
+    try {
+      return await this.db.transaction(work);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (isConnectionFailure(error)) {
+        throw new ApiError('dependency_unavailable', 'The database is currently unavailable.');
+      }
+      throw error;
+    }
+  }
+
   async onApplicationShutdown(): Promise<void> { await this.pool.end(); }
 }
+
+@Global()
+@Module({ providers: [DatabaseService], exports: [DatabaseService] })
+export class DatabaseModule {}

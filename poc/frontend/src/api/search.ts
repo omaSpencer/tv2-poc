@@ -1,0 +1,10 @@
+import { apiRequest } from './client';
+import type { SearchResponse } from './types';
+
+export function searchCatalog(query: string, opts?: { limit?: number; offset?: number }) {
+  const params = new URLSearchParams();
+  params.set('q', query);
+  if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+  if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
+  return apiRequest<SearchResponse>(`/catalog/search?${params.toString()}`);
+}

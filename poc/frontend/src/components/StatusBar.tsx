@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { apiBaseLabel, backendDocsUrl, getLastCorrelationId } from '../api/client';
 import { fetchLive, fetchReady } from '../api/health';
+import { fetchMe } from '../api/me';
+import { useAuthSession } from '../auth/session';
 
 function pillClass(ok: boolean | null): string {
   if (ok === null) return 'pill pill-unknown';
@@ -8,6 +11,8 @@ function pillClass(ok: boolean | null): string {
 }
 
 export function StatusBar() {
+  const { accessToken } = useAuthSession();
+
   const live = useQuery({
     queryKey: ['health', 'live'],
     queryFn: fetchLive,
@@ -18,17 +23,41 @@ export function StatusBar() {
     queryFn: fetchReady,
     refetchInterval: 10_000,
   });
+  const me = useQuery({
+    queryKey: ['me', accessToken],
+    queryFn: () => fetchMe(accessToken!),
+    enabled: Boolean(accessToken),
+    retry: false,
+  });
 
   const liveOk = live.isSuccess ? live.data.status === 200 && live.data.data.status === 'ok' : null;
   const readyOk = ready.isSuccess ? ready.data.status === 200 && ready.data.data.status === 'ok' : null;
   const correlationId =
-    ready.data?.correlationId || live.data?.correlationId || getLastCorrelationId() || '—';
+    me.data?.correlationId ||
+    ready.data?.correlationId ||
+    live.data?.correlationId ||
+    getLastCorrelationId() ||
+    '—';
+
+  const identityLabel = !accessToken
+    ? 'no token'
+    : me.isSuccess
+      ? me.data.data.roles.join('+') || 'authenticated'
+      : me.isError
+        ? 'token error'
+        : '…';
+
+  const identityOk = !accessToken ? null : me.isSuccess ? true : me.isError ? false : null;
 
   return (
     <header className="status-bar">
       <div className="brand-block">
         <p className="eyebrow">IndaPlay / TV2 PoC</p>
-        <h1>API playground</h1>
+        <h1>
+          <Link to="/" className="brand-link">
+            API playground
+          </Link>
+        </h1>
       </div>
       <dl className="status-grid">
         <div>
@@ -50,7 +79,7 @@ export function StatusBar() {
         <div>
           <dt>identity</dt>
           <dd>
-            <span className="pill pill-unknown">off (M2)</span>
+            <span className={pillClass(identityOk)}>{identityLabel}</span>
           </dd>
         </div>
         <div>

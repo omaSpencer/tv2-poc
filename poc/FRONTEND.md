@@ -109,18 +109,31 @@ A route-mátrix forrása: `backend/src/contracts/permissions.ts`.
 - Nyilvános katalógusnézet **nem** tartalmaz `mediaAssetId`-t, actort, auditot.
 - Publikus keresés és részlet a PoC-ban login nélkül elérhető; a viewer login külön demóelem M2-től.
 
-## 6. Javasolt UI-felületek (váz)
+## 6. Screen-térkép (implementálva)
 
-Nem pixelpontos design, hanem demó-navigáció:
+React Router navigáció. Egy aktív content id és Bearer token a `sessionStorage`-ban.
 
-1. **Állapot sáv** – backend URL, live/ready, identity be/ki, bejelentkezett role, utolsó `correlationId`.
-2. **Belépés** – M2: Authentik PKCE; előtte egyértelmű üzenet, hogy az admin API zárva.
-3. **Szerkesztői munkalap** – egy tartalom id alapján: mezők, státusz, verzió, Create / Patch / Publish / Withdraw gombok; a válasz JSON és a problem+json olvashatóan.
-4. **Katalógus nézet** – ugyanarra az id-re publikus GET; visszavonás után 404 a demó punchline-ja.
-5. **Forgatókönyv panel** – előre definiált lépéssor (lásd 7. szakasz), a mintafixture értékeivel előtöltve.
-6. **Keresés** (M4) – query mező, találati lista, rövid magyarázat ha a lista rövidebb a stale szűrés miatt.
+| Route | Screen | Mit demóz |
+| --- | --- | --- |
+| `/` | Kezdőlap | Útvonal-térkép |
+| `/auth` | Auth | Bearer mentés, `GET /me`, PKCE placeholder, jogosultsági mátrix |
+| `/editorial` | Szerkesztői munkalap | Create / Load / Patch / Publish / Withdraw + `expectedVersion` |
+| `/catalog` | Katalógus | Publikus GET; 404 punchline visszavonás után |
+| `/search` | Keresés | `q` → találatok → Catalog; stale/503 magyarázat (M4) |
+| `/processing` | Processing | Outbox pending / oldest-age (M3); published ≠ kereshető |
+| `/demo` | Forgatókönyv | M1 életciklus lépésenként + negatív esetek + M5 narratíva |
 
-A UI lehetőleg **egy tartalom** köré szerveződik (a PoC közös mintatartalma), nem tartalomkatalógus-böngészővé nő.
+Közös elemek: `StatusBar`, `AppNav`, `ContentIdBar`, `ProblemPanel`, `JsonBlock`, `MilestoneGate`, `PermissionHints`.
+
+```text
+frontend/src/
+  pages/           Home, Auth, Editorial, Catalog, Search, Processing, Demo
+  components/      Shell, Nav, StatusBar, gates, panels
+  api/             client, health, catalog, admin, me, search, processing
+  auth/session.tsx
+  content/activeContent.tsx
+  data/demoFixture.ts
+```
 
 ## 7. Demózható forgatókönyvek
 
@@ -178,18 +191,18 @@ Amíg `FEATURE_IDENTITY=off`, a playground ne inventáljon „dev actor” bypas
 
 ## 10. Megvalósítási sorrend
 
-1. **Scaffold** – `poc/frontend` Vite React TS, TanStack Query, env + proxy, health widget. ✅  
-2. **Katalógus + hibapanel** – publikus GET, problem+json megjelenítő, correlation id. ✅  
-3. **Szerkesztői űrlap váz** – mezők és gombok; M2 előtt disabled + magyarázat a 503-ról. (placeholder kész)  
-4. **M2 kötés** – PKCE, `/me`, role-alapú gombok, 401/403 forgatókönyvek.  
-5. **Forgatókönyv runner** – a 7.1 lépéssor egy kattintásos / lépésenkénti demója a fixture értékekkel.  
-6. **M3/M4 panelek** – processing-status, search, kiesés-magyarázatok idő függvényében.
+1. **Scaffold** – Vite React TS, TanStack Query, env + proxy, health. ✅  
+2. **Katalógus + hibapanel** – publikus GET, problem+json. ✅  
+3. **Szerkesztői űrlap** – Create/Patch/Publish/Withdraw UI. ✅  
+4. **Router + Auth/Search/Processing/Demo screenek** – M2–M4 UI előre. ✅  
+5. **M2 PKCE kötés** – Authentik code flow, amikor megvan a provider.  
+6. **M3/M4 válaszmezők finomhangolása** – ha a backend szerződés végleges.
 
 A futtatás: [frontend/README.md](frontend/README.md).
 
 ---
 
-**Következő lépés:** M2 identity bekötése után a szerkesztői űrlap és a PKCE belépés; addig a katalógus/health playground használható a futó backend ellen.
+**Következő lépés:** M2 identity bekötése után a PKCE gomb és a valódi tokenes demó; a screenek addig is használhatók Bearerrel / graceful hibákkal.
 
 ## 11. Elfogadás – mit jelent „kész a playground”?
 

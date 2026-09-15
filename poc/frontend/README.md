@@ -1,7 +1,7 @@
 # IndaPlay / TV2 PoC – API playground
 
-Vite + React + TanStack Query kliens a NestJS backend mellé. Demó- és
-kipróbálófelület, nem termelési CMS. A terv: [../FRONTEND.md](../FRONTEND.md).
+Vite + React + TanStack Query + React Router kliens a NestJS backend mellé.
+Demó- és kipróbálófelület, nem termelési CMS. A terv: [../FRONTEND.md](../FRONTEND.md).
 
 ## Előfeltétel
 
@@ -19,8 +19,21 @@ npm run dev
 
 Böngésző: [http://localhost:5173](http://localhost:5173).
 
-A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix nélkül),
-így a böngészőnek nem kell CORS-t kezelnie.
+A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix nélkül).
+
+## Route-ok
+
+| Útvonal | Screen | Backend milestone |
+| --- | --- | --- |
+| `/` | Kezdőlap / térkép | — |
+| `/auth` | Bearer token, `/me`, PKCE hely | M2 |
+| `/editorial` | Draft / patch / publish / withdraw | M1+M2 |
+| `/catalog` | Publikus részlet | M1 |
+| `/search` | Katalóguskeresés | M4 |
+| `/processing` | Outbox / processing-status | M3 |
+| `/demo` | Életciklus lépésenként + negatív esetek | M2+ |
+
+Az aktív content UUID és a Bearer token `sessionStorage`-ban él a screenek között.
 
 ## Parancsok
 
@@ -31,10 +44,8 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | `npm run preview` | A buildelt bundle helyi előnézete |
 | `npm run lint` | oxlint a `src` fán |
 
-## Jelenlegi felület
+## Megjegyzés
 
-- Állapotsáv: live / ready, API base, correlation id, OpenAPI link
-- Katalógus: `GET /catalog/contents/:id` + problem+json megjelenítő
-- Admin: placeholder — `FEATURE_IDENTITY=off` mellett az `/admin` 503
-
-M2 után jön a PKCE belépés és a szerkesztői életciklus a UI-ból.
+Amíg `FEATURE_IDENTITY=off`, az `/admin` 503. Nincs actor-header bypass.
+A Search/Processing UI a M3/M4 bekötés előtt is megnyitható; a hiányzó API
+problem+json / MilestoneGate üzenettel jelenik meg.

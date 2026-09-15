@@ -1,0 +1,15 @@
+{
+  "name": "IndaPlay / TV2 PoC backend",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm use 24.20.0 >/dev/null; cd poc/backend && npm start'",
+      "description": "NestJS PoC backend on http://127.0.0.1:3000 (OpenAPI at /docs)."
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 3000 }
+  ]
+}

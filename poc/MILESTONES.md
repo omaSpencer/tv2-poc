@@ -6,7 +6,7 @@ Státusz: **M0 és M1 implementálva** (lásd [M0–M1 futtatási jegyzőkönyv]
 
 A fázisok működési forgatókönyvei, döntési pontjai és részletes elfogadási feltételei: [Részletes fázisterv](PHASES.md).
 
-Az M0 feladatszintű lebontása, technológiai verziópinnel és smoke-check listával: [M0 implementációs terv](M0-IMPLEMENTATION.md).
+Az M0 feladatszintű lebontása, technológiai verziópinnel és smoke-check listával: [M0 implementációs terv](M0-IMPLEMENTATION.md). A további részletes tervek: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md) és [M2 – Identity](M2-IMPLEMENTATION.md).
 
 ## Cél és sorrend
 
@@ -20,7 +20,7 @@ Az opcionális `M6` az alapfolyamat lezárása és a külső teszthozzáférése
 | --- | --- | --- | --- |
 | M0 – Alap és szerződések | Core környezet, konfiguráció, contracts, smoke | 1–4. | ✅ kész (image-digest nyitott) |
 | M1 – Tranzakciós CMS | Életciklus, audit, outbox, konkurencia és rollback | 5–8. | ✅ kész |
-| M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. | nyitott |
+| M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. | terv kész, implementáció nyitott |
 | M3 – Eseményút | JetStream és kiesés utáni kézbesítés | 11–12. | nyitott |
 | M4 – Keresés | Két index, fallback, retry és karantén | 13–15. | nyitott |
 | M5 – Bizonyítás | Reindex, helyreállás, mérés, átadás | 16–17. | nyitott |
@@ -67,6 +67,8 @@ Feladatokra bontva, becslésekkel és ellenőrző listával: [M0 implementáció
 - Access token ellenőrzése discovery/JWKS alapján; JWT- és permission guard, `/me`.
 - Viewer, editor és publisher tesztidentitások; az admin olvasás jogának explicit rögzítése.
 - Token-élettartam, refresh, JWKS cache és visszavonási ablak dokumentálása.
+
+Feladatokra bontva, becslésekkel és kétszintű ellenőrzési tervvel: [M2 implementációs terv](M2-IMPLEMENTATION.md). A részletes becslés 14 óra 45 perc, tehát nagyjából fél munkanappal túllépi az itt adott két napot; a különbözet a tartalékkeretből jön.
 
 **Lezárás:** az editor létrehoz és szerkeszt, a publisher publikál és visszavon, a viewer tiltott írása `403`. A hibás tokenek ellenőrzése megvan: lejárat, issuer, audience, aláírás és ID token API-s használata. A refresh működik.
 
@@ -132,4 +134,4 @@ A tartalomminimum, slug, szerepek, audit/verzió/esemény, core/full határ, smo
 
 Futással meghatározandó eredmény: pontos kompatibilis pinlista M0-ban; tényleges OIDC provideradat M2-ben; mérések M5-ben; külső teszthozzáférések M6 előtt. Ezek kijelölt feladatok, nem újabb nyitott üzleti döntési körök.
 
-Következő lépés az M0 implementáció a rögzített terv szerint. A fázisok checklistje még nem teljesített.
+Következő lépés az M2 implementáció a rögzített terv szerint. Az M0 és M1 lezárva; az M2–M6 checklistje még nem teljesített.

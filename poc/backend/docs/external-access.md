@@ -6,10 +6,10 @@
 | # | Előfeltétel | Felelős | Célfázis | Állapot |
 | --- | --- | --- | --- | --- |
 | E01 | Konténerregiszter-elérés az image-ek húzásához és digest rögzítéséhez | Zoli | M0-16b | Hiányzik a jelen munkakörnyezetben; a `VERSIONS.md` digest sorai emiatt nyitottak |
-| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott |
-| E03 | Tényleges OIDC issuer, audience, JWKS URI és egy kiadott teszttoken | Claude | M2 | Nyitott; a discovery önmagában nem igazolja az audience-t |
-| E04 | Három tesztidentitás (viewer, editor, publisher) és a csoport→jog leképezés | Zoli | M2 | Nyitott; a `poc-viewer/editor/publisher` csoportnevek javaslatok |
-| E05 | Token- és refresh-élettartam tényleges providerbeállítása | Claude | M2 | Nyitott; a D06 célértékek (5 perc / 1 óra) még nem mértek |
+| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott; a full Compose definíció és a blueprint terve kész (M2-01), az image húzása E01-től függ |
+| E03 | Tényleges OIDC issuer, audience, JWKS URI és egy kiadott teszttoken | Claude | M2 | Nyitott; a discovery önmagában nem igazolja az audience-t. Az M2-02 tokenpróba rögzíti a tényleges claimkészletet |
+| E04 | Három tesztidentitás (viewer, editor, publisher) és a csoport→jog leképezés | Zoli | M2 | Nyitott; a `poc-viewer/editor/publisher` csoportneveket a blueprint hozza létre, a leképezés a `ROLE_GROUPS` táblában él |
+| E05 | Token- és refresh-élettartam tényleges providerbeállítása | Claude | M2 | Nyitott; a D06 célértékek (5 perc / 1 óra) még nem mértek, a mérés az M2-T21 próba |
 | E06 | Ant Media tesztkörnyezet, asset- és broadcast-azonosítók | Zoli | M6 | Nyitott |
 | E07 | DRMaaS sandbox, kulcs- és licencszolgáltatás, kompatibilis player | Zoli | M6 | Nyitott |
 | E08 | Valós üzleti entitlement-szabályok a playback-authorize szerződéshez | Zoli | M6 | Nyitott |
@@ -18,6 +18,11 @@
 
 Amíg E06–E08 nyitott, a médiaadapter szintetikus, kifejezetten jelölt tesztadatot
 használ. Ez nem bizonyít Ant Media-, GPU- vagy DRM-integrációt.
+
+Az E02–E05 tervezett kezelése a [M2 implementációs tervben](../../M2-IMPLEMENTATION.md) van: az
+Authentik-független tokenellenőrzési próbák (L1) külső hozzáférés nélkül is futnak,
+a valódi tokenes kapu (L2) viszont nem helyettesíthető, és hiányában pendingként
+jelölendő, nem sikerként.
 
 Az E01 hiánya miatt a full Compose profil elindítása és az image-digestek
 rögzítése nem történt meg. A definíció és a konfigurációs validálás elkészült

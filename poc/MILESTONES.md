@@ -1,6 +1,6 @@
 # PoC milestone-terv
 
-2026-09-15 · Első tervezési változat, a [README](README.md) alapján.
+2026-09-15 · Rendezett tervezési alap a [README](README.md) és [DECISIONS](DECISIONS.md) szerint.
 
 Státusz: tervezett; az alábbi lezárási feltételek még nincsenek teljesítve. A README a scope és a technológiai határok alapja, ez a dokumentum a megvalósítás sorrendjét és ellenőrzési pontjait bontja ki. Egyelőre high level terv, nem részletes implementációs backlog.
 
@@ -16,17 +16,20 @@ A kötelező végállapot: valódi belépés → szerkesztés → publikálás �
 
 Az opcionális `M6` az alapfolyamat lezárása és a külső teszthozzáférések megléte után következik. Az identity konfiguráció előkészítése már M0-ban indulhat. A modulok minden milestone végén ugyanabba az alkalmazásba integrálódnak.
 
-| Milestone | Elérendő eredmény | Célütemezés |
+| Milestone | Elérendő eredmény | Relatív munkanap |
 | --- | --- | --- |
-| M0 – Indítható alap és közös szerződések | Rögzített konfiguráció, modulhatárok, adat- és API-szerződések | 1. nap eleje |
-| M1 – Tranzakciós CMS-életciklus | Verziókezelt tartalom, atomi audit és outbox | 1. nap; állapotváltások a 2. napig |
-| M2 – Valódi identitás és jogosultság | Authentik-belépéssel végigjárható szerkesztés és publikálás | 2. nap |
-| M3 – Tartós eseményút | Outboxból JetStreambe kézbesítés, kiesés utáni folytatás | 3. nap |
-| M4 – Kereshető katalógus két indexszel | Teljes üzleti út, fallback és független felzárkózás | 4. nap |
-| M5 – Helyreállás és bizonyítékok | Újraépíthető, mérhető, reprodukálható PoC | 5. nap |
-| M6 – Opcionális média- és playback-szerződések | Külső médiaadapter próbája és későbbi integrációs határok | Második kör / szabad kapacitás |
+| M0 – Alap és szerződések | Core környezet, konfiguráció, contracts, smoke | 1–4. |
+| M1 – Tranzakciós CMS | Életciklus, audit, outbox, konkurencia és rollback | 5–8. |
+| M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. |
+| M3 – Eseményút | JetStream és kiesés utáni kézbesítés | 11–12. |
+| M4 – Keresés | Két index, fallback, retry és karantén | 13–15. |
+| M5 – Bizonyítás | Reindex, helyreállás, mérés, átadás | 16–17. |
+| Tartalék | Feltárt integrációs hibák és újraellenőrzés | 18–19. |
+| M6 – Média/playback | Opcionális, külön külső előfeltételekkel | Külön második kör |
 
-Az időpontok a README ötnapos célját követik, nem vállalt határidők. Ha egy lezárási feltétel nem teljesül, a milestone nyitva marad. Időhiánynál az opcionális médiafeladatokat hagyjuk el először; az alapfolyamat helyreállási ellenőrzései a kötelező scope részei.
+**Döntés: 17 munkanap + 2 nap tartalék**, a tényleges kezdéstől, körülbelül napi 6 óra érdemi munkával. Nem feltételez két egyidejű agentet. M0 18 óra 20 perc kötelező munkája és M1 14–22 órás becslése mellett így review-ra és integrációra is marad hely. M2–M5 időkerete tervezési keret, amelyet a saját részletes tervükben ellenőrzünk; nem már bizonyított becslés vagy határidővállalás.
+
+A korábbi ötnapos cél helyébe ez a keret lép. M0 full szolgáltatásainak tényleges indítása a megfelelő M2/M3/M4 fázisba került. A fázisok eredménykapui nem változnak: hiba esetén javítunk és szükség szerint átütemezünk, a kötelező bizonyítékokat nem hagyjuk el.
 
 ## M0 – Indítható alap és közös szerződések
 
@@ -67,7 +70,7 @@ Feladatokra bontva, becslésekkel és ellenőrző listával: [M0 implementáció
 
 **Lezárás:** az editor létrehoz és szerkeszt, a publisher publikál és visszavon, a viewer tiltott írása `403`. A hibás tokenek ellenőrzése megvan: lejárat, issuer, audience, aláírás és ID token API-s használata. A refresh működik.
 
-**Demó:** a második nap végére legalább egy tartalom valós access tokennel publikálható, és nyilvánosan lekérhető. Signing-key rotáció és IdP-kiesés végleges bizonyítéka legkésőbb M5-re készül el.
+**Demó:** M2 lezárására legalább egy tartalom valós access tokennel publikálható, és nyilvánosan lekérhető. Signing-key rotáció és IdP-kiesés végleges bizonyítéka legkésőbb M5-re készül el.
 
 ## M3 – Tartós eseményút
 
@@ -109,7 +112,7 @@ Feladatokra bontva, becslésekkel és ellenőrző listával: [M0 implementáció
 - Friss környezetből indítás, demóparancsok, hibaindukálási és helyreállási lépések.
 - Kis terhelésmérés a README fixture-javaslatából: publikálás → kereshetőség, indexenkénti lag és reindexidő.
 
-**Lezárás:** a README teljes hét végi elfogadási listájához tartozik ellenőrizhető eredmény. A jegyzőkönyv rögzíti a környezetet, verziókat, mérési paramétereket és eredményeket; elkülöníti a megvalósított, szimulált, tervezett és nem tesztelt elemeket. Sikertelen kötelező ellenőrzés mellett a PoC nem tekinthető lezártnak.
+**Lezárás:** a README teljes PoC-zárási elfogadási listájához tartozik ellenőrizhető eredmény. A jegyzőkönyv rögzíti a környezetet, verziókat, mérési paramétereket és eredményeket; elkülöníti a megvalósított, szimulált, tervezett és nem tesztelt elemeket. Sikertelen kötelező ellenőrzés mellett a PoC nem tekinthető lezártnak.
 
 **Átadandó:** futtatási útmutató, végigjárható demó, helyreállási útmutató, mérési és tesztjegyzőkönyv, valamint a következő kör prioritásos backlogja. A mérés fejlesztői baseline; termelési kapacitás vagy HA igazolása továbbra is külön munka.
 
@@ -121,20 +124,12 @@ Feladatokra bontva, becslésekkel és ellenőrző listával: [M0 implementáció
 - Delivery policy szerződés a README AES-128 / multi-DRM fázisaival. Valódi DRM-próba külön feladat a sandbox, packager, kulcs-/licencszolgáltatás és player függőségeivel.
 - Go playback-authorize bemeneti/kimeneti szerződés és entitlement snapshot példa; a hot path későbbi implementáció.
 
-**Lezárás:** a kiválasztott részfeladathoz review-zható szerződés vagy reprodukálható adapterpróba készül. A fake adapter és a konfigurációs feature flag külön jelölést kap; ezek nem igazolnak valódi média- vagy DRM-integrációt. M6 nem feltétele a heti alap-PoC elfogadásának.
+**Lezárás:** a kiválasztott részfeladathoz review-zható szerződés vagy reprodukálható adapterpróba készül. A fake adapter és a konfigurációs feature flag külön jelölést kap; ezek nem igazolnak valódi média- vagy DRM-integrációt. M6 nem feltétele a alap-PoC elfogadásának.
 
-## Elsőként tisztázandó pontok
+## Döntések és következő munka
 
-Ezek M0 tervezési feladatai; a technológiai scope újranyitása nélkül kell őket rögzíteni.
+A tartalomminimum, slug, szerepek, audit/verzió/esemény, core/full határ, smoke és ütemezés a [DECISIONS](DECISIONS.md) alapján rendezett. Az M0 és M1 részletes terve ugyanezt követi. A jövőbeli fázisok konfigurációs alapértékei és reindex/elfogadási szabályai is ott találhatók.
 
-| Pont | Mihez szükséges? | Legkésőbb |
-| --- | --- | --- |
-| Publikálás kötelező mezői és slug-egyediség szabálya | Validáció és Content-migráció | M1 előtt |
-| Létrehozás/szerkesztés audit- és eseményszabálya, kezdeti verzió | Egységes tranzakciós és eseményszerződés; az állapotváltások szabálya már adott | M1 előtt |
-| Admin olvasási jog, editor/publisher jogok összeállítása | Guardok és tesztidentitások | M2 előtt |
-| OIDC issuer, tényleges access-token audience és claim mapping | Valós tokenellenőrzés | M2-ben, kiadott teszttokennel |
-| Stream limitek, timeoutok és retry-paraméterek | Reprodukálható kiesési viselkedés | M3–M4-ben |
-| Reindex művelet formája és fogyasztókoordináció | Újraépítés élő változások mellett | M5 előtt |
-| Közös fájlok gazdái és tényleges munkamegosztás | Integrálható fejlesztési csomagok | M0-ban |
+Futással meghatározandó eredmény: pontos kompatibilis pinlista M0-ban; tényleges OIDC provideradat M2-ben; mérések M5-ben; külső teszthozzáférések M6 előtt. Ezek kijelölt feladatok, nem újabb nyitott üzleti döntési körök.
 
-Következő tervezési lépés: a [részletes fázisterv](PHASES.md) alapján M0 és M1 üzleti és működési döntéseinek egyeztetése. Az implementációs feladatokra bontás későbbi lépés.
+Következő lépés az M0 implementáció a rögzített terv szerint. A fázisok checklistje még nem teljesített.

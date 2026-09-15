@@ -1,685 +1,236 @@
-# M0 – Közös alap, scope és indíthatóság: részletes implementációs terv
+# M0 – Közös alap és indíthatóság: implementációs terv
 
-2026-09-15 · Egyeztetésre szánt tervezési változat. Futási bizonyíték még nincs.
+2026-09-15 · 3. változat · A review és az M0–M1 eltérései rendezve a felhasználó döntési felhatalmazása alapján. Implementáció és futási bizonyíték még nincs.
 
-Kapcsolódó felülvizsgálat: [M0 review és v2 utóellenőrzés](M0-REVIEW.md). Következő terv: [M1 implementáció](M1-IMPLEMENTATION.md). Az átvezetett javítások mellett fennmaradó ellentmondásokat és az M0–M1 szerződéseltéréseket az utóellenőrzés követi.
+Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md). Irányadó döntési alap: [DECISIONS.md](DECISIONS.md). A [review](M0-REVIEW.md) korábbi megállapításai történeti állapotot rögzítenek; a következő részletes terv az [M1](M1-IMPLEMENTATION.md).
 
-Kiindulópont: [PoC README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md). Ez a dokumentum az M0 fázist bontja konkrét fejlesztési feladatokra, döntésre kész javaslatokkal és futtatható ellenőrző listával. Kód még nem készül el ebből a dokumentumból.
+## 1. Szállítandó eredmény és kapu
 
-**Változat:** 2. — a [Codex review](M0-REVIEW.md) P1 és P2 pontjaira adott módosítások a 9. szakaszban szerepelnek; a fennmaradó eltéréseket a review utóellenőrzése sorolja fel. A következő fázis terve: [M1 implementációs terv](M1-IMPLEMENTATION.md).
+M0-ban elkészül az indítható NestJS-alap, PostgreSQL-kapcsolat, konfigurációvalidálás, migrációs keret, health, strukturált logolás, hibakezelés, adminblokkolás, OpenAPI és az első közös HTTP/esemény/permission szerződések. A content/audit/outbox tényleges sémája és üzleti működése M1-02-től készül.
 
-**Státuszjelölés** a korábbi doksikkal azonos: **rögzített** = a README-ből következik; **javaslat** = döntésre szánt, még nem elfogadott; **nyitott** = szándékosan M0 utánra hagyva. A javaslatok leírása nem jelenti az elfogadásukat.
-
----
-
-## 1. Mit szállít M0 és mit nem
-
-| Szállít | Nem szállít |
+| Eredmény | M0 lezárásához szükséges? |
 | --- | --- |
-| Futtatható NestJS-váz, konfigvalidációval és fail-fast indulással | Content-tábla, üzleti logika, publikálási folyamat (M1) |
-| Helyi PostgreSQL Compose-ból, migrációs kerettel | Valódi tokenellenőrzés, guardok (M2) |
-| HTTP-, esemény- és jogosultsági szerződés első, review-zható változata | Outbox relay, JetStream-kapcsolat (M3) |
-| Hibaválasz-formátum, hibakódtábla, correlation ID, titokmentes logolás | Keresési projekció, fallback (M4) |
-| Authentik provider, tesztkliens és három tesztidentitás előkészítése | Tokenkiadás API-hívásokhoz bekötve (M2) |
-| Compose-profilok a később bekötendő szolgáltatásokhoz, verziópinnel | Reindex, mérés, bizonyítékjegyzék (M5) |
-| Indítási és hibaindukálási útmutató, smoke-check lista | Médiaadapter, DRM, playback (M6) |
+| Core Compose PostgreSQL, alkalmazásindítás, migráció, core smoke | Igen |
+| Adat-, HTTP-, esemény- és permission szerződések | Igen |
+| Full Compose definíció és image-verziók/digestek rögzítése | Igen, konfigurációs ellenőrzéssel; szolgáltatásindítás nélkül |
+| Authentik elindítása, provider, tesztidentitás, kiadott token | Nem; M2 eredmény |
+| NATS és Meilisearch tényleges indítása | Nem; M3, illetve M4 eredmény |
+| Összesített full smoke | Nem; az érintett integrációk elkészülte után követett eredmény |
 
-M0 nem feltételezi az összes integráció működését. Amit viszont nem hagyhat nyitva: az M1-et blokkoló üzleti döntéseket (2. szakasz) és a közös fájlok gazdáit.
+A full összeállítása és a full futási próbája külön feladat. A core smoke nem függhet az utóbbitól. M0 nem szállít tokenellenőrzést, tartaloméletciklust, relayt, keresőt vagy médiaadaptert.
 
----
+## 2. Rögzített döntések
 
-## 2. Döntésre kész javaslatok
+### D-M0-01 – Toolchain
 
-Ezek a PHASES.md és MILESTONES.md „nyitott” pontjai, mindegyikhez egy-egy konkrét javaslattal. A döntési kör (M0-01 feladat) mindegyiket **elfogadja, módosítja vagy elhalasztja**.
+Az első választás Node 24 / NestJS 12 / ESM / TypeScript 6 / Vitest, oxlint és formatter. A CLI és alkalmazás pontos Node-követelményét a kiválasztott kiadásokkal együtt ellenőrizzük. M0-02 pontos patchverziót rögzít, nem `24.x`-et. Minden közvetlen dependency pontos verziót és commitolt lockfile-t kap.
 
-**A válasz hiánya nem elfogadás.** Ha egy sorra a döntési körig nem érkezik válasz, a fejlesztés **explicit munkafeltételezésként** dolgozik tovább a javaslattal, hogy ne álljon meg — de a sor státusza „nem elfogadott, munkafeltételezés” marad, és így is szerepel az M5 jegyzőkönyvében. Ez a megkülönböztetés azért fontos, mert a PoC egyik átadandója éppen az, hogy mi bizonyított, mi tervezett és mi eldöntetlen.
+A spike ellenőrzi a telepítést és peer-függőségeket, buildet, dependency injection indulást, tesztfuttatást, validált HTTP-kérést, OpenAPI-t, valamint a későbbi kliensek importálhatóságát. A pontos csomaglista a spike eredménye; a korábbi v2 konkrét számai nem telepítéssel bizonyított verziók.
 
-> **Review-státusz:** a [Codex review](M0-REVIEW.md) P1 és P2 pontjai átvezetve. Ahol a review javítást kért, a szöveg ezt jelöli.
+120 perc összesített timebox. Fallback: v12 ESM → v12 CommonJS/Jest → v11 CommonJS/TS5/Jest. Minden váltáskor a teljes csomagcsalád peer-kompatibilis verziói változnak. Sikertelen timebox után dokumentált no-go következik, a tartalékkeretből folytatható; nem minősítjük működőnek a még nem ellenőrzött fallbacket. Technológiai támpont: [Nest migrációs útmutató](https://docs.nestjs.com/migration-guide).
 
-### D-M0-01 · Runtime és keretrendszer verziók
+### D-M0-02 – Adatbázis és migráció
 
-**Javaslat:** Node.js 24 (Active LTS) + NestJS 12.0.3 az ESM starter alapértelmezésével (`"type": "module"`, TypeScript 6.0.3, Vitest 4.x, oxlint). Minden verzió pontosan pinelve, `^` nélkül, lockfile commitolva.
+Drizzle ORM + pg; a kiválasztott és pinelt Drizzle Kit custom SQL migrációs formátuma, generált fájlneve és saját nyilvántartása. Külön kézi sorszámozó és saját migrációs napló nincs. A baseline az alkalmazás névterét alapozza meg; a migrátor belső naplóját nem az alkalmazás baseline-ja hozza létre. [Drizzle custom migrations](https://orm.drizzle.team/docs/kit-custom-migrations).
 
-| Csomag / futtatókörnyezet | Pin | Megjegyzés |
-| --- | --- | --- |
-| Node.js | **≥ 24.15**, a 24-es soron (Krypton, Active LTS) | A NestJS 12 migrációs útmutatója a CLI-generáláshoz külön minimumot ír; a puszta `24.x` túl tág. Node 26 még Current, nem PoC-célpont |
-| `@nestjs/core`, `/common`, `/platform-express` | 12.0.3 | v12 kiadva 2026-08-28 |
-| `@nestjs/cli`, `/schematics` | 12.0.1 / 12.0.2 | |
-| `@nestjs/config` | 12.0.0 | zod-sémás validációval |
-| `@nestjs/swagger` | 12.0.1 | OpenAPI |
-| `@nestjs/terminus` | 12.0.0 | health indicators |
-| `typescript` | 6.0.3 | **nem** 7.x: a v12 starter a 6-os sorra hivatkozik |
-| `vitest` | 4.1.x | ESM-projekt alapértelmezése v12-ben |
-| `zod` | 4.6.5 | config + Standard Schema route-validáció |
-| `pino` / `nestjs-pino` | 10.3.1 / 5.2.0 | strukturált log, redact |
-| `@nats-io/transport-node`, `@nats-io/jetstream` | 3.4.0 | M3-ban aktiválódik, de M0-ban pinelve |
-| `meilisearch` (JS kliens) | 0.62.0 | M4-ben aktiválódik |
-| `jose` | 6.2.12 | JWKS + JWT verify (M2) |
+A migráció előrefelé alkalmazott, a már alkalmazott fájl változatlan. Általános down nincs. `db:reset` csak explicit eldobható tesztcélt fogad el, újraépíti azt és lefuttatja a migrációkat. Normál DATABASE_URL-re nem alkalmazható alapértelmezetten. Az üzleti tranzakció egy kapcsolaton fut, hibára rollbackel; ez külön követelmény.
 
-**A tábla nem installal bizonyított.** A verziók npm- és registry-lekérdezésből származnak; hogy ez a készlet együtt telepíthető és peer-kompatibilis-e, azt az M0-02 spike dönti el. Addig ez javaslat, nem tény.
+### D-M0-03 – Konfiguráció és authhatár
 
-**Kockázat és kilépési út** (a [review](M0-REVIEW.md) 7. pontja alapján átdolgozva): a NestJS 12 alig három hete jelent meg és ESM-re váltott, de a **CommonJS projektformátumot a v12 is támogatja** megfelelő Node mellett. Ezért a fallback-lépcső három fokú, nem kettő:
+Config-modul + közös validációs séma. Kötelező kulcsok: NODE_ENV, PORT, LOG_LEVEL, DATABASE_URL. A feature flagek alapértéke off. Bekapcsolt integráció a hozzá tartozó kulcsokat kötelezővé teszi. Kikapcsolt integrációról egy strukturált indulási bejegyzés készül, hiányzó kulcsonkénti figyelmeztetés helyett.
 
-| Lépcső | Mit változtatunk | Mikor lépünk rá |
-| --- | --- | --- |
-| 1 | NestJS 12 + ESM + TS 6.0.3 + Vitest (alapeset) | — |
-| 2 | NestJS 12 + **CommonJS** + TS 6.0.3 + Jest | ha az ESM-interop akad, de a v12 maga rendben van |
-| 3 | NestJS 11.2.5 + CommonJS + TS 5.9.3 + Jest | ha maga a v12 akad |
+Ismeretlen környezeti kulcs megengedett; ezt nem keverjük a HTTP-body ismeretlen mezőinek M1-beli elutasításával. A PORT normál futásban 1–65535; a saját smoke-child tesztmódban 0-t is használhat dinamikus portkiosztáshoz.
 
-A 3. lépcső **nem** csak a core, a TS és a test runner cseréje: a teljes kompatibilis csomagkészletet újra kell pinelni (`@nestjs/*` mind a 11-es sorra, `@nestjs/swagger`, `@nestjs/config`, `@nestjs/terminus` megfelelő majorja, `@types/node`, lint-lánc). Ezt az M0-02 kimenete rögzíti, nem a későbbi improvizáció.
+Az `ENV_FILE` explicit fájlt választ; csak azt olvassuk be, nincs másik `.env`-re automatikus visszaesés. Hiányzó választott fájl hiba. Normál futásban az explicit process environment felülírhatja a fájlt; a smoke csak engedélyezett rendszerkulcsokat ad tovább, így a felhasználó DATABASE_URL/feature beállításai nem kerülnek bele. A `.env.example` csak placeholder, nem indításra kész konfiguráció.
 
-**Alternatíva (elvetve, de rögzítve):** azonnal NestJS 11.2.5 CJS. Előny: érett ökoszisztéma, kevesebb interop-kockázat. Hátrány: a PoC nem ad információt arról, hogy a termék célverziója életképes-e; egy későbbi migráció külön munka.
+A későbbi kulcsok helye már ismert: OIDC_ISSUER_URL/OIDC_AUDIENCE és discoveryből ellenőrzött JWKS, NATS_URL/STREAM/SUBJECT, MEILI_A/B_URL/KEY és SEARCH_TIMEOUT_MS, ANTMEDIA_BASE_URL/TOKEN. OIDC_JWKS_URI explicit megadása esetén annak az issuer discoveryjével egyeznie kell. A tényleges providerértékeket M2 rögzíti kiadott token alapján.
 
-### D-M0-02 · Adatbázis-hozzáférés és migrációk
+Identity off: `/admin` és `/admin/*` prefix middleware minden methodra 503 dependency_unavailable-t ad, a route létezésétől függetlenül. Identity on ellenőrző adapter nélkül indítási hiba. M1 tesztje saját összeállításban belső actort/tesztadaptert injektál; normál appban ilyen adapter, actor header vagy bodyból vett identitás nincs. JWT/JWKS teszt M2.
 
-**Javaslat:** `drizzle-orm` 0.45.2 + `drizzle-kit` 0.31.10, `pg` 8.23.0 driverrel; migrációk **kézzel írt SQL-fájlok**, sorszámozva (`0001_...sql`), a drizzle-kit migrátorral futtatva.
+### D-M0-03b – Readiness
 
-Indoklás: az M1 tranzakciós határa (tartalom + audit + outbox egy tranzakcióban) és az M3 outbox-relay `FOR UPDATE SKIP LOCKED` jellegű lekérdezései explicit SQL-közelséget kívánnak. A drizzle nem használ dekorátort és metaadat-emissziót, ami az ESM/TS6 sávban egy kockázattal kevesebb. A `db.transaction()` egyetlen kapcsolaton tartja a műveleteket, ami az atomi rollback bizonyításának előfeltétele. A `FOR UPDATE SKIP LOCKED` itt **csak indoklás arra, miért kell SQL-közelség** — a README egy relayt ír elő, és a több relayhez szükséges rekordfoglalást későbbre hagyja, tehát ez nem válik M1-követelménnyé.
+A `/health/ready` PostgreSQL-t ellenőriz; NATS, Meilisearch és IdP hálózati hibája nem rontja. A háttérfeldolgozás állapotát a későbbi processing-status jelzi. A helyi identity konfiguráció/adapter az indulás feltétele, nem további hálózati readiness-probe. A `/health/live` élő folyamatnál 200. Health-válasz Terminus formátumú, dokumentált kivétel a problem+json alól.
 
-**Alternatíva:** TypeORM 1.1.1 + `@nestjs/typeorm` 12.0.1. Előny: hivatalos Nest-integráció, ismertebb. Hátrány: dekorátoralapú, nehezebb a pontos tranzakciókezelés, és a 0.3 → 1.x váltás saját migrációs teher.
+### D-M0-04 – Content szerződés
 
-**Migrációs keret** (a [review](M0-REVIEW.md) 2. pontja alapján átdolgozva): a `drizzle-kit` **custom migration** keretét használjuk, a saját generált fájlnevével és saját alkalmazási nyilvántartásával. Nem írunk párhuzamos, kézzel sorszámozott sémát és nem hozunk létre saját `schema_migrations` táblát — ez a két nyilvántartás összeakadna.
+Az [M1 2–3. szakasza](M1-IMPLEMENTATION.md) rögzíti a pontos normalizálást és sémát. Draft: cím 1–200 karakter. Publikálás: cím, slug, summary 1–500, kategória és mediaAssetId legfeljebb 128; tagek opcionálisak, max 20, elemenként max 40. Kategóriák: film, sorozat, hir, sport, szorakozas, egyeb. Várt verzió pozitív egész, kezdetben 1. Actor minden íráshoz explicit, nincs system fallback.
 
-**A migrációk előrefelé alkalmazottak.** Általános `down` parancsot a PoC **nem ígér**, mert a drizzle-kit migrátorához nincs kiválasztott és bizonyított visszaállító megoldás. Helyette:
+### D-M0-04b – Nézetek
 
-- fejlesztés és teszt közben a visszaállítás = **eldobható adatbázis újraépítése** a migrációk elejéről (`npm run db:reset`);
-- ahol egy migráció valóban visszafordítható, a repóban ott is csak *dokumentált* visszaállítási lépés áll, nem automatizmus.
+Admin: Content összes szerkesztői mezője, audit/outbox külön beágyazás nélkül. Nyilvános: id, title, slug, summary, category, tags, publishedAt. **mediaAssetId csak adminmező.** Keresőprojekció M4: id, title, summary, category, tags, aggregateVersion. A keresési válasz a DB-ből kapja a publikus mezőket. Új auditolvasó végpont nem része M0–M1-nek.
 
-**Ez nem keverendő össze a tranzakciós rollbackkel.** Az M1 atomi rollback-garanciája (tartalom + audit + outbox együtt gördül vissza) futásidejű tranzakciókezelés, és attól függetlenül kötelező, hogy a sémamigrációnak van-e `down` útja.
+### D-M0-05 – Slug
 
-A migrációs sorrend gazdája egy fő (lásd D-M0-12), és a migrációs fájlokat sosem írjuk át visszamenőleg, csak újat adunk hozzá.
+Slug legfeljebb 80 karakter, globálisan egyedi, draft/withdrawn állapotban módosítható. Ha null, kizárólag publikáláskor generálódik a címből magyar ékezet-transzliterációval és kötőjeles normalizálással. Üres generált eredmény 422; kézi sluggal javítható. Alap + -2…-50, összesen 50 jelölt; az utótaggal együtt érvényes a hosszlimit. Kézi slugütközés 409, nincs automatikus átnevezés.
 
-### D-M0-03 · Konfiguráció, feature flagek és titokkezelés
+A unique korlát ad konkurenciavédelmet. A generált jelölt unique hibáját savepoint-visszaállítás követi, utána új jelölt; más SQL-hiba teljes rollback. A slug végleges mentése előtt nincs audit/outbox. Részletek M1 4.2. Visszavonás nem törli a slugot; explicit szerkesztés felszabadíthatja a régit. Nincs slugtörténet/átirányítás, a nyilvános végpont UUID-alapú.
 
-**Javaslat:** `@nestjs/config` + zod séma; ismeretlen kulcs nem hiba, hiányzó **kötelező** kulcs indulási hiba, amely néven nevezi a hiányzó kulcsot és nem írja ki az értékét.
+### D-M0-06 – Audit, verzió és esemény
 
-| Kulcs | M0-ban | Megjegyzés |
-| --- | --- | --- |
-| `NODE_ENV`, `PORT`, `LOG_LEVEL` | kötelező | |
-| `DATABASE_URL` | kötelező | az egyetlen kötelező külső függőség M0-ban |
-| `OIDC_ISSUER_URL`, `OIDC_AUDIENCE`, `OIDC_JWKS_URI` | opcionális | M2-től kötelező, ha `FEATURE_IDENTITY=on` |
-| `NATS_URL`, `NATS_STREAM`, `NATS_SUBJECT` | opcionális | M3-tól |
-| `MEILI_A_URL`, `MEILI_A_KEY`, `MEILI_B_URL`, `MEILI_B_KEY`, `SEARCH_TIMEOUT_MS` | opcionális | M4-től |
-| `ANTMEDIA_BASE_URL`, `ANTMEDIA_TOKEN` | opcionális | M6; hiánya sosem blokkol |
+Létrehozás v1 + created audit; tényleges draft/withdrawn szerkesztés +1 + updated audit, esemény nélkül. Publish/withdraw/republish +1, audit és v1 outbox egy DB-tranzakcióban. Republish = content.published. Nincs külön draft-esemény.
 
-**Feature flagek:** `FEATURE_IDENTITY`, `FEATURE_OUTBOX_RELAY`, `FEATURE_SEARCH`, `FEATURE_MEDIA` — mind `off` M0-ban, és milestone-onként kapcsolnak be. Egy flag `on` állapota kötelezővé teszi a hozzá tartozó konfigkulcsokat; `off` állapotban a kulcsok hiánya nem indulási hiba.
+Ellenőrzési sorrend: kérésforma/hozzáférés után létezés → expectedVersion → állapot → normalizált célállapot/no-op. No-op nem változtat verziót, auditot, outboxot, updatedAt/By mezőt. Elveszett válasz után újraolvasás szükséges. Audit: id, contentId/version, action, actorSub/roles, occurredAt, correlationId, changedFields mezőnevek értékek nélkül. Nincs névtelen/system fallback.
 
-**Fontos kikötés:** `FEATURE_IDENTITY=off` mellett az `/admin/*` útvonalak HTTP-n **nem kiszolgáltak** (`503 dependency_unavailable`), nem pedig védtelenek. Az M1 üzleti működését integrációs tesztből, a szolgáltatásrétegen keresztül mutatjuk be. Ezzel teljesül a README „nincs implicit auth bypass” feltétele.
+### D-M0-07 – Állapothibák
 
-**Kiegészítés** (a [review](M0-REVIEW.md) 5. pontja alapján szigorítva): hogy az M1 HTTP-szerződése (`409` verzióütközés, `404` visszavont tartalomra) ne maradjon verifikálatlanul M2-ig, az **integrációs tesztprofil** `FEATURE_IDENTITY=on` értékkel, egy teszt-JWKS-szel és helyben aláírt tokennel indul.
+Published újrapublikálása 409 content_already_published; draft/withdrawn visszavonása 409 content_not_published; published szerkesztése 409 content_not_editable. Stale expectedVersion előbb version_conflict hibát ad. Withdrawn → published megengedett, ismételt minimumellenőrzéssel.
 
-Három kikötés ehhez:
+### D-M0-08 – Permissionök
 
-- A `FEATURE_IDENTITY=on` önmagában **nem nyit utat**. Ha nincs működő tokenellenőrző adapter (discovery/JWKS elérhető vagy teszt-JWKS beinjektálva), az alkalmazás **el sem indul**. Bekapcsolt identity, ellenőrzés nélkül: indulási hiba.
-- A tesztactor kizárólag a tesztkörnyezet aláírt tokenjéből származhat. **HTTP body mezőből vagy `X-Actor`-szerű headerből soha.** Ilyen bemenet nem kerül a kódba, még feltételesen sem.
-- A teszt-JWKS és a hozzá tartozó privát kulcs a tesztfixture-ök között él, nem az `.env.example`-ben és nem a futtatott alkalmazás konfigurációjában.
+Viewer: `/me`. Editor: content:read + content:write. Publisher: ezek + content:publish + ops:read. Processing-status csak ops:read. Csoportok: poc-viewer/editor/publisher; permissions és roles claim. A konkrét Authentik mapping M2-ben készül. OAuth scope önmagában nem ad jogot.
 
-**Titkok:** `.env` gitignore-olt, `.env.example` kizárólag placeholder értékekkel. A logban `pino` redact: `req.headers.authorization`, `*.token`, `*.password`, `*.apiKey`, `*.secret`, `DATABASE_URL` jelszórésze.
+### D-M0-09 – Hibaválasz és correlation ID
 
-### D-M0-03b · Readiness és a háttérfeldolgozás állapota külön
+Üzleti/API hiba: application/problem+json; type, title, status, code, detail, instance, correlationId. Health-válasz kivétel, a filter nem alakítja át. HTTP-kódok: invalid_json 400, validation_failed 422, version_conflict/állapothibák/slug_conflict 409, content_not_found 404, unauthenticated 401, forbidden 403, dependency_unavailable/search_unavailable 503, internal_error 500. Verzióhibánál expectedVersion/actualVersion is szerepel. Kliensnek SQL és titkos érték nem kerül vissza.
 
-**Javaslat** (a [review](M0-REVIEW.md) 1. pontja alapján): az `/health/ready` **nem** a bekapcsolt integrációk összege.
+ExpectedVersion a PATCH/publish/withdraw bodyjában. Bejövő X-Correlation-Id csak 1–128 ASCII betű/szám/pont/aláhúzás/kötőjel formátumban használható; különben szerver UUID-t generál. A correlationId eseménysémája ugyanezt engedi, így az M0 logteszt azonosítója M1-ben is érvényes. Időpontok UTC ISO 8601.
 
-| Függőség | Hatás a `/health/ready`-re | Hol jelenik meg a hibája |
-| --- | --- | --- |
-| PostgreSQL | **igen** — kiesésekor `503` | readiness + minden érintett végpont |
-| NATS / JetStream | **nem** | `/admin/processing-status`: outbox pending, oldest-age |
-| Meilisearch A és B | **nem** | `/catalog/search` → `503 search_unavailable`; processing-status: indexenkénti lemaradás |
-| Authentik (IdP hálózati elérhetősége) | **nem** | a tokenellenőrzés eredménye; cache-elt JWKS mellett a még érvényes token ellenőrizhető |
-| Identity **helyi** konfigurációja és kulcsállapota | **igen**, ha `FEATURE_IDENTITY=on` | indulási hiba, nem futásidejű readiness-váltás |
+### D-M0-10 – Esemény
 
-Indoklás: a README kimondja, hogy NATS nélkül és mindkét index kiesésekor is sikeres a CMS-írás. Ha a readiness ezeket is figyelné, egy forgalmat readiness alapján irányító környezet éppen a működő CMS-t tenné elérhetetlenné. A helyi kulcs-/konfigállapot viszont más eset: azzal az alkalmazás nem tud helyesen működni, ezért az **indulást** blokkolja, nem a readinesst billegteti.
+CONTENT stream, poc.content.changed.v1 subject; eventId, schemaVersion=1, eventType, aggregateId/version, occurredAt, correlationId, payload. Típus/status pár csak content.published/published vagy content.withdrawn/withdrawn. TS típus a közös JSON Schema alapján, a választott generátorral. Nincs token, e-mail vagy médiakulcs. Két durable: search-a-v1/search-b-v1. Karantén: CONTENT_DLQ, poc.content.quarantine.v1. Stabil eventId lesz a dedup azonosító.
 
-### D-M0-04 · Content-mezők, draft- és publikálási minimum
+A további konfigurációs alapértékeket DECISIONS D08 rögzíti. M0-ban csak a szerződés készül, stream/consumer bootstrap M3. Új eventType v2 és rollout-feladat, jelenleg scope-on kívül.
 
-**Javaslat:** a `Content` M1-ben létrejövő alakja és a két külön minimum.
+### D-M0-11…13 – Nyilvánosság, gazdák, demó
 
-| Mező | Típus | Draft-minimum | Publikálási minimum | Megjegyzés |
-| --- | --- | --- | --- | --- |
-| `id` | uuid, pk | szerver adja | — | |
-| `title` | text, 1–200 | **kötelező** | **kötelező** | trim után nem üres |
-| `slug` | text, unique | opcionális | **kötelező** | lásd D-M0-05 |
-| `summary` | text, 0–500 | opcionális | **kötelező** | publikáláskor trim után 1–500 |
-| `category` | text + CHECK | opcionális | **kötelező** | kötött értékkészlet |
-| `tags` | text[] | opcionális | opcionális | max 20 elem, elemenként max 40 karakter |
-| `mediaAssetId` | text, max 128 | opcionális | **kötelező** | M1-ben puszta string, létezést nem igazol |
-| `status` | enum | `draft` | — | `draft` / `published` / `withdrawn` |
-| `version` | int | 1 | — | lásd D-M0-06 |
-| `createdAt`, `updatedAt` | timestamptz | szerver adja | — | |
-| `publishedAt`, `withdrawnAt` | timestamptz null | — | — | utolsó állapotváltás ideje |
-| `createdBy`, `updatedBy` | text | actor `sub` | — | M2-ig `system` |
+A nyilvános katalógus login nélkül elérhető, lejátszási jogot nem ad. A gazdákat DECISIONS D01 rögzíti; `.env.example` Codex, Compose Claude. Minden backend contracts a `src/contracts/` alatt értendő.
 
-**Kategória kötött értékkészlete (javaslat):** `film`, `sorozat`, `hir`, `sport`, `szorakozas`, `egyeb`. Alkalmazásszinten zod enum, adatbázisban `text` + `CHECK`. Indoklás: enum-típus bővítése migrációt igényel; a `CHECK` a PoC alatt olcsóbban módosítható.
+Demó: „Vadon élő Magyarország – Őrségi ősz”, summary „Természetfilm az Őrség őszi élővilágáról.”, film kategória, természetfilm/őrség/ősz tagek, vod-demo-0001 médiaazonosító. Slug kezdetben null, publikáláskor vadon-elo-magyarorszag-orsegi-osz. Negatív példák: hiányzó médiaazonosító publikáláskor, 201 karakteres cím, két kliens azonos várt verzióval. Fixture M0, tényleges seed/demó M1.
 
-**Tagek:** szabad szöveg, normalizálva (trim, kisbetűsítés, duplikátumszűrés, sorrend megőrzése). Nincs külön tag-tábla a PoC-ban.
+## 3. Tervezett fájlterületek
 
-### D-M0-04b · Admin és nyilvános mezőkör
+`poc/backend/`: package/lockfile/tsconfig, src/app.module, config, database, health, common, contracts; üres content/identity/outbox/messaging/search/media modulhatárok; a migrátor generált migrations struktúrája; test/integration és test/fixtures; scripts/smoke-m0 és seed-váz; compose.yaml, .env.example, README, VERSIONS és docs/external-access.
 
-**Javaslat:** a `GET /admin/contents/:id` a teljes rekordot adja, a `GET /catalog/contents/:id` és a keresési találat ennél szűkebb nézetet.
+M0 nem hoz létre content táblát. A baseline csak a migrátort és az alkalmazás névterét igazolja. A smoke script és npm parancsok alább tervezett felületek, még nem létező futási bizonyítékok.
 
-| Mező | Admin nézet | Nyilvános nézet | Keresési dokumentum (M4) |
-| --- | --- | --- | --- |
-| `id`, `title`, `slug`, `summary`, `category`, `tags` | igen | igen | igen |
-| `mediaAssetId` | igen | igen | nem |
-| `publishedAt` | igen | igen | nem |
-| `version` | igen | **nem** | igen (`aggregateVersion`) |
-| `status`, `withdrawnAt` | igen | **nem** | nem |
-| `createdAt`, `updatedAt`, `createdBy`, `updatedBy` | igen | **nem** | nem |
-| Audit-bejegyzések | külön végponton, M0-ban nincs | **nem** | nem |
+## 4. Feladatlebontás, függőségek és becslés
 
-Indoklás: a `version` az optimista konkurenciakezelés eszköze, szerkesztői adat; a `status` a nyilvános nézetben mindig `published` lenne, tehát nem hordoz információt. A keresési dokumentum a README-ben rögzített mezőkészletet követi (id, cím, leírás, kategória, tagek, aggregate-verzió).
-
-### D-M0-05 · Slug generálása, egyedisége és módosíthatósága
-
-**Javaslat:**
-
-- **Generálás:** ha a kliens nem ad slugot publikálásig, a szerver a címből generálja. Magyar ékezetek transzliterálva (`á→a`, `é→e`, `í→i`, `ó/ö/ő→o`, `ú/ü/ű→u`), kisbetűsítés, minden nem `[a-z0-9]` karakter `-`, ismétlődő `-` összevonva, vezető/záró `-` levágva, maximum 80 karakter.
-- **Ütközés:** `-2`, `-3` … numerikus utótag, legfeljebb 50 kísérlet; utána `409 slug_conflict`.
-- **Egyediség tartománya:** **globális**, a teljes `content` táblán, állapottól függetlenül (unique index). Visszavont tartalom slugja **nem szabadul fel** — így az újrapublikálás ugyanazon a nyilvános úton történik, és nincs néma URL-átvétel.
-- **Kliens által megadott slug:** elfogadott, ha megfelel a formátumnak; ilyenkor a szerver nem generál, csak validál és ütközést jelez.
-- **Módosíthatóság:** `draft` és `withdrawn` állapotban módosítható; `published` állapotban nem — de a publikált tartalom szerkesztése M1-ben amúgy is tiltott, így ez csak a jövőbeli bővítést köti meg.
-
-A [review](M0-REVIEW.md) alapján négy pontosítás:
-
-- **Generálás időpontja:** a szerver a slugot **minden mentéskor** generálja, ha a mező üres, nem csak publikáláskor. Így a draft már látható slugot kap, és a publikálás nem hoz meglepetést.
-- **Üres transzliteráció:** ha a címből csak elhagyható karakter marad (pl. `„???”`), a generált slug üres lenne. Ilyenkor a szerver `content-<id első 8 karaktere>` alakot ad, és ezt naplózza. Nem dob hibát, mert a draft mentése nem akadhat el a címen.
-- **Hosszlimit az utótaggal együtt:** a 80 karakteres korlát a **végleges** slugra vonatkozik. Ütközés esetén a törzset vágjuk vissza, hogy a `-2`, `-37` utótaggal együtt is beleférjen.
-- **Konkurenciabiztos ütközéskezelés:** az egyediséget a **unique index** garantálja, nem az előzetes `SELECT`. A kód megkísérli a beszúrást, és unique-violation esetén emeli az utótagot; így két egyidejű kérés sem hozhat létre két azonos slugot.
-
-**A slug M1-ben nem publikus útvonal.** A README végpontjai UUID-alapúak (`/catalog/contents/:id`). A slug megőrzése és egyedisége előkészítés, nem egy már megvalósított slugos nyilvános URL.
-
-### D-M0-06 · Verzió, audit és esemény szabálya
-
-**Javaslat:**
-
-| Művelet | Verzió | Audit | Outbox-esemény |
-| --- | --- | --- | --- |
-| Draft létrehozás | `1` lesz | igen (`created`) | **nem** |
-| Draft / withdrawn szerkesztés, tényleges változással | `+1` | igen (`updated`) | **nem** |
-| Szerkesztés változás nélkül (no-op) | nem nő | nem | nem |
-| Publikálás | `+1` | igen (`published`) | **igen** (`content.published`) |
-| Visszavonás | `+1` | igen (`withdrawn`) | **igen** (`content.withdrawn`) |
-
-**Kezdeti verzió: 1.** A létrehozás válaszában a kliens már `version: 1`-et kap, és ezt küldi vissza `expectedVersion`-ként.
-
-**No-op mentés – kötött ellenőrzési sorrend** (a [review](M0-REVIEW.md) 4. pontja alapján pontosítva):
-
-1. létezik-e a rekord → `404 content_not_found`;
-2. `expectedVersion` egyezik-e az aktuális verzióval → `409 version_conflict`;
-3. az állapot megengedi-e a műveletet → `409 content_not_editable` / `content_already_published` / `content_not_published`;
-4. **csak ezután** a normalizált mezők összehasonlítása → egyezés esetén `200 OK`, változatlan verzióval, audit és esemény nélkül.
-
-A sorrend nem cserélhető fel. Ha a mezőegyezést vizsgálnánk előbb, akkor az a kliens, amelyik v3-ról módosított, a mentés v4-ként sikerült, de a válasz elveszett, az ismételt v3-as kérésére sikert kapna — ezzel megkerülnénk a README-ben rögzített vártverzió-szabályt. **Elveszett válasz után a helyes viselkedés az újraolvasás.** Kérésazonosító-alapú idempotencia külön bővítés, nem M1-scope.
-
-**Draft-események:** M0–M4-ben **nem** bocsátunk ki eseményt draft létrehozásra és szerkesztésre. Indoklás: a keresési projekció kizárólag publikált tartalmat indexel, a draft változás nem befolyásolja az indexet; a felesleges forgalom félrevezetné az outbox pending és lag mérést. Ha később admin-oldali kereső kell, a szerződés `content.updated` eventType-pal bővíthető — mivel ez a `payload.status` értékkészletét is érinti, sémaverzió-emeléssel (v2) jár.
-
-**Audit tartalma:** `id`, `contentId`, `contentVersion`, `action`, `actorSub`, `actorRoles`, `occurredAt`, `correlationId`, `changedFields` (mezőnevek listája, **érték nélkül**).
-
-**Az actor M2 előtt sem `system` fallback** (a [review](M0-REVIEW.md) alapján javítva). Az integrációs tesztprofil aláírt teszttokenje ad explicit tesztactort (D-M0-03). A futtatott alkalmazásban a hiányzó actor **hiba**, nem `system`-re csendesedő alapérték — különben M2 után is megmaradhatna egy út, amelyen azonosítatlan írás keletkezik.
-
-**v1 eventType-készlet:** `content.published`, `content.withdrawn`. Ezen kívül M0 nem vezet be újat.
-
-**Bővítési figyelmeztetés** (a [review](M0-REVIEW.md) alapján): zárt v1 eventType-készlet mellett egy új `content.updated` érték **nem automatikusan kompatibilis**. Az M4 fogyasztója az ismeretlen típust a szerződés szerint karanténba teheti — vagyis a „csak hozzáadunk egy típust” lépés éles rendszerben karanténhullámot okozna. Új eventType bevezetése ezért mindig külön **kompatibilitási és rollout-döntés**, azonos envelope és változatlan `schemaVersion` mellett is: előbb a fogyasztó tanulja meg az ismeretlen típus tűrését, csak utána indul a kibocsátás.
-
-### D-M0-07 · Ismételt és értelmetlen műveletek
-
-**Javaslat:** mindkét eset **elutasítás**, nem csendes siker.
-
-| Kiinduló állapot | Művelet | Válasz | Hibakód |
-| --- | --- | --- | --- |
-| `published` | publikálás | `409` | `content_already_published` |
-| `draft` vagy `withdrawn` | visszavonás | `409` | `content_not_published` |
-| `published` | szerkesztés | `409` | `content_not_editable` |
-
-Indoklás: a publikálás validál és eseményt bocsát ki. A változtatás nélküli „siker” elrejtené a kliensoldali állapottévesztést, és az `expectedVersion` ellenőrzés mellett amúgy is ritkán fordul elő jóhiszeműen. A no-op engedékenység a szerkesztésnél (D-M0-06) más eset: ott az adat tényleg azonos.
-
-### D-M0-08 · Jogosultsági mátrix és permission-nevek
-
-**Javaslat:** négy permission és három szerep.
-
-| Permission | Jelentés |
-| --- | --- |
-| `content:read` | Admin tartalomolvasás minden állapotban |
-| `content:write` | Draft létrehozás, draft/withdrawn szerkesztés |
-| `content:publish` | Publikálás és visszavonás |
-| `ops:read` | Védett feldolgozási állapot (`/admin/processing-status`) |
-
-| Művelet | viewer | editor | publisher |
-| --- | --- | --- | --- |
-| `GET /me` | igen | igen | igen |
-| `GET /admin/contents/:id` | nem | igen | igen |
-| `POST /admin/contents`, `PATCH /admin/contents/:id` | nem | igen | **igen** |
-| `POST .../publish`, `POST .../withdraw` | nem | nem | igen |
-| `GET /admin/processing-status` | nem | **nem** | **igen** |
-| `GET /catalog/*` | belépés nélkül is | | |
-
-Két korábban nyitott pont javasolt lezárása:
-
-- **A publisher szerkeszthet is** (`content:write` benne van). Indoklás: a PoC-ban a publikáló tipikusan javít is publikálás előtt; külön editor-átadás nem mutat semmi újat, viszont demólépéseket hoz be.
-- **A processing-status csak publishernek** (`ops:read`). Indoklás: a feldolgozási állapot üzemeltetési adat, nem szerkesztői; szűkebb kezdő kör könnyebben bővíthető, mint fordítva.
-
-**Authentik-leképezés:** `poc-viewer`, `poc-editor`, `poc-publisher` csoportok; egy property mapping állítja elő a `permissions` claimet (string tömb) és a `roles` claimet (audit célra). A kért OAuth scope önmagában nem ad permissiont — ez a README-ben rögzített.
-
-### D-M0-09 · Hibaválasz-formátum és a várt verzió átadása
-
-**Javaslat:** RFC 9457 `application/problem+json`, minden hibaválaszra, stabil `code` mezővel.
-
-```json
-{
-  "type": "https://poc.indaplay.local/errors/version-conflict",
-  "title": "Version conflict",
-  "status": 409,
-  "code": "version_conflict",
-  "detail": "A tartalom időközben megváltozott.",
-  "instance": "/admin/contents/fbbf8b73-151f-4931-817c-f5a10a9f31ec",
-  "correlationId": "80696510-55ce-4b83-988b-d271021b9813",
-  "expectedVersion": 3,
-  "actualVersion": 4
-}
-```
-
-Kezdeti hibakódtábla: `validation_failed` (422), `version_conflict` (409), `content_already_published` (409), `content_not_published` (409), `content_not_editable` (409), `slug_conflict` (409), `content_not_found` (404), `unauthenticated` (401), `forbidden` (403), `search_unavailable` (503), `dependency_unavailable` (503).
-
-**Kivétel:** a `/health/live` és `/health/ready` a `@nestjs/terminus` saját `{status, info, error, details}` formátumát adja, nem problem+json-t. Indoklás: a health-válaszokat külső eszközök (compose healthcheck, később k8s probe) olvassák, és a terminus-formátum a megszokott. Ezt a kivételt az OpenAPI is jelöli.
-
-**A 401 és a 403 külön eset:** hiányzó vagy érvénytelen token `401`; érvényes identitás hiányzó permissionnel `403`. Ez a PHASES M2 szakaszának kikötése, és már M0-ban a hibatáblába kerül.
-
-**Várt verzió átadása:** a kérés **body-jában**, `expectedVersion` mezőként, a `PATCH`, `publish` és `withdraw` hívásoknál. Alternatíva: `If-Match` ETag header — szabványosabb, de a demóban több curl-kapcsolót és egy ETag-kiadási réteget igényel. Ha később HTTP-szintű cache-elés kerül be, az átállás egy külön feladat.
-
-### D-M0-10 · Eseményburkolat v1 és NATS-topológia
-
-**Rögzített** (README): `eventId`, `schemaVersion`, `eventType`, `aggregateId`, `aggregateVersion`, `occurredAt`, `correlationId`, `payload`. Token, e-mail és médiakulcs nem kerül bele.
-
-**M0-ban rögzítendő javaslat:**
-
-| Elem | Érték |
-| --- | --- |
-| Stream | `CONTENT`, file storage, limits retention, R1 |
-| Subject | `poc.content.changed.v1` |
-| Karantén stream / subject | `CONTENT_DLQ` / `poc.content.quarantine.v1` |
-| Durable consumerek | `search-a-v1`, `search-b-v1` (pull, explicit ACK) |
-| Dedup header | `Nats-Msg-Id` = `eventId` |
-| `payload` v1 | `{"status":"published"}` vagy `{"status":"withdrawn"}` — a fogyasztó az `aggregateId`-val a PostgreSQL aktuális állapotát olvassa |
-| Séma | JSON Schema a `src/contracts/events/` alatt, a TS típus ebből származik |
-
-A konkrét retention-, retry- és timeout-értékek **nyitottak** maradnak, M3–M4 rögzíti őket. M0 annyit köt, hogy hol vannak konfigurálva.
-
-### D-M0-11 · Nyilvános katalógus belépés nélkül
-
-**Javaslat:** a `/catalog/contents/:id` és `/catalog/search` a PoC-ban belépés nélkül elérhető. A viewer belépését ettől függetlenül bemutatjuk (`GET /me`). Ez nem dönt a termék későbbi nézői belépési vagy entitlement-szabályairól.
-
-### D-M0-12 · Közös fájlok gazdái és munkamegosztás
-
-**Javaslat:** minden közös fájlnak egy gazdája van; a másik fél PR-ben kér változtatást, nem ír bele közvetlenül.
-
-| Közös fájl / terület | Gazda | Review |
-| --- | --- | --- |
-| `src/contracts/http/` (DTO-k, hibaséma) | Codex | Claude |
-| `src/contracts/events/` (eseményséma) | Codex | Claude |
-| `src/contracts/permissions.md` | Claude | Codex |
-| `package.json`, lockfile | Codex | Claude |
-| `migrations/` sorrend | Codex | Claude |
-| `compose.yaml` | Claude | Codex |
-| `.env.example` | **Codex** (a config-séma gazdája) | Claude — a compose által interpolált kulcsokra |
-| `health/`, config-modul | Codex | Claude |
-| Authentik-konfiguráció és export | Claude | Zoli |
-| `poc/backend/README.md` | Claude | Codex |
-
-Az `.env.example` gazdája szándékosan Codex, mert a kulcskészletet a zod config-séma határozza meg (M0-04); Claude a compose-interpolációhoz szükséges kulcsokat review-ban kéri. Így egy szerző és egy review-felelős van, nem két író.
-
-Branch-séma **példaként**: `feat/m0-base` (Codex), `feat/m0-infra` (Claude), napi integráció a `main`-be. A tényleges nevek a repószabályból következnek. A kis, napi merge-ök a README-ben már javasolt módszer.
-
-### D-M0-13 · Demó-mintatartalom
-
-**Javaslat:** egy fix mintatartalom végigkíséri az összes fázist, mert így a demólépések összehasonlíthatók.
-
-| Mező | Érték |
-| --- | --- |
-| `title` | `Vadon élő Magyarország – Őrségi ősz` |
-| `slug` | `vadon-elo-magyarorszag-orsegi-osz` (generált, ékezet-transzliterációt bizonyít) |
-| `summary` | `Természetfilm az Őrség őszi élővilágáról.` |
-| `category` | `film` |
-| `tags` | `["természetfilm", "őrség", "ősz"]` |
-| `mediaAssetId` | `vod-demo-0001` |
-
-Mellé két negatív és egy konkurens példa: (a) hiányzó `mediaAssetId` → publikálás elutasítva, (b) 201 karakteres cím → `validation_failed`, (c) két kliens ugyanazt a `version`-t küldi → a második `409`. Fixture helye: `test/fixtures/demo-content.json`, seed script: `scripts/seed-demo.ts`.
-
----
-
-## 3. Mi jön létre M0-ban a repóban
-
-A README tervezett struktúrájából M0 ezeket hozza létre ténylegesen. A többi könyvtár üres modulvázként készül el, hogy a modulhatár már látható legyen.
-
-| Útvonal | M0 állapota |
-| --- | --- |
-| `poc/backend/package.json`, lockfile, `tsconfig.json` | kész, pinelt verziókkal |
-| `poc/backend/src/app.module.ts` | kész |
-| `poc/backend/src/config/` | kész: zod séma, fail-fast, feature flagek |
-| `poc/backend/src/database/` | kész: pool, drizzle, `withTransaction()`, shutdown |
-| `poc/backend/src/health/` | kész: `/health/live`, `/health/ready` |
-| `poc/backend/src/common/` | kész: problem+json filter, correlation ID middleware, logger |
-| `poc/backend/src/contracts/` | kész: HTTP DTO-k, hibakódok, esemény-JSON Schema |
-| `poc/backend/src/content/` | üres modulváz + DDL-vázlat a contractsban (migráció M1-ben) |
-| `poc/backend/src/identity/`, `outbox/`, `messaging/`, `search/`, `media/` | üres modulváz, `FEATURE_*=off` |
-| `poc/backend/migrations/` | migrációs keret + `0001_baseline.sql` |
-| `poc/backend/test/integration/` | keret + egy induló smoke-teszt |
-| `poc/backend/test/fixtures/demo-content.json` | kész: demó-mintatartalom (D-M0-13) |
-| `poc/backend/scripts/seed-demo.ts` | seed script váza, futtatás M1-től |
-| `poc/backend/docs/external-access.md` | külső hozzáférés-igények jegyzéke (M0-19) |
-| `poc/backend/compose.yaml` | `core` és `full` profillal |
-| `poc/backend/.env.example` | minden kulcs, kötelező/opcionális jelöléssel |
-| `poc/backend/README.md` | indítás, parancsok, hibaindukálás |
-| `poc/backend/VERSIONS.md` | pinelt csomag- és konténerverziók, digestekkel |
-
-**Szándékos határ:** a `content` tábla migrációja **nem** M0, hanem M1-01. M0 csak a DDL-vázlatot rögzíti a szerződésben, hogy a döntési kör tárgyalható legyen anélkül, hogy már migrációt kellene visszaírni.
-
----
-
-## 4. Feladatlebontás
-
-Felelősök a README javasolt felosztása szerint: **Codex** (adatmodell, tranzakció, outbox), **Claude** (identity, search, infra), **Zoli** (üzleti döntések, hozzáférések, elfogadás). A becslés fejlesztői nettó idő, egyeztetés és review nélkül.
-
-### Sáv A – Döntések
-
-| # | Feladat | Felelős | Függ | Becslés | Definition of Done |
+| # | Feladat | Gazda | Függőség | Nettó becslés | Kész eredmény |
 | --- | --- | --- | --- | --- | --- |
-| M0-01 | Döntési kör a D-M0-01…13 táblán | Zoli + Codex + Claude | — | 60 p | Minden D sor státusza: elfogadva / módosítva / elhalasztva. A D-M0-01 és D-M0-02 „feltételesen elfogadva” státuszt kap, amíg az M0-02 spike go/no-go-ja meg nem érkezik — ezt a két sort a spike zárja, nem a döntési kör. A dokumentum frissítve, a módosított javaslatok indoklással. |
+| M0-01 | Döntések átadása a contracts munkának | Codex | DECISIONS | 60 p | A rögzített döntésekhez tartozó szerződések és felelősségek átadva; nem új jóváhagyási kör |
+| M0-02 | Toolchain-spike | Codex | — | 120 p | Telepítés, build, DI, teszt, validáció/OpenAPI; teljes pinlista, go/no-go |
+| M0-03 | Scaffold | Codex | M0-02 go | 45 p | Build/start/test/lint scriptek, lockfile, ESM/CJS konzisztencia |
+| M0-04 | Config és .env.example | Codex | M0-03 | 60 p | ENV_FILE és feature szabályok, titokmentes fail-fast |
+| M0-05 | DatabaseModule | Codex | M0-04 | 60 p | Pool, közös tranzakciós kapcsolat, rollback, shutdown |
+| M0-06 | Migrációs keret és reset | Codex | M0-05 | 60 p | Generált custom baseline, újrafuttatás, kizárólag tesztcélú reset |
+| M0-07 | Content DDL-szerződés | Codex | M0-01 | 45 p | Content/audit/outbox mezők és korlátok M1 szerint |
+| M0-08 | Health | Codex | M0-05 | 45 p | Live/ready és health-formátum; kieső DB megkülönböztetése |
+| M0-09 | Hibafilter, adminprefix, correlation ID | Codex | M0-03 | 60 p | Egységes hibák health-kivétellel, identity nélküli adminblokkolás |
+| M0-10 | Logolás | Codex | M0-09 | 45 p | Strukturált log; token/jelszó/teljes DATABASE_URL nem jelenik meg |
+| M0-11 | OpenAPI | Codex | M0-09 | 30 p | Health és hibaséma, /docs és /docs-json |
+| M0-12 | HTTP-szerződés | Codex | M0-01 | 60 p | Admin/public DTO, expectedVersion, normalizálás |
+| M0-13 | Eseményszerződés | Codex | M0-01 | 45 p | V1 JSON Schema, TS típus, két validált példa |
+| M0-14 | Permission-szerződés | Claude | M0-01 | 30 p | Role/permission és route mátrix |
+| M0-15 | Core Compose | Claude | — | 45 p | PostgreSQL 17 healthcheckkel és izolálható tárolással |
+| M0-16a | Full Compose definíció | Claude | M0-15 | 45 p | NATS/A/B/Authentik és szükséges kliens definíció; config validálás, nincs futási kapu |
+| M0-16b | Full szolgáltatások futási próbái | Claude | M0-16a; M2/M3/M4 | 30 p | Integrációhoz rendelt indítási eredmények; M0-kapun kívül |
+| M0-17 | Verziójegyzék | Claude | M0-02, M0-16a | 30 p | Package-lista és image-digestek; nem függ M0-16b-től |
+| M0-18 | Authentik előkészítés | Claude | M0-16a; M2 | 90 p | Provider, identitások, discovery, majd tokennel audience; M2-ben zár |
+| M0-19 | Külső előfeltételek jegyzéke | Claude | — | 20 p | Hozzáférés/felelős/célfázis; hiány M6-ra jelölve |
+| M0-20 | Runbook | Claude | M0-04, M0-15 | 45 p | Helyi konfiguráció és smoke használata, minden eszköz előfeltétele |
+| M0-21 | Smoke-runner és core bizonyítás | Codex | M0-03…15, M0-16a, M0-17, M0-20 | 120 p | 5.1–5.6 automatikus assert/cleanup, friss izolált környezet |
+| M0-22 | Demó-fixture | Codex | M0-01, M0-07 | 30 p | Minta és negatív esetek, M1-nek átadás |
 
-### Sáv B – Váz és futtathatóság (Codex)
+**Összeg:** 1220 perc = 20 óra 20 perc, ebből kötelező M0-core/definíció 1100 perc = 18 óra 20 perc; későbbi full futás + Authentik 120 perc = 2 óra, az M2–M4 keretébe számítva. A v2 1145 percéhez a smoke-runner hiányzó implementációjára 75 perc került.
 
-| # | Feladat | Felelős | Függ | Becslés | Definition of Done |
-| --- | --- | --- | --- | --- | --- |
-| M0-02 | Toolchain-spike (timebox) | Codex | — | 120 p | Nem puszta import-smoke. Bizonyítandó egy menetben, Node ≥ 24.15-ön: (a) `npm ci` a pinelt készlettel, peer-hiba nélkül; (b) valódi **build**; (c) **DI-bootstrap** egy triviális modullal; (d) **tesztfuttatás** (Vitest vagy Jest, a lépcső szerint); (e) egy **validált HTTP-kérés** (zod/Standard Schema) végigmegy; (f) **OpenAPI-előállítás** működik; (g) `drizzle-orm` + `pg`, `@nats-io/jetstream`, `meilisearch`, `jose` importálható és példányosítható. Kimenet: a D-M0-01 lépcsőjének kiválasztása és a **teljes** pinelt csomagkészlet, írásban. |
-| M0-03 | `poc/backend` scaffold | Codex | M0-02 | 45 p | `npm ci && npm run build && npm start` fut. Verziók pinelve, lockfile commitolva, oxlint/prettier konfigurálva, npm scriptek: `start`, `start:dev`, `build`, `test`, `test:integration`, `lint`, `db:migrate`. |
-| M0-04 | Config-modul zod-sémával + `.env.example` | Codex | M0-03 | 60 p | Hiányzó kötelező kulcsra az app nem indul, a hiányzó kulcsot néven nevezi, az értéket nem írja ki, exit kód ≠ 0. Opcionális kulcs hiánya warn log, de indul. Feature flagek működnek. |
-| M0-05 | DatabaseModule | Codex | M0-04 | 60 p | Pool konfigurálva (max, timeoutok), `withTransaction()` helper egy kapcsolaton, hibára rollback, `SIGTERM`-re graceful shutdown. Integrációs teszt: szándékos hiba után nincs részleges írás. |
-| M0-06 | Migrációs keret + baseline | Codex | M0-05 | 60 p | A `drizzle-kit` custom migration keretével készül egy triviális baseline-migráció, és **bizonyítottan lefut**: `npm run db:migrate` idempotens (kétszer futtatva nem hibázik), a nyilvántartást a migrátor kezeli, nem mi. `npm run db:reset` üres adatbázisból újraépít. Általános `down` nincs, és nem is ígérünk (D-M0-02). |
-| M0-07 | DDL-vázlat a contractsban | Codex | M0-01 | 45 p | `src/contracts/schema/content.md`: `content`, `content_audit`, `outbox_event` táblák mezői, indexei, `CHECK`-jei, unique constraintjei — D-M0-04, D-M0-04b, D-M0-05 és D-M0-06 szerint. Migrációvá M1-ben válik. Review: Claude. |
-| M0-08 | HealthModule | Codex | M0-05 | 45 p | `/health/live` mindig 200, ha a process él. `/health/ready` **kizárólag az API kiszolgálhatóságához szükséges** függőségeket nézi — M0–M5-ben ez a PostgreSQL. NATS-, Meilisearch- és IdP-hálózati hiba **soha nem** rontja a readinesst, az a feldolgozási állapot és az érintett végpont dolga (D-M0-03b). Leállított adatbázisnál `503`. A health-végpontok a `@nestjs/terminus` saját `{status, info, error, details}` formátumát adják, és **kivételt képeznek** a problem+json alól (lásd D-M0-09). |
-| M0-09 | Hibakezelés és correlation ID | Codex | M0-03 | 60 p | Globális exception filter minden hibára problem+json-t ad a D-M0-09 kódtáblából. `X-Correlation-Id` header elfogadva vagy generálva, a válaszban és minden log sorban megjelenik. Külön elem: `/admin/*` prefix-middleware, amely `FEATURE_IDENTITY=off` mellett `503 dependency_unavailable`-t ad **a route regisztrációjától függetlenül** — tehát nem létező admin útvonalra is 503, nem 404. |
-| M0-10 | Strukturált logolás | Codex | M0-09 | 45 p | `pino` JSON kimenettel, redact-listával. A **teljes `DATABASE_URL` sosem kerül logba**, hibaüzenet belsejében sem — a kapcsolathibát sémára, hostra és portra redukálva logoljuk. Bizonyíték: sentinel tokennel és a helyi `.env` jelszavával futtatott 5.6 ellenőrzés nulla találata. |
-| M0-11 | OpenAPI | Codex | M0-09 | 30 p | `/docs` és `/docs-json` elérhető, a hibaséma és a health végpontok szerepelnek benne. |
+Gazda szerinti, egyszer számolt feladatmunka: Codex 885 perc (14 óra 45 perc), Claude 335 perc (5 óra 35 perc); ebből Claude M0-kapun belüli része 215 perc. A nettó munka nem tartalmazza mindkét fél review-részvételét. Az ütemezés M0-ra négy napot ad, szükség esetén a közös tartalékból folytatva; a nettó munka és a napi hasznos kapacitás közti különbség nem rejtett párhuzamosítás.
 
-### Sáv C – Szerződések (közös)
+Kritikus függőségek: toolchain → scaffold/config → DB → migrátor → core smoke; a core Compose és szerződésmunka ugyancsak a smoke előtt készül. A full indulásnak nincs visszamutató függősége a core kapuba. Az M1 üzleti séma a contracts és a bizonyított migrátor után indulhat.
 
-| # | Feladat | Felelős | Függ | Becslés | Definition of Done |
-| --- | --- | --- | --- | --- | --- |
-| M0-12 | HTTP-szerződés | Codex | M0-01 | 60 p | `src/contracts/http/`: Content request/response DTO-k (admin és nyilvános nézet külön), `expectedVersion` konvenció, hibaséma. Review: Claude. |
-| M0-13 | Eseményszerződés v1 | Codex | M0-01 | 45 p | `src/contracts/events/content-changed.v1.schema.json` + generált TS típus + két példa payload (`published`, `withdrawn`). Séma-validátor teszt a példákra. Review: Claude. |
-| M0-14 | Jogosultsági szerződés | Claude | M0-01 | 30 p | `src/contracts/permissions.md`: permission-nevek, szerep→permission leképezés, végpont→permission táblázat, Authentik csoport- és claim-nevek. Review: Codex. |
+## 5. Smoke-futtatás: megvalósítandó szerződés
 
-### Sáv D – Infrastruktúra (Claude)
-
-| # | Feladat | Felelős | Függ | Becslés | Definition of Done |
-| --- | --- | --- | --- | --- | --- |
-| M0-15 | Compose `core` profil | Claude | — | 45 p | `docker compose --profile core up -d` elindítja a PostgreSQL 17-et healthcheckkel, névvel ellátott volume-mal. `pg_isready` zölden. |
-| M0-16 | Compose `full` profil | Claude | M0-15 | 75 p | `nats` (JetStream + monitoring port), `natsio/nats-box` kliensszolgáltatás, `meili-a`, `meili-b` külön porton és volume-mal, `authentik` a saját függőségeivel. Mind healthcheckkel. A `core` profil ettől függetlenül működik. |
-| M0-17 | Verziók rögzítése | Claude | M0-16 | 30 p | `VERSIONS.md` és a compose image-ek: `postgres:17.11`, `nats:2.14.6`, `getmeili/meilisearch:v1.53.1`, `ghcr.io/goauthentik/server:2026.8.1` — mind digesttel is. Node és npm csomagverziók listája. |
-| M0-18 | Authentik előkészítés | Claude | M0-16 | 90 p | OAuth2/OIDC provider (`poc`), Authorization Code + PKCE public tesztkliens, `poc-viewer` / `poc-editor` / `poc-publisher` csoport, három tesztfelhasználó, property mapping a `permissions` és `roles` claimhez. Kimenet: a **tényleges** `issuer` és JWKS URI feljegyezve, discovery dokumentum curl-lel lekérhető, konfiguráció exportálva a repóba. Az access-token `audience` értéke **nem** itt zár: azt a README rögzített szabálya szerint kiadott teszttokennel, M2-ben rögzítjük. |
-| M0-19 | Külső hozzáférés-igények jegyzéke | Zoli + Claude | — | 20 p | `docs/external-access.md`: Ant Media sandbox, DRMaaS, player — kitől, mit, mikorra. M6 belépési feltételéhez rendelve. Hiányuk M0–M5-öt nem blokkolja. |
-
-### Sáv E – Indíthatóság és bizonyíték
-
-| # | Feladat | Felelős | Függ | Becslés | Definition of Done |
-| --- | --- | --- | --- | --- | --- |
-| M0-20 | `poc/backend/README.md` | Claude | M0-04, M0-15 | 45 p | Friss gépen végigjárható indítás, az 5. szakasz parancsaival, valamint a szándékos hibaindukálás lépéseivel. |
-| M0-21 | Smoke-check lefuttatása friss klónból | Codex + Claude | mind | 45 p | Az 5. szakasz minden sora lefut, az elvárt eredménnyel. Eltérés esetén jegyzőkönyvben rögzítve. |
-| M0-22 | Mintatartalom és seed-terv | Codex | M0-01, M0-07 | 30 p | `test/fixtures/demo-content.json` és a seed script váza; a negatív és konkurens példák leírva. Futtatás M1-től. |
-
-**Összesen:** 1145 perc ≈ 19 óra (az M0-02, M0-06 és M0-16 megnövelt becslésével). A [review](M0-REVIEW.md) 8. pontja alapján a becslés két részre bontva:
-
-| Csomag | Feladatok | Idő |
-| --- | --- | --- |
-| **Kötelező core alap** (az M0-kapu) | M0-01…M0-15, M0-17, M0-19…M0-22 | 980 perc ≈ **16,5 óra** |
-| **Előrehozott full / Authentik** | M0-16, M0-18 | 165 perc ≈ **2,75 óra** |
-
-Sávonként: Codex ≈ 12 óra (728 perc), Claude ≈ 6 óra (358 perc), Zoli 80 perc (az M0-01 és M0-19 közös része).
-
-**Ez nem fér a MILESTONES-ban szereplő „1. nap eleje” keretbe, és egy teljes munkanapba sem.** A Codex-sáv önmagában másfél fejlesztői nap soros munka. Három reális út: (a) az M0-09, M0-10, M0-11 (135 perc) átkerül Claude-hoz; (b) a full/Authentik csomag (M0-16, M0-18) M2 elejére csúszik; (c) M0 két fejlesztői napot kap, és az M1–M5 célütemezés ehhez igazodik. Egyik esetben sem blokkolódik az M1-01 migráció, mert az M0-04…M0-07 addigra kész.
-
-A MILESTONES.md időpontjai a README ötnapos célját követik, nem vállalt határidők — ez a becslés ezt a különbséget teszi számszerűvé, nem írja felül a heti scope-ot.
-
-**Kritikus út:** `M0-02 → M0-03 → M0-04 → M0-05 → M0-06`. Ezzel párhuzamosan fut `M0-01` (a spike nem várja meg a döntési kört, és fordítva sem) és `M0-15 → M0-16 → M0-18`. Minden más ezekre épül vagy független.
-
----
-
-## 5. Futtatható ellenőrző lista
-
-Ez a lista a lezárás bizonyítéka: friss klónból, dokumentált parancsokkal, elvárt eredményekkel. A `<repo>` és a portok az M0-20-ban véglegesednek.
-
-### 5.0 Előfeltételek és futtatási szabályok
-
-**A hoston szükséges eszközök** (az M0-20 runbook is felsorolja): `git`, `node` ≥ 24.15, `npm`, `docker` + `docker compose`, `curl`, `jq`, `timeout` (coreutils). A NATS CLI **nincs** a `nats:2.x` szerverimage-ben; ahol kliensre van szükség, külön `natsio/nats-box` szolgáltatás a `full` profilban (M0-16), vagy a monitoring HTTP-végpont.
-
-**Konfiguráció:** az `.env.example` placeholderei nem működő értékek. Az M0-20 runbook ad egy **működő helyi `.env` blokkot** (helyi PostgreSQL-jelszó, portok, `FEATURE_*=off`), amit a lista első lépése másol be. Az egyes alszakaszok nem a shell `unset`-jével, hanem **külön `.env` fájllal** állítanak elő eltérő konfigurációt — a shellbeli `unset` nem hat a `.env`-ből betöltött kulcsokra.
-
-**Folyamatgazda:** minden alszakasz maga indítja és maga állítja le az alkalmazást; egyszerre egy példány fut. Enélkül a 3000-es porton `EADDRINUSE` jön, egy korábbi példány válaszolhat egy új teszt helyett, és az 5.2 „nem indul el” elvárása hamisan is teljesülhet.
-
-**Titokellenőrzés:** ismert, nem éles **sentinel** értékekkel dolgozunk (`teszt-token-ne-kerulj-logba`, a helyi `.env` jelszava), és géppel értékelt találatmentességet várunk. A redact-útvonalak önmagukban nem szűrnek részszöveget URL-ek vagy hibaüzenetek belsejéből, ezért **a teljes `DATABASE_URL` sosem kerül logba** — ezt az M0-10 DoD-ja külön kimondja.
-
-### 5.1 Alapindulás
+A korábbi kézi shellblokkok helyett **egy Node-alapú smoke-runner** készül. Az alábbi parancsokat M0 hozza létre; most nem futtattuk őket:
 
 ```bash
-git clone <repo> tv2-poc
-cd tv2-poc/poc/backend
-
-node -v                 # elvárt: v24.x
-npm ci                  # elvárt: lockfile-ból, feloldatlan függőség nincs
-
-cp .env.example .env    # ELŐBB, mint a compose: a compose innen interpolál
-docker compose --profile core up -d
-docker compose ps       # elvárt: postgres  ...  (healthy)
-docker compose exec -T postgres pg_isready -U poc
-                        # elvárt: accepting connections
-
-npm run db:migrate      # elvárt: alkalmazott migrációk listája
-npm run db:migrate      # másodszor: "nincs alkalmazandó migráció", nem hiba
-
-npm run start > /tmp/poc-app.log 2>&1 &
-APP_PID=$!
-timeout 30 bash -c 'until curl -sf localhost:3000/health/live >/dev/null; do sleep 1; done'
-echo "bootstrap=$?"                              # elvárt: 0
-
-curl -s localhost:3000/health/live  | jq .       # elvárt: {"status":"ok", ...}
-curl -s localhost:3000/health/ready | jq .       # elvárt: status ok, details.postgres up
-curl -s localhost:3000/docs-json    | jq .info   # elvárt: cím és verzió
-
-# az 5.2–5.6 mindegyike saját példányt indít, ezért itt leállítjuk:
-kill $APP_PID; wait $APP_PID 2>/dev/null
+npm ci
+npm run build
+npm run smoke:m0
 ```
 
-Minden további alszakasz ugyanezt a mintát követi: indítás háttérben, `timeout`-os readiness-várakozás, a végén `kill`. Enélkül a 3000-es porton `EADDRINUSE` jön, és az 5.2 „nem indul el” elvárása hamisan is teljesülhet.
+A telepítés előtt a repo elérhető, az M0-ban pinelt Node/npm és Docker Compose használható. A runner nem igényel jq, GNU timeout vagy NATS CLI telepítést; HTTP- és időkorlát-ellenőrzést Node-ban végez. A Docker Compose parancsok exit kódját is ellenőrzi.
 
-### 5.2 Hiányzó kötelező konfiguráció – érthető indítási hiba
+### 5.0 Izoláció és folyamatkezelés
 
-```bash
-PORT=3001 DATABASE_URL= npm run start; echo "exit=$?"
-# elvárt: az app nem indul el, a hibaüzenet néven nevezi a DATABASE_URL kulcsot,
-#         az értéket nem írja ki, exit != 0
+- Friss ideiglenes könyvtár, egyedi Compose-projektnév, külön volume és kizárólag tesztadatbázis. A host portokat a runner szabadon osztja ki; a tényleges DB portot Compose-lekérdezésből veszi. A demó/fejlesztői példányhoz nem nyúl.
+- A runner ismert tesztjelszóval generál saját konfigurációt a core Compose és alkalmazás számára. Nem másolja át a placeholder fájlt, nem source-ol shellként .env-t, és nem naplózza a titkos értéket. A helyi emberi induláshoz a runbook külön működő példát ad.
+- Tesztesetenként saját alkalmazásfolyamat, közvetlen Node childként, a build által rögzített entrypointtal. A child stdout/stderr külön gyűjtve; figyeljük az exitet. Nincs npm wrapper PID-jének leállítására épített cleanup.
+- A child konfigurációjában PORT=0 engedélyezett tesztmódban; az OS oszt szabad portot. A bootstrap csak a tényleges listen után ad strukturált port/indulási jelzést. A runner kizárólag saját childját és annak címét vizsgálja; más folyamat nem adhat hamis zöld eredményt.
+- Az indulás és helyreállás legfeljebb 30 másodperces feltételvárás; a HTTP-próbák kérésenként legfeljebb 2 másodpercesek. Korai exit, rossz válasz vagy timeout sikertelen assert. Negatív indulási próba hibakódot is ellenőriz, így a portütközés nem konfigvalidációs siker.
+- Minden eset finally ágban leállítja és megvárja a saját childot; 5 másodperc után csak arra a childra alkalmaz kényszerített leállítást. A runner a saját Compose-projektjét volume-mal együtt takarítja, a cleanup hibája is nem nulla exitet eredményez. Nincs globális pkill vagy más projektet érintő compose down.
+- SIGINT/SIGTERM szintén cleanupot kér. Külső SIGKILL után automatikus cleanup nem garantálható; a jegyzőkönyvbe kiírt egyedi projektnév alapján a runbook kizárólag azt a tesztprojektet távolítja el.
+- Összesített siker csak minden kötelező assert után, exit 0-val. Bármelyik hiba exit nem nulla; a jelentés tesztesetenként eredményt és titokmentes okot tartalmaz.
 
-PORT=3001 FEATURE_IDENTITY=on OIDC_ISSUER_URL= npm run start; echo "exit=$?"
-# elvárt: a bekapcsolt feature kötelezővé teszi a saját kulcsait; nem indul, exit != 0
-```
+### 5.1 Core indítás, migráció és OpenAPI
 
-Az eltérő `PORT` szándékos: így egy véletlenül futva maradt példány `EADDRINUSE`-a nem tűnhet konfigvalidációs hibának.
+A runner elindítja saját PostgreSQL-jét, healthre vár; migrál, újra migrál és ellenőrzi a migrációs napló változatlanságát. Saját appot indít, live/ready 200 és megfelelő JSON, /docs-json érvényes info és health-séma. A full Compose definíció konfigurációs validálása nem indít full szolgáltatást. A childot a próba végén leállítja.
 
-### 5.3 Elérhetetlen kötelező függőség – readiness, nem hamis siker
+### 5.2 Negatív konfiguráció
 
-```bash
-docker compose stop postgres
-curl -s -o /dev/null -w '%{http_code}\n' localhost:3000/health/live   # elvárt: 200
-curl -s -o /dev/null -w '%{http_code}\n' localhost:3000/health/ready  # elvárt: 503
-curl -s localhost:3000/health/ready | jq '.status, .error'            # elvárt: "error", benne a postgres indikátor
-# figyelem: a health-végpontok terminus-formátumot adnak, NEM problem+json-t (D-M0-09, M0-08)
-docker compose start postgres
-sleep 5
-curl -s -o /dev/null -w '%{http_code}\n' localhost:3000/health/ready  # elvárt: 200
-```
+Külön konfiguráció és child minden esetre: üres DATABASE_URL; bekapcsolt identity hiányzó kötelező OIDC-konfiggal; bekapcsolt identity adapter nélkül; hiányzó ENV_FILE. Elvárt: megfelelő, kulcsot/okot néven nevező hiba, nem nulla exit, nincs listen. A titkos értéket nem szabad kiírni. ENV_FILE másik fájlból való csendes pótlását külön tiltott esetként ellenőrizzük.
 
-### 5.4 Opcionális függőség hiánya nem bizonytalanítja el a scope-ot
+### 5.3 DB-kiesés és visszatérés
 
-```bash
-grep -v '^ANTMEDIA_' .env > .env.nomedia
-ENV_FILE=.env.nomedia npm run start > /tmp/poc-nomedia.log 2>&1 &
-timeout 30 bash -c 'until curl -sf localhost:3000/health/live >/dev/null; do sleep 1; done'
+Friss child indul és ready 200. Csak a runner saját postgres szolgáltatása áll le: live 200, ready 503 és postgres hibaindikátor. Ugyanez a DB visszaindul; 30 másodpercen belül ready 200. Nincs vak sleep vagy új appnak tekintett régi process.
 
-grep -c 'MediaModule' /tmp/poc-nomedia.log   # elvárt: >= 1 warn sor a kikapcsolt modulról
-curl -s -o /dev/null -w '%{http_code}\n' localhost:3000/health/ready   # elvárt: 200
-pkill -f 'node .*dist/main'
-```
+### 5.4 Kikapcsolt integrációk
 
-A `.env` szerkesztése azért kell, mert a shellbeli `unset` nem hat a `.env`-ből betöltött kulcsokra — az 5.1 óta ott vannak.
+Friss konfiguráció, minden integráció off, OIDC/NATS/Meili/Ant Media kulcs nélkül. Saját child indul, ready 200, a kikapcsolt integrációkról egyszeri diagnosztika. Ez nem értékeli a későbbi integráció működését.
 
-### 5.5 Admin API auth nélkül nem kiszolgált
+### 5.5 Adminblokkolás
 
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -X POST localhost:3000/admin/contents -H 'Content-Type: application/json' -d '{}'
-# elvárt FEATURE_IDENTITY=off mellett: 503, NEM 200, nem 401 és nem 404
+Friss app identity off. POST /admin/contents, GET /admin/contents/<uuid>, PATCH, publish és withdraw minden methodja 503 dependency_unavailable. `/admin` és nem létező admin útvonal szintén blokkolt; bodyban vagy headerben küldött hamis actor nem segít. M0-ban prefixvédelmet, M1-ben tényleges route-védelmet is bizonyítunk. A normál app buildjében nincs tesztidentity-adapter.
 
-curl -s -o /dev/null -w '%{http_code}\n' \
-  localhost:3000/admin/contents/00000000-0000-0000-0000-000000000000
-# elvárt: 503 — a prefix-kapu a route regisztrációjától függetlenül zár (M0-09)
+### 5.6 Titokmentes log
 
-curl -s -X POST localhost:3000/admin/contents -d '{}' | jq .code
-# elvárt: "dependency_unavailable"
-```
+Ismert nem üres sentinel token és teszt-DB-jelszó; saját childban normál kérés és hibás DB-beállítási próba. Az összegyűjtött stdout/stderr sem nyers tokent, sem jelszót, sem teljes DATABASE_URL-t nem tartalmazhat. Az elvárt correlation ID-nak meg kell jelennie. Hiányzó sentinel vagy hiányzó kéréslog sikertelen próba, nem kihagyott ellenőrzés. A logger teljes URL-eket nem ad át redakcióra reménykedve: előbb engedélyezett diagnosztikai mezőkre szűkít.
 
-M0-ban a `content` modul még üres váz, tehát ezek a route-ok nem is léteznek. Ezért fontos, hogy a kapu **prefix-middleware** legyen és 503-at adjon, ne a Nest alapértelmezett 404-ét — különben a teszt akkor is „zöld” lenne, ha a kapu nincs bekötve.
+### 5.7 Full integrációk – követett eredmény
 
-### 5.6 Titokmentes logolás
+Külön `npm run smoke:full` futtató készül az M2–M4 munkában ugyanilyen folyamatgazdával. Authentik discovery/token M2, NATS JetStream M3, Meili A/B M4. A futtató csak kifejezetten kiválasztott és elkészült integrációkat ellenőriz; az el nem készült elemet pendingként jelöli, nem sikernek. Az M0-kapuhoz nem fut és nem szükséges.
 
-```bash
-set -a; . ./.env; set +a          # a jelszó a .env-ben él, a shellben nincs exportálva
-PGPASS=$(printf '%s' "$DATABASE_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
-[ -n "$PGPASS" ] || { echo "nincs jelszó a DATABASE_URL-ben, ez a lépés kihagyva"; }
+## 6. M0 lezárási lista
 
-npm run start > /tmp/poc-app.log 2>&1 &
-timeout 30 bash -c 'until curl -sf localhost:3000/health/live >/dev/null; do sleep 1; done'
+- [ ] Toolchain teljes pinlistával és go eredménnyel bizonyított.
+- [ ] Core PostgreSQL/app indítás és migráció friss izolált környezetben sikeres.
+- [ ] Konfiguráció, adminvédelem, health, log és OpenAPI core smoke ellenőrzött.
+- [ ] Contracts/http, events, permissions, DDL-terv egyezik az M1 és DECISIONS szabályaival.
+- [ ] Full Compose definíció és image-verziók rögzítve, a konfiguráció validált; futásuk nem kapu.
+- [ ] A közös fájlok gazdái, futtatási útmutató, fixture és külső előfeltételek jegyzéke megvan.
+- [ ] A smoke hibára megáll, saját erőforrásait takarítja; a bizonyítékjegyzék reprodukálható.
 
-curl -s -H 'Authorization: Bearer teszt-token-ne-kerulj-logba' \
-     -H 'X-Correlation-Id: smoke-0001' localhost:3000/health/live > /dev/null
+Ezek teljesítendő futási/fájl-eredmények; a tervezési döntések lezárása nem pipálja ki őket.
 
-grep -c 'teszt-token-ne-kerulj-logba' /tmp/poc-app.log      # elvárt: 0
-grep -c 'smoke-0001'                  /tmp/poc-app.log      # elvárt: >= 1
-[ -n "$PGPASS" ] && grep -Fc -- "$PGPASS" /tmp/poc-app.log  # elvárt: 0
-pkill -f 'node .*dist/main'
-```
+## 7. Kockázatok és eljárás
 
-A `grep -F` és a nem üres `$PGPASS` ellenőrzése egyaránt lényeges: üres mintára a `grep -c` minden sorra illeszkedik, egy regex-metakaraktert tartalmazó jelszó pedig hamis negatívot adna.
-
-### 5.7 Későbbi szolgáltatások elérhetők (M1+ előkészítés)
-
-```bash
-docker compose --profile full up -d
-
-curl -s localhost:7700/health | jq .          # Meilisearch A – elvárt: available
-curl -s localhost:7701/health | jq .          # Meilisearch B – elvárt: available
-curl -s localhost:8222/healthz | jq -e '.status=="ok"'   # NATS monitoring
-curl -s localhost:8222/jsz     | jq '.streams'           # elvárt: 0 — JetStream él, stream még nincs
-
-curl -sk https://localhost:9443/application/o/poc/.well-known/openid-configuration \
-  | jq '{issuer, jwks_uri, authorization_endpoint, token_endpoint}'
-# elvárt: a tényleges issuer és JWKS URI — ezek kerülnek a .env.example mellé.
-# Az access-token AUDIENCE tényleges értéke ebből NEM derül ki: azt a README szerint
-# kiadott teszttokennel kell rögzíteni, ami M2 feladata.
-curl -sk "$(curl -sk https://localhost:9443/application/o/poc/.well-known/openid-configuration | jq -r .jwks_uri)" | jq '.keys | length'
-# elvárt: >= 1 kulcs
-
-docker compose --profile full down
-```
-
-### 5.8 Elvárt eredmények összefoglalója
-
-| Ellenőrzés | Elvárt eredmény | Melyik lezárási feltételt bizonyítja |
-| --- | --- | --- |
-| 5.1 | Friss klónból dokumentált parancsokkal indul az app és a PostgreSQL | MILESTONES M0 lezárás, 1. mondat első fele |
-| 5.2 | Hiányzó kötelező kulcsra érthető, néven nevező indítási hiba | MILESTONES M0 lezárás, 1. mondat második fele; PHASES „Bemutatandó helyzetek” 2. |
-| 5.3 | Kiesett kötelező függőségnél `ready` 503, `live` 200 | PHASES „Bemutatandó helyzetek” 1. |
-| 5.4 | Opcionális hozzáférés hiánya nem blokkol | PHASES „Bemutatandó helyzetek” 3. |
-| 5.5 | Nincs implicit auth bypass | README hét végi lista, 1. pont |
-| 5.6 | Token nem kerül a logba | README hét végi lista, 12. pont (korai részbizonyíték) |
-| 5.7 | A később bekötendő szolgáltatások konfigurációs helye ismert és él | MILESTONES M0 lezárás, 3. mondat |
-
----
-
-## 6. M0 lezárási feltételei
-
-- [ ] A D-M0-01…13 döntési tábla minden sora lezárt státuszú (elfogadva / módosítva / tudatosan elhalasztva, indoklással).
-- [ ] Friss klónból, dokumentált parancsokkal elindul az alkalmazás és a helyi PostgreSQL (5.1).
-- [ ] Hibás vagy hiányzó kötelező konfigurációra érthető, néven nevező indítási hiba keletkezik (5.2).
-- [ ] A kötelező és opcionális függőségek elkülönülnek: opcionális hiánya nem blokkol, kötelezőé readinesst rontja (5.3, 5.4).
-- [ ] Az adat-, HTTP- és eseményszerződés első változata review-zható és review-zott (M0-07, M0-12, M0-13, M0-14).
-- [ ] A később bekötendő szolgáltatások **konfigurációs helye** ismert: a kulcsok az `.env.example`-ben vannak, a `full` profil összeállt (5.7). A profil tényleges elindulása **követett eredmény, nem kapu** — lásd alább.
-- [ ] A közös fájloknak van gazdája, és a munkamegosztás írásban rögzített (D-M0-12).
-- [ ] A csomag- és konténerverziók pinelve, lockfile és digestek commitolva (M0-17).
-- [ ] Nincs implicit auth bypass: az admin API nem kiszolgált hitelesítés nélkül (5.5).
-- [ ] Az üzleti mintatartalom és a negatív/konkurens példák rögzítettek (M0-22).
-
-**Nem feltétel M0-hoz:** működő tokenellenőrzés, outbox relay, keresés, reindex, mérés. Ezek a saját milestone-jukban zárnak.
-
-**A kötelező M0-kapu a `core` környezet és a szerződések** (a [review](M0-REVIEW.md) 3. pontja alapján). A `full` profil és az M0-18 Authentik-előkészítés **külön követett eredmény**, amely M2-be átvihető:
-
-| Eredmény | Státusz M0-ban |
+| Kockázat | Rögzített eljárás |
 | --- | --- |
-| `core` profil, migráció, indulás, konfighiba, readiness | **kapu** — enélkül M0 nem zárható |
-| Adat-, HTTP-, esemény- és jogosultsági szerződés | **kapu** |
-| `full` profil összeállítása (`.env.example`, compose, verziópin) | **kapu** |
-| `full` profil tényleges elindulása, Authentik provider és tesztidentitások | követett eredmény; hiánya M2 belépési feltételeként jelenik meg |
-| Kiadott teszttokennel igazolt `audience` | **M2**, a README rögzített szabálya szerint |
+| Toolchain-spike sikertelen | 120 perces teljes keret, háromlépcsős fallback; no-go után tartalékkeret és indokolt javítás |
+| Authentik nem indul | M2-ben kezeljük; M0 core-kaput nem blokkolja |
+| Full szolgáltatás nem indul | Saját M2/M3/M4 kapujában javítandó; a definíció és futás külön feladat |
+| Új üzleti igény érkezik | DECISIONS és az érintett contracts/teszt együtt változik; a most rögzített szabályokhoz nem kell újabb döntési kör |
+| Image vagy csomag elcsúszik | Pontos pin és digest, a tényleges kompatibilitás M0-02/M0-17 kimenete |
+| Content-séma módosul | M1-02-től új migráció; korábban csak DDL-terv |
+| Becsült idő túllépése | MILESTONES 17+2 napos keret, majd látható újratervezés; nincs tesztek elhagyásával elért látszólagos lezárás |
 
-Ez feloldja a korábbi ellentmondást: az R2 kockázat és a lezárási feltétel ugyanazt mondja.
+## 8. Későbbi fázisoknak átadott feladatok
 
----
+A döntések rögzítve a DECISIONS D08–D10-ben. A későbbi fázisok feladata a paraméterek konkrét API-konfigurációvá alakítása és működésük bizonyítása, nem új alapértelmezések kitalálása. A provider tényleges adatai, dependency-kompatibilitás, külső hozzáférések és mért idők csak megvalósításból származhatnak.
 
-## 7. Kockázatok és kilépési utak
+## 9. Review lezárása
 
-| # | Kockázat | Hatás | Kilépési út |
-| --- | --- | --- | --- |
-| R1 | NestJS 12 ESM-interop a drizzle / `pg` / nats.js / meilisearch csomagokkal | A nap eleje elmegy a build-lel | M0-02 timebox 90 perc; utána fallback NestJS 11.2.5 + CommonJS + TS 5.9.3 + Jest. A döntést a spike zárja, nem a preferencia. |
-| R2 | Az Authentik első beállítása hosszabb a tervezettnél | M2 startja csúszik | M0-18 párhuzamos sávban fut. M0 lezárásához csak annyi kell, hogy az Authentik konténer a `full` profilban elinduljon; a provider, a tesztidentitások és a claim mapping hiánya M2 belépési feltételeként jelenik meg, nem M0 blokkolójaként. |
-| R3 | TypeScript 6 vs 7 körüli tooling-zaj | Nehezen értelmezhető fordítási hibák | Pontos verziópin (`6.0.3`), `latest` tag sehol; az oxlint és a Vitest is pinelve. |
-| R4 | A döntési kör elhúzódik, M1 nem tud indulni | A hét kritikus útja csúszik | Minden D sornak van alapértelmezése: válasz hiányában a javaslat lép életbe, és a doksi jelöli, hogy jóváhagyás nélkül hatályos. |
-| R5 | Konténerimage-ek hét közbeni elcsúszása | „Nálam működik” jellegű eltérés | Digestre pinelt tagek a compose-ban és a `VERSIONS.md`-ben. |
-| R6 | A `content` séma a döntési kör után változik | Visszaírt migráció | A `content` migráció szándékosan M1-01; M0 csak DDL-vázlatot rögzít. |
-
----
-
-## 8. Amit M0 szándékosan nem dönt el
-
-- Stream retention végleges limitekkel, retry- és timeout-paraméterek (M3–M4).
-- Kereshető mezők súlya, keresési beállítások, a magyar példák elvárt találatai, oldalhatárok (M4).
-- A fallbackre jogosító hibák köre és a karantén megfigyelése (M4).
-- Reindex alatti olvashatóság feltétele és a reindex megszakításának kezelése (M5).
-- Számszerű késleltetési vagy felzárkózási elfogadási küszöb (M5).
-- Média-készállapot fogalma, delivery policy részletei, entitlement-szabályok (M6).
-- A `content.updated` eventType bevezetése, ha admin-oldali keresés is kell.
-
----
-
-## 9. A review átvezetése
-
-A [Codex review](M0-REVIEW.md) nyolc számozott pontja és a szerződéspontosításai így kerültek át. A review nem minősíti elfogadottnak az M0 üzleti javaslatait; az elfogadás továbbra is az M0-01 döntési kör dolga.
-
-| Review-pont | Hol javítva | Mi változott |
-| --- | --- | --- |
-| 1 [P1] Readiness nem függhet minden integrációtól | **D-M0-03b** (új), M0-08 DoD | Az `/health/ready` csak a PostgreSQL-től függ. NATS, Meilisearch és az IdP hálózati elérhetősége a processing-statusban és az érintett végpont válaszában jelenik meg. A helyi identity-konfiguráció viszont az indulást blokkolja, nem a readinesst. |
-| 2 [P1] Migrációs keret és up/down | D-M0-02, M0-06 | Drizzle-kit **custom migration** keret és annak saját nyilvántartása; saját `schema_migrations` tábla nincs. Általános `down` **törölve**; helyette `db:reset` eldobható adatbázisra. A tranzakciós rollback ettől külön, kötelező M1-garancia. |
-| 3 [P2] Authentik-kapu ellentmondás | 6. szakasz, R2, M0-18 DoD, 5.7 | A kötelező M0-kapu a `core` környezet és a szerződések. A `full` profil elindulása és az Authentik-előkészítés követett eredmény, M2-be átvihető. Az `audience` M2-ben, kiadott teszttokennel zár. |
-| 4 [P2] No-op és elveszett válasz | D-M0-06 | Kötött ellenőrzési sorrend: létezés → `expectedVersion` → állapot → **csak azután** mezőegyezés. Elveszett válasz után újraolvasás; kérésazonosító-alapú idempotencia külön bővítés. |
-| 5 [P2] Auth smoke nem létező végpontra | 5.5, D-M0-03, M0-09 DoD | A próba `POST /admin/contents`-re és egy UUID-s admin GET-re megy; a kapu **prefix-middleware**, ezért nem létező route-on is 503. `FEATURE_IDENTITY=on` ellenőrző adapter nélkül **indulási hiba**. Tesztactor csak aláírt teszttokenből, bodyból/headerből soha. |
-| 6 [P2] A smoke-lista nem reprodukálható | **5.0** (új), 5.1–5.7, M0-10 DoD | Előfeltétel-lista, működő `.env` blokk, folyamatgazda és cleanup minden alszakaszban, külön `.env` fájl az `unset` helyett, sentinel-alapú titokellenőrzés, a teljes `DATABASE_URL` sosem kerül logba, `nats-box` kliensszolgáltatás a szerverimage helyett. |
-| 7 [P2] A spike nem elég | D-M0-01, M0-02 | Node-pin **≥ 24.15**. Háromfokú fallback-lépcső (v12 ESM → v12 CJS → v11 CJS), mert a v12 a CommonJS-t is támogatja. A spike 120 perc, és build + DI + teszt + validált HTTP + OpenAPI bizonyítását kéri. A verziótábla **nem installal bizonyított** — ezt a szöveg kimondja. |
-| 8 [P2] Becslés és ütemezés | 4. szakasz zárása | Az összeg **1145 perc ≈ 19 óra**, core és full/Authentik csomagra bontva. A szöveg kimondja, hogy ez nem fér az „1. nap eleje” keretbe, és három kilépési utat ad. |
-| Döntési státusz | 2. szakasz bevezetője | A válasz hiánya **nem** tesz elfogadottá egy javaslatot: explicit munkafeltételezés lesz belőle, „nem elfogadott” státusszal, és így kerül az M5 jegyzőkönyvébe. |
-| Slug pontosítások | D-M0-05 | Generálás minden mentéskor; üres transzliteráció `content-<id8>`; a 80 karakter a végleges, utótagos slugra vonatkozik; az egyediséget unique index garantálja, nem előzetes `SELECT`. A slug M1-ben nem publikus útvonal. |
-| Sémabővítés | D-M0-06 | Új eventType nem automatikusan kompatibilis: a fogyasztó karanténba teheti, ezért külön kompatibilitási és rollout-döntés kell. |
-| Auditactor | D-M0-06 | Nincs `system` fallback a futtatott alkalmazásban; hiányzó actor hiba. Tesztactor a tesztprofil aláírt tokenjéből. |
-| `SKIP LOCKED` | D-M0-02 | Csak az SQL-közelség indoklása, nem M1-követelmény. |
-| Tulajdonosok | D-M0-12 | Az `.env.example` gazdája Codex (a config-séma gazdája), review Claude. A branchnevek példák. |
-
-**Amit a review felvetett, de itt nem zárunk le:** az M1–M5 célütemezés újraértékelése. A 4. szakasz megadja a számot és a három kilépési utat, de az ütemezés a MILESTONES.md dolga, és az M0-01 döntési körben érdemes eldönteni.
+| Review-terület | V3 eredmény |
+| --- | --- |
+| Readiness | D-M0-03b, M0-08, smoke 5.3: csak DB; identity helyi állapota indítási feltétel |
+| Migráció | D-M0-02, M0-06: generált custom migration, saját nyilvántartás nélkül, teszt-reset |
+| Core/full kapu | 1., 4. és 6. szakasz: full definíció kötelező, futás külön M0-16b; M0-17 nem függ futástól |
+| No-op | D-M0-06: verzió/állapot előbb, nincs system fallback |
+| Auth és tesztidentity | D-M0-03, smoke 5.5: prefixvédelem; M1 belső tesztadapter, token M2 |
+| Smoke reprodukció | 5. szakasz: egy Node-runner, saját gyermekfolyamat, config, timeout, assert, cleanup |
+| Spike | D-M0-01 és M0-02: ugyanaz a 120 perc és fallback-lépcső |
+| Becslés | 4. szakasz: 1220 perc, külön 1100 perces kapu és 120 perces későbbi integráció; gazdánként egyszer számolva |
+| M0–M1 slug/media/test eltérés | M1 szabályai átvezetve D-M0-03/04b/05-be |
+| Státusz és hivatkozások | V3 rögzített döntések, M1-02 migráció, dokumentált health-kivétel |
 
 ## 10. Következő lépés
 
-M0-01: a 2. szakasz döntési tábláját végigvenni. Ez a [fázisterv](PHASES.md) „A döntések következő köre” első sora, kiegészítve a technológiai pinnel és a munkamegosztással. Amint a tábla lezárt, az M0-02 spike indulhat, és vele párhuzamosan az M0-15 Compose-sáv.
+Az M0-02 spike és core alap implementációja kezdhető a rögzített szerződés szerint. Új M0 üzleti döntési kör nem szükséges. Az M1-01 feladata a már eldöntött szabályok kódhoz kötött contractsba átvezetése; az M1-02 a tényleges content/audit/outbox migráció.

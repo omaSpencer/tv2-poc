@@ -1,12 +1,10 @@
 # M1 – Tranzakciós CMS-életciklus: részletes implementációs terv
 
-2026-09-15 · Codex · Egyeztetésre szánt terv; alkalmazáskód és futási bizonyíték még nincs.
+2026-09-15 · Codex · Rögzített terv; alkalmazáskód és futási bizonyíték még nincs.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md), [Claude M0-terve](M0-IMPLEMENTATION.md) és annak [review-ja](M0-REVIEW.md).
 
-**Státusz:** a README szabályai rögzítettek. Az M0 üzleti döntései és az alábbi pontosítások javaslatok, nem automatikusan elfogadott követelmények. A terv ezekből egységes munkafeltételezést készít; változtatáskor az érintett szerződést és ellenőrzést együtt kell frissíteni. Az implementáció kezdete előtt az M1-et meghatározó döntések státuszát rendezni kell.
-
-**M0 v2 illeszkedés:** a frissített M0-terv három ponton eltér az alábbi javaslatoktól: slug-generálás ideje/üres eredménye, nyilvános `mediaAssetId`, valamint az M1 tesztidentity módja. Ezeket a [review utóellenőrzése](M0-REVIEW.md) egymás mellé helyezi; egyik változat sem tekinthető közösen elfogadottnak. Az alábbi terv továbbra is az M1-javaslatot írja le. Az M0 core/full függőségeinek és az M1–M5 célütemezésének rendezése nyitott.
+**Státusz:** rögzített implementációs terv a felhasználó döntési felhatalmazása és a [döntésnapló](DECISIONS.md) alapján. A korábbi M0–M1 slug-, publikus médiaazonosító- és tesztidentity-eltérések az itt leírt M1-szabályokkal rendezettek. A checklist még teljesítendő; futási bizonyíték nincs.
 
 ## 1. Szállítandó eredmény és belépési feltételek
 
@@ -21,17 +19,17 @@ M1 végén PostgreSQL-en működik a draft létrehozás, szerkesztés, publikál
 | Admin HTTP működést tiltó alapvédelem | M2 előtt se legyen hitelesítés nélküli adminművelet |
 | Tartalom-, permission- és v1 eseményszerződés | Az M1, M2 és M3 illeszkedése |
 
-Az M0-review readiness-, migrációs és authhatár-pontjait az érintett munka előtt rendezni kell. A full Compose, működő Authentik, NATS és kereső nem előfeltétele az M1 üzleti integrációs próbáinak. A tényleges runtime/csomagverziók az M0-ban bizonyított készletből jönnek; ez a terv nem vezet be további verziópint.
+Az M0-review readiness-, migrációs és authhatár-pontjai az M0 v3 tervben rendezettek; az érintett működés bizonyítása az M0 megvalósításának feladata. A full Compose, működő Authentik, NATS és kereső nem előfeltétele az M1 üzleti integrációs próbáinak. A tényleges runtime/csomagverziók az M0-ban bizonyított készletből jönnek; ez a terv nem vezet be további verziópint.
 
 **M2-határ:** az admin HTTP-végpontok elkészülnek, de valós identity nélkül a normál alkalmazásban blokkoltak. A szolgáltatásréteg és a HTTP-adapter tesztkörnyezetben ellenőrizhető. A valódi belépéses napi demót M1 és M2 együtt teljesíti.
 
 **Későbbi feladat:** relay és JetStream M3; kereső/fallback M4; reindex és teljes helyreállási bizonyíték M5; média-készállapot ellenőrzés M6. M1-ben a médiaazonosító metaadat, nem külső asset-ellenőrzés.
 
-## 2. Az M0-javaslatok átvétele és pontosítása
+## 2. Rögzített M0–M1 szerződés
 
-| Döntés | M1 munkafeltételezés | Átvétel / pontosítás |
+| Döntés | M1 döntés | Átvétel / pontosítás |
 | --- | --- | --- |
-| D-M0-04 – mezők | Drafthoz cím kell; publikáláshoz cím, slug, summary, kategória és médiaazonosító | Átvett javaslat; üres/null viselkedés lent pontosítva |
+| D-M0-04 – mezők | Drafthoz cím kell; publikáláshoz cím, slug, summary, kategória és médiaazonosító | Rögzített szabály; üres/null viselkedés lent pontosítva |
 | D-M0-05 – slug | Globális egyediség, legfeljebb 80 karakter; draft/withdrawn állapotban módosítható | Automatikus generálás csak publikáláskor, ha nincs slug |
 | D-M0-06 – változások | Kezdeti verzió 1; tényleges mentés +1; audit minden tényleges változásra | No-op előtt kötelező verzió- és állapotellenőrzés |
 | D-M0-06 – esemény | Csak publish/withdraw bocsát ki eseményt | Újrapublikálás is `content.published`; szerkesztés egyik engedett állapotban sem esemény |
@@ -40,13 +38,13 @@ Az M0-review readiness-, migrációs és authhatár-pontjait az érintett munka 
 | D-M0-09 – hibák | Problem JSON, stabil code, expectedVersion a bodyban | Hibás JSON `400`; helyes JSON, hibás mezőérték `422`; váratlan hiba általános `500` |
 | D-M0-10 – esemény | V1 envelope, published/withdrawn típus és megfelelő payload.status | EventType és payload.status összetartozása is validálandó |
 | Actor | Auditactor minden író művelethez szükséges | M2 előtt explicit tesztactor; nincs hiányzó actorra `system` alapérték |
-| Migráció | M0-ban kiválasztott eszköz által nyilvántartott, előrefelé alkalmazott SQL | Up/down helyett teszt-DB újraépítés javasolt; M0-review szerinti döntés szükséges |
+| Migráció | M0-ban kiválasztott eszköz által nyilvántartott, előrefelé alkalmazott SQL | Előrefelé migrálás és explicit eldobható teszt-DB újraépítése, DECISIONS D03 szerint |
 
 ### 2.1 Mezőkezelés
 
 - `title`: trim után 1–200 karakter. Hiányzó cím létrehozáskor, illetve null vagy üres cím módosításkor `422`.
 - `summary`: draft/withdrawn állapotban lehet null; trim után üres érték nullra normalizálódik. Legfeljebb 500 karakter; publikáláskor nem lehet null.
-- `category`: null vagy az M0-ban javasolt `film`, `sorozat`, `hir`, `sport`, `szorakozas`, `egyeb` valamelyike. Publikáláskor kötelező.
+- `category`: null vagy az M0-ban rögzített `film`, `sorozat`, `hir`, `sport`, `szorakozas`, `egyeb` valamelyike. Publikáláskor kötelező.
 - `mediaAssetId`: null vagy trim után nem üres, legfeljebb 128 karakteres string; üres érték null. Publikáláskor kötelező. Azonosítóként kis-/nagybetűit megőrizzük.
 - `tags`: alapérték `[]`; trim, kisbetűsítés, üres elemek eltávolítása, duplikátumszűrés, első előfordulás sorrendjének megőrzése. Legfeljebb 20 bemeneti elem, normalizált elemenként legfeljebb 40 karakter. Null nem lista, ezért `422`.
 - `slug`: null vagy `^[a-z0-9]+(?:-[a-z0-9]+)*$`, legfeljebb 80 karakter. Kézi slugnál trim után validálunk, nem transzliterálunk csendben. Üres string hibás; null kifejezetten törli a szerkeszthető tartalom slugját.
@@ -90,7 +88,7 @@ A nullable slugok nem foglalnak konkrét névértéket, több draftnak lehet hi�
 | `occurred_at`, `correlation_id` | Közös műveleti idő és kéréskövetési azonosító |
 | `changed_fields` | Megváltozott üzleti mezők nevei, értékek nélkül |
 
-Javasolt egyediség: `(content_id, content_version)`. Minden tényleges tartalomverzióhoz egy audit tartozik. Létrehozásnál a beállított üzleti mezőket és a status mezőt soroljuk fel; szerkesztésnél a normalizálás után eltérőket; állapotváltásnál legalább status, valamint a publikáláskor generált slug szerepel. A technikai idő-, actor- és verziómezők nem részei a changed_fields listának. A sorrend determinisztikus.
+Egyediség: `(content_id, content_version)`. Minden tényleges tartalomverzióhoz egy audit tartozik. Létrehozásnál a beállított üzleti mezőket és a status mezőt soroljuk fel; szerkesztésnél a normalizálás után eltérőket; állapotváltásnál legalább status, valamint a publikáláskor generált slug szerepel. A technikai idő-, actor- és verziómezők nem részei a changed_fields listának. A sorrend determinisztikus.
 
 Az auditot az alkalmazás hozzáfűzi, nem szerkeszti. Ez nyomon követhetőségi napló, nem adatbázis-adminnal szemben megváltoztathatatlan bizonyíték és nem teljes történeti tartalomrekonstrukció.
 
@@ -114,7 +112,7 @@ A séma-validátor és a DB-korlátok biztosítsák az eventType/payload.status 
 
 A Content szolgáltatás indítja az üzleti tranzakciót. A content repository, az auditírás és az outboxrögzítés ugyanazt a tranzakciós kapcsolatot kapja; egyik sem indít külön commitot, és nem ír a poolból kikért másik kapcsolaton. Az audit és outbox nem utólagos callbackben készül.
 
-Módosítás, publikálás és visszavonás javasolt sorrendje:
+Módosítás, publikálás és visszavonás sorrendje:
 
 1. A HTTP-réteg elvégzi a hitelesítési/jogosultsági ellenőrzést és a kérésforma-validálást. M1 normál futásában az adminvédelem blokkol; a további lépések tesztkörnyezetből járhatók végig.
 2. Az üzleti szolgáltatás validált commandot és explicit actor/correlation kontextust kap. A szabályok közvetlen szolgáltatáshíváskor is érvényesülnek.
@@ -133,7 +131,7 @@ Létrehozáskor nincs korábbi rekord: validálás után content v1 és created 
 
 Két külön tartalom azonos címből egyszerre publikálható. A már létező slugok előzetes lekérdezése csak segédlet; a unique korlát dönti el, melyik jelölt foglalható.
 
-Javaslat: automatikus slugnál a jelöltet mentő művelet savepointban fusson. Kizárólag a slug unique korlátjának sérülésekor visszalépünk a savepointra, majd a következő jelölttel próbálkozunk. Audit/outbox csak a végső jelölt sikeres mentése után készül. Más SQL-hiba nem slugütközés, a teljes tranzakció meghiúsul. A PostgreSQL hibás tranzakciója egyszerű catch után nem folytatható; ehhez savepoint-visszaállítás vagy teljes új tranzakció kell. [ROLLBACK TO SAVEPOINT](https://www.postgresql.org/docs/17/sql-rollback-to.html).
+Automatikus slugnál a jelöltet mentő művelet savepointban fusson. Kizárólag a slug unique korlátjának sérülésekor visszalépünk a savepointra, majd a következő jelölttel próbálkozunk. Audit/outbox csak a végső jelölt sikeres mentése után készül. Más SQL-hiba nem slugütközés, a teljes tranzakció meghiúsul. A PostgreSQL hibás tranzakciója egyszerű catch után nem folytatható; ehhez savepoint-visszaállítás vagy teljes új tranzakció kell. [ROLLBACK TO SAVEPOINT](https://www.postgresql.org/docs/17/sql-rollback-to.html).
 
 Kézi slugnál a unique hiba a teljes művelet rollbackje után `409 slug_conflict`. Az 50 automatikus jelölt kimerülése ugyanezt adja; nincs verziónövelés, audit vagy outbox. A savepoint támogatását a kiválasztott M0-adapteren bizonyítani kell.
 
@@ -146,11 +144,11 @@ Kézi slugnál a unique hiba a teljes művelet rollbackje után `409 slug_confli
 | `POST /admin/contents/:id/publish` | content:publish | `200`, published admin nézet | 404, 409 verzió/állapot/slug, 422 minimum |
 | `POST /admin/contents/:id/withdraw` | content:publish | `200`, withdrawn admin nézet | 404, 409 verzió/állapot, 422 |
 | `GET /admin/contents/:id` | content:read | `200`, admin nézet minden állapotban | 404, hibás UUID 422 |
-| `GET /catalog/contents/:id` | Nyilvános, M0-javaslat szerint | `200`, nyilvános nézet | Nem published / nem létezik: 404; hibás UUID: 422 |
+| `GET /catalog/contents/:id` | Nyilvános, DECISIONS D06 szerint | `200`, nyilvános nézet | Nem published / nem létezik: 404; hibás UUID: 422 |
 
 Publish/withdraw body csak `{ "expectedVersion": <pozitív egész> }`; ezek nem fogadnak el egyidejű metaadat-szerkesztést. Publikálás sikeres válasza a DB-mentést igazolja, nem állít kereshetőséget.
 
-**Adminválasz:** a Content mezői camelCase nevekkel, időpontok ISO 8601 alakban; nincs auditlista vagy outbox-adat beágyazva. **Nyilvános válasz javaslata:** id, title, slug, summary, category, tags, publishedAt. Nem kerül bele actor, belső médiaazonosító, audit, outbox, delivery policy vagy lejátszási engedély. A nyilvános mezők pontos köre jóváhagyandó M1-döntés.
+**Adminválasz:** a Content mezői camelCase nevekkel, időpontok ISO 8601 alakban; nincs auditlista vagy outbox-adat beágyazva. **Nyilvános válasz:** id, title, slug, summary, category, tags, publishedAt. Nem kerül bele actor, belső médiaazonosító, audit, outbox, delivery policy vagy lejátszási engedély. A mezőkör rögzített a DECISIONS D04-ben.
 
 A nyilvános olvasás egy adatbázis-lekérdezésben szűr `status = published` feltétellel; nincs külön ellenőrzés utáni második, szűretlen olvasás. M1 nem használ publikus tartalomcache-t. A visszavonás commitja után indított olvasás `404`; a párhuzamosan már futó olvasásokra a PHASES-ben leírt korlát érvényes.
 
@@ -160,11 +158,11 @@ A nyilvános olvasás egy adatbázis-lekérdezésben szűr `status = published` 
 
 ## 6. Fejlesztési csomagok és felelősségek
 
-A felelősök javasolt munkamegosztást jelölnek, nem indítanak másik agentet vagy külön feladatot. A pontos fájlnevek a megvalósításkor igazodnak az M0 scaffoldhoz; minden alkalmazásbeli contracts hivatkozás a `poc/backend/src/contracts/` alá értendő.
+A felelősök a DECISIONS D01 szerinti szerző/review gazdákat jelölik; a táblázat nem indít másik agentet vagy külön feladatot. A pontos fájlnevek a megvalósításkor igazodnak az M0 scaffoldhoz; minden alkalmazásbeli contracts hivatkozás a `poc/backend/src/contracts/` alá értendő.
 
 | # | Csomag | Felelős / review | Függőség | Kész eredmény |
 | --- | --- | --- | --- | --- |
-| M1-01 | Döntési delta és szerződések rendezése | Codex / Claude + Zoli üzleti pontok | M0-review érintett döntései | A 2. és 5. szakasz szabályai, actor és hibakódok egyeznek a contracts dokumentumokkal |
+| M1-01 | Rögzített döntések átvezetése a contractsba | Codex / Claude | M0 contracts, DECISIONS | A 2. és 5. szakasz szabályai, actor és hibakódok egyeznek a contracts dokumentumokkal |
 | M1-02 | Content/audit/outbox migráció | Codex / Claude | M1-01, M0 migrátor | Friss DB-ben helyes séma, korlátok, egyediségek; migráció újrafuttatása nem alkalmazza újra |
 | M1-03 | Közös normalizálás és üzleti validálás | Codex / Claude | M1-01 | Azonos szabályok HTTP- és közvetlen service-hívásból; állapot-, null-, no-op- és slughatárok |
 | M1-04 | Repository, audit- és outboxrögzítés | Codex / Claude | M1-02 | Explicit közös tranzakció; teljes envelope tartósan rögzíthető, külön commit nélkül |
@@ -178,7 +176,7 @@ Tervezett érintett területek: `src/content/`, `src/database/`, `src/outbox/` k
 
 **Sorrend:** szerződés → séma és közös validálás → tranzakciós írás → életciklus → HTTP → összesített bizonyítás. A hibapróbák az érintett rész elkészülésével párhuzamosan épülnek, nem csak a fázis végén.
 
-**Előzetes becslés:** szerződés és séma 3–5 óra; üzleti/tranzakciós működés 5–8 óra; HTTP és OpenAPI 2–3 óra; konkurencia-, rollback- és demóellenőrzés 4–6 óra. Összesen 14–22 nettó óra, az M0 javítása és külső egyeztetés nélkül. Ez bizonytalansági sáv, nem vállalás. A README első két napi célját M0 tényleges maradékával és az M2 integrációval együtt újra kell ütemezni.
+**Előzetes becslés:** szerződés és séma 3–5 óra; üzleti/tranzakciós működés 5–8 óra; HTTP és OpenAPI 2–3 óra; konkurencia-, rollback- és demóellenőrzés 4–6 óra. Összesen 14–22 nettó óra, az M0 javítása és külső egyeztetés nélkül. Ez bizonytalansági sáv, nem vállalás. A relatív munkanapokat a MILESTONES rögzíti; az M1 kerete az 5–8. munkanap. A külső szolgáltatások előkészítése nem kötelező párhuzamos munkafeltétel.
 
 ## 7. Ellenőrzési terv
 
@@ -231,7 +229,7 @@ A dokumentált eredmény tartalmazza a parancsot, környezetet, verziókat, elle
 
 ## 8. Lezárás és átadás
 
-- [ ] Az M1 működését meghatározó M0/M1-javaslatok státusza rendezett és a contracts dokumentumokkal egyezik.
+- [ ] A rögzített M0/M1 döntések a tényleges contracts dokumentumokba átvezetve és azokkal egyeznek.
 - [ ] A séma friss adatbázisban létrejön, az újrafuttatás és a fontos DB-korlátok ellenőrzöttek.
 - [ ] Létrehozás, szerkesztés, publish, withdraw és republish a definiált verzió/audit/eseményszabályt követi.
 - [ ] A no-op, stale verzió, állapothiba és publikálási hiány következetes eredményt ad.

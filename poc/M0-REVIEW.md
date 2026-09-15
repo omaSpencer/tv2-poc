@@ -4,6 +4,21 @@
 
 **Eredmény az első változatról:** a felosztás használható alap az M1 megtervezéséhez, de az alábbi pontok pontosítása szükséges a végrehajtás előtt. Dokumentumreview készült, kód-, telepítési és futási ellenőrzés nem. Az eredeti M0-terv döntési javaslatait ez a review nem minősíti elfogadottnak.
 
+## Aktuális státusz – v3 dokumentumlezárás
+
+2026-09-15 · A felhasználó felhatalmazása alapján az M0 v3, M1, README, PHASES és MILESTONES egységesítve; a választott döntések a [DECISIONS](DECISIONS.md) fájlban rögzítve. A nyolc review-pont és a három M0–M1 szerződéseltérés **tervdokumentum-szinten lezárva**.
+
+- Readiness csak PostgreSQL; identity helyi feltétele az indulást kezeli.
+- Custom migráció és explicit teszt-reset; régi kézi sorszámozó/up-down maradványok törölve.
+- Full definíció és futás külön feladat; core smoke nem függ full indulástól.
+- No-op sorrend és explicit actor egységes.
+- M1 tesztadapter, JWT/JWKS M2; mediaAssetId adminmező; slug publikáláskor.
+- Smoke egy izolált Node-futtatóval, saját childdal, assert/timeout/finally cleanuppal tervezve.
+- 120 perces spike és azonos háromlépcsős fallback minden hivatkozásban.
+- Becslés a smoke-runner munkájával korrigálva; 17+2 napos soros tervezési keret rögzítve.
+
+A következő szakaszok az első és második változat **történeti review-jai**. A bennük szereplő „nyitott”, „javítandó” és korábbi óraszámok az akkori állapotot írják le; nem az aktuális végrehajtási tervet. Kód és futási bizonyíték továbbra sincs, a megvalósítási checklistet nem zártuk le.
+
 ## Utóellenőrzés – az M0 második változata
 
 2026-09-15 · Az átvezetést a dokumentum tényleges szövegén ellenőriztem. A fő javítások megjelentek, de a „mind a 8 pont lezárva” státusz még nem indokolt. Az alábbi státusz dokumentumszintű; futási bizonyítékot nem jelent. Az eredeti nyolc megállapítás történeti review-ként megmarad lent.

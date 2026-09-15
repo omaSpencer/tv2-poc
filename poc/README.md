@@ -1,6 +1,6 @@
 # IndaPlay / TV2 – NestJS backend PoC
 
-2026-09-15 · Megvalósítási javaslat és közös munkaterv
+2026-09-15 · Rögzített PoC-scope és közös munkaterv
 
 Ez a fájl a PoC tervét és elfogadási feltételeit rögzíti. Még nem futtatható implementáció, és az alábbi könyvtárstruktúra is tervezett. A jelenlegi workspace dokumentumtár; a későbbi kód a `poc/backend/` könyvtárba kerülhet.
 
@@ -8,9 +8,11 @@ A megvalósítás sorrendjének és lezárási feltételeinek első bontása: [M
 
 Az egyes fázisok részletes működési kibontása, még implementációs feladatokra bontás nélkül: [Fázisterv](PHASES.md).
 
-Az első milestone feladatokra bontott terve, döntésre kész javaslatokkal és futtatható ellenőrző listával: [M0 implementációs terv](M0-IMPLEMENTATION.md).
+Az első milestone feladatokra bontott terve, rögzített döntésekkel és a megvalósítandó smoke-futtató szerződésével: [M0 implementációs terv](M0-IMPLEMENTATION.md).
 
 Az M0 áttekintésének megállapításai: [M0 review](M0-REVIEW.md). A következő milestone részletes terve: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md).
+
+A rögzített működési döntések, alapértékek és a review lezárása: [DECISIONS](DECISIONS.md). Az aktuális ütemezés 17 munkanap + 2 nap tartalék; a korábbi ötnapos cél felülvizsgálva.
 
 ## Mit építsünk?
 
@@ -24,7 +26,7 @@ Egy videókatalógus szerkesztési és publikálási folyamatát egy NestJS modu
 6. A néző keres, majd lekéri a jelenleg publikált tartalom részleteit.
 7. A publikáló visszavonja a tartalmat; az indexekből az aszinkron folyamat eltávolítja.
 
-A hét végén ezt a folyamatot és a kiesésből való visszaállást tudjuk reprodukálhatóan bemutatni. A PoC integrációs és fejlesztési tapasztalatot ad; a termelési kapacitás és HA bizonyítása külön feladat.
+A PoC végén ezt a folyamatot és a kiesésből való visszaállást tudjuk reprodukálhatóan bemutatni. A PoC integrációs és fejlesztési tapasztalatot ad; a termelési kapacitás és HA bizonyítása külön feladat.
 
 ## Rögzített technológiai határok
 
@@ -39,7 +41,7 @@ A hét végén ezt a folyamatot és a kiesésből való visszaállást tudjuk re
 | DRM | Média-előkészítési és konfigurációs szerződés; kulcs- és licenckiszolgálás későbbi integráció |
 | Go playback-authorize | Külön, későbbi hot path; a PoC-ban legfeljebb API-szerződés |
 
-A lokális Compose a fejlesztés indítását segíti. CNPG, RKE2, Traefik, GitOps, CDN és frontend megvalósítás nem része ennek a heti csomagnak. NATS marad az egyetlen aszinkron infrastruktúra; a PoC-hoz nem szükséges BullMQ, Redis vagy Kafka.
+A lokális Compose a fejlesztés indítását segíti. CNPG, RKE2, Traefik, GitOps, CDN és frontend megvalósítás nem része ennek a PoC-csomagnak. NATS marad az egyetlen aszinkron infrastruktúra; a PoC-hoz nem szükséges BullMQ, Redis vagy Kafka.
 
 ## Modulok és adatgazdák
 
@@ -71,7 +73,7 @@ Kezdésként egyetlen deployable és folyamat elegendő. A háttérfeldolgozók 
 
 Első modell: `Content` – UUID, cím, slug, rövid leírás, kategória, tagek, `mediaAssetId`, állapot, verzió, létrehozási és módosítási idő. A PoC metaadatot kezel; a videófeltöltés, bináris tárolás és transzkódolás külön médiafolyamat.
 
-Életciklus: `draft → published → withdrawn`. A visszavont tartalom újrapublikálható. Draft és withdrawn állapotban szerkeszthető; a publikált változat szerkesztése az első körben tiltott. Így nincs szükség egy hét alatt külön draft/published revíziórendszerre.
+Életciklus: `draft → published → withdrawn`. A visszavont tartalom újrapublikálható. Draft és withdrawn állapotban szerkeszthető; a publikált változat szerkesztése az első körben tiltott. Így nincs szükség az első PoC-ban külön draft/published revíziórendszerre.
 
 A publikálás ellenőrzi a kötelező mezőket. Valódi médiaadapter bekötése után a média kész állapotát is ellenőrzi. Optimista konkurenciakezelés: módosításhoz a kliens elküldi a várt verziót; eltéréskor `409 Conflict`. Minden sikeres állapotváltás növeli a verziót, és ugyanabban a tranzakcióban auditot és outbox-rekordot készít.
 
@@ -108,7 +110,7 @@ A NestJS beépített NATS transport helyett dedikált JetStream adaptert haszná
 Kezdeti topológia:
 
 - Stream: `CONTENT`, subject: `poc.content.changed.v1`, file storage, limits retention, helyben R1.
-- Javasolt PoC retention: 7 nap; méret- és üzenetkorlátot is rögzítsünk. A hosszabb távú újraépítés PostgreSQL-ből történik.
+- PoC retention: 7 nap; 1 GiB és 1 000 000 üzenet, új publikálás elutasítása kapacitáskorlátnál; további alapértékek a DECISIONS D08-ban. A hosszabb távú újraépítés PostgreSQL-ből történik.
 - Durable pull consumer: `search-a-v1` és `search-b-v1`, ugyanarra a subjectre, példányonként külön előrehaladással.
 - Explicit ACK: csak sikeres indexművelet és a Meilisearch task sikeres befejezése után.
 - Stabil `eventId` a publish deduplikációhoz; a deduplikációs időablak nem helyettesíti az idempotens fogyasztót.
@@ -144,7 +146,7 @@ Az API elsődlegesen A-t olvassa, időkorlátos hibánál B-re vált. Ha mindket
 
 Fallback esetén B lehet lemaradva. A PoC-ban a keresőtalálatok azonosítóit a PostgreSQL jelenlegi publikálási állapotával visszaellenőrizzük, és a nyilvános metaadatokat onnan adjuk vissza. Ezzel a már visszavont tartalom nem jelenik meg stale találatként. A keresőbeli rangsor és találatszám átmenetileg elavult lehet; szűrés után rövidebb oldal is elfogadható, ezt a demóban jelezzük. DRM- vagy lejátszási jogosultságot továbbra sem ad a kereső.
 
-Legyen dokumentált teljes reindex parancs PostgreSQL-ből, az élő változások catch-up lépésével. A hét során mérjük a publikálás→kereshetőség időt, a példányonkénti lemaradást és az újraépítési időt. Két helyi konténer az alkalmazás fan-out logikáját vizsgálja; független hibazónákat nem szimulál.
+Legyen dokumentált teljes reindex parancs PostgreSQL-ből, az élő változások catch-up lépésével. A PoC során mérjük a publikálás→kereshetőség időt, a példányonkénti lemaradást és az újraépítési időt. Két helyi konténer az alkalmazás fan-out logikáját vizsgálja; független hibazónákat nem szimulál.
 
 ## Ant Media, DRM és Go: opcionális második kör
 
@@ -154,17 +156,11 @@ DRM-hez a tartalomhoz tartozó delivery policy szerződését rögzítsük: Phas
 
 A Go playback-authorize részhez legfeljebb egy bemeneti/kimeneti szerződés és minta entitlement snapshot készüljön. A NestJS-be ne kerüljön új, végleges playback hot path. A nézői login, tartalom-elérhetőség, üzleti entitlement és DRM-licenc négy külön ellenőrzés.
 
-## Öt munkanap, mérhető napi eredménnyel
+## Ütemezés és mérhető eredmények
 
-| Munkanap | Munka | Napi demonstráció |
-| --- | --- | --- |
-| 1. | NestJS váz, konfiguráció, PostgreSQL-migrációk, CMS DTO-k, OpenAPI, Compose | Draft létrehozás, verzióütközés, reprodukálható indítás |
-| 2. | Authentik provider és tesztkliens, JWT/permission guard, publikálás és audit | Editor szerkeszt, publisher publikál, viewer tiltott írására 403 |
-| 3. | Tranzakciós outbox, JetStream relay és durable consumerek | NATS-kieséskor menthető tartalom, visszatéréskor eseménykézbesítés |
-| 4. | Két Meilisearch, indexprojekció, taskfigyelés, read fallback, visszavonás | Kereshető publikáció, kieső index mellett keresés, visszatérő index catch-up |
-| 5. | Hibatesztek, reindex, jegyzőkönyv, kis terhelésmérés; szabad kapacitásból médiaadapter | Végigjárható demó és bizonyítéklista |
+A [milestone-terv](MILESTONES.md) 17 munkanap + 2 nap tartalék keretet rögzít: M0 1–4., M1 5–8., M2 9–10., M3 11–12., M4 13–15., M5 16–17. munkanap. M6 külön második kör. A kezdőnap tényleges munkakezdéshez kötött; az időkeret napi körülbelül 6 óra munkával, kötelező párhuzamosítás nélkül értendő.
 
-Az első működő teljes utat előrébb hozhatjuk: a második nap végére legalább egy valós tokennel publikált tartalom legyen. Ne minden komponenst külön fejezzünk be az összekötés előtt.
+M0 lezárásakor reprodukálható core indulás; M1-nél verziókezelt, atomi CMS; M2-nél valódi tokennel publikálás; M3-nál NATS-kiesésből kézbesítés; M4-nél teljes keresési út; M5-nél helyreállási és mérési bizonyíték a bemutatandó eredmény. A modulokat minden fázisban összekötjük, és a hibapróbákat menet közben gyűjtjük.
 
 ## Claude-dal közös munka – javasolt felosztás
 
@@ -177,7 +173,7 @@ A feladatok közös HTTP-, esemény- és adatbázis-szerződésből induljanak. 
 
 A contracts, package manifest, lockfile, Compose és közös migrációs sorrend egy-egy gazdát kapjon. Külön branch vagy worktree és kis, napi integrációs változtatások csökkentik az egymásra írás esélyét. Az identity és search munka indulhat külön, de mindkettőt az alapfolyamatba kell integrálni a napi demóhoz.
 
-## Hét végi elfogadási lista
+## PoC-zárási elfogadási lista
 
 - [ ] Friss környezetben dokumentált parancsokkal indulnak a valódi függőségek és az alkalmazás; nincs implicit auth bypass.
 - [ ] Authentik belépés, tokenellenőrzés és mindhárom szerepkör működik; negatív token- és permission-tesztek megvannak.

@@ -1,10 +1,10 @@
 # PoC – a fázisok részletes működési terve
 
-2026-09-15 · Egyeztetésre szánt tervezési változat.
+2026-09-15 · Rendezett működési terv; az M0–M1 döntési kör lezárva.
 
 Kiindulópont: [PoC README](README.md) és [milestone-áttekintés](MILESTONES.md). Ez a dokumentum az egyes fázisok üzleti és rendszerbeli viselkedését, döntési pontjait és bizonyítási igényét részletezi. Nem oszt fel kódolási feladatokat, nem választ adatbázis-hozzáférési könyvtárat, és nem ír elő konkrét osztályokat, táblasémákat vagy tesztimplementációt.
 
-**Státuszjelölés:** a „rögzített” szabály a README-ből következik; a „javaslat” további egyeztetésre szánt döntési alap; a „nyitott” pont még meghatározandó. Egy javaslat leírása nem jelenti az elfogadását. Futási bizonyíték még nincs.
+**Státusz:** a működési szabályok a [DECISIONS](DECISIONS.md) alapján rögzítettek. A megvalósítás és a futási bizonyíték még hátravan. A későbbi fázisokhoz rendelt technikai ellenőrzés és külső hozzáférés feladatot jelöl, nem elfogadásra váró alapdöntést.
 
 ## Közös működési alapelvek
 
@@ -18,7 +18,7 @@ Kiindulópont: [PoC README](README.md) és [milestone-áttekintés](MILESTONES.m
 
 ## M0 – Közös alap, scope és indíthatóság
 
-Feladatokra bontva, a nyitott pontokra tett konkrét javaslatokkal: [M0 implementációs terv](M0-IMPLEMENTATION.md).
+Feladatokra bontva, rögzített döntésekkel: [M0 implementációs terv](M0-IMPLEMENTATION.md).
 
 ### Mit old meg?
 
@@ -44,11 +44,11 @@ A résztvevők ugyanazt értsék tartalom, publikálás, feldolgozottság és si
 
 ### Döntési pontok és határok
 
-**Rögzített:** helyi integrációs PoC; a heti scope nem tartalmaz frontendet, termelési HA-t, Kubernetes/GitOps bevezetést vagy teljes média-előkészítést.
+**Rögzített:** helyi integrációs PoC; a alap-scope nem tartalmaz frontendet, termelési HA-t, Kubernetes/GitOps bevezetést vagy teljes média-előkészítést.
 
-**Javaslat:** ugyanazt az egy mintatartalmat használjuk az összes fázis demójában, kiegészítve célzott hibás és konkurens példákkal. Ettől könnyebben követhető, hogyan épülnek egymásra az eredmények.
+**Rögzített:** ugyanazt az egy mintatartalmat használjuk az összes fázis demójában, kiegészítve célzott hibás és konkurens példákkal. Ettől könnyebben követhető, hogyan épülnek egymásra az eredmények.
 
-**Nyitott:** publikálási minimum, slug-szabályok, jogosultsági mátrix és a közös dokumentumok gazdái. A konkrét providerértékek és mérési paraméterek későbbi fázisban véglegesíthetők.
+**Rögzített:** a minimumok, slug, jogosultsági mátrix és gazdák a DECISIONS D01/D04–D06 szerint. A tényleges providerértékek M2, a mérési eredmények M5 kimenetei.
 
 ### Mikor zárható le?
 
@@ -79,16 +79,16 @@ A szerkesztő megbízhatóan kezeljen egy videómetaadatot, a publikáló pedig 
 | Published | Visszavonás | Withdrawn | Rögzített |
 | Withdrawn | Szerkesztés | Módosított withdrawn | Rögzített |
 | Withdrawn | Újrapublikálás | Published, ismételt validálással | Rögzített |
-| Published | Újabb publikálás | Egyeztetendő: elutasítás vagy változtatás nélküli siker | Nyitott |
-| Draft / withdrawn | Visszavonás | Egyeztetendő: elutasítás vagy változtatás nélküli siker | Nyitott |
+| Published | Újabb publikálás | Elutasítás, 409 content_already_published | Rögzített |
+| Draft / withdrawn | Visszavonás | Elutasítás, 409 content_not_published | Rögzített |
 
 ### Mentés és nyomon követhetőség
 
 **Rögzített:** a kliens módosításkor megadja a várt verziót. Eltéréskor `409 Conflict`, és a kérés nem hoz létre részleges változást. Sikeres állapotváltáskor a tartalom, az audit és az outbox együtt rögzül vagy együtt gördül vissza.
 
-**Javaslat:** a létrehozás és minden tényleges metaadat-módosítás is legyen auditált; minden tényleges módosítás növelje a tartalomverziót. Az auditból legyen megállapítható az actor stabil azonosítója, a művelet, az időpont és az érintett tartalomverzió. Az audit részletessége és a változás nélküli mentés viselkedése még egyeztetendő.
+**Rögzített:** minden tényleges változás auditált; létrehozás v1, utána tényleges mentésenként +1. Auditactor, művelet, időpont, contentVersion, correlationId és megváltozott mezőnevek rögzülnek. Aktuális verzió és szerkeszthető állapot mellett no-op nem változtat sem verziót, sem auditot, sem időbélyeget.
 
-**Nyitott:** draft létrehozás és szerkesztés is kibocsát-e tartalomváltozási eseményt, illetve mi a kezdeti verzió. Az állapotváltások outbox-eseménye már kötelező. Ezeket az eseményút bekötése előtt egységesen kell meghatározni.
+**Rögzített:** draft létrehozás és draft/withdrawn szerkesztés nem bocsát ki eseményt. Publish/withdraw/republish igen. Kezdeti verzió 1; minden sikeres állapotváltás auditja és outboxa ugyanabban a tranzakcióban rögzül.
 
 ### Bemutatandó helyzetek
 
@@ -100,9 +100,9 @@ A szerkesztő megbízhatóan kezeljen egy videómetaadatot, a publikáló pedig 
 
 ### Döntési pontok és határok
 
-**Javaslat:** a publikálási minimum első körben cím, slug, rövid leírás, kategória és médiaazonosító; a tagek opcionálisak. A draft mentési minimum külön, ennél megengedőbb szabály legyen. Ez üzleti javaslat, nem a README-ben már lezárt döntés.
+**Rögzített:** drafthoz cím kell; publikáláshoz cím, slug, rövid leírás, kategória és médiaazonosító. Tagek opcionálisak. A pontos hossz- és normalizálási szabályokat az M1 implementációs terv 2. szakasza rögzíti.
 
-**Nyitott:** slug generálása, egyediségi tartománya és újrafelhasználása; kategória/tagek kötött vagy szabad értékkészlete; mezőhosszak; az admin- és nyilvános mezők pontos köre. A PoC-ban a médiaazonosító jelenléte még nem igazolja az asset létezését vagy lejátszhatóságát.
+**Rögzített:** slug csak publikáláskor generálódik, ha null; globálisan egyedi, üres generált érték hibás. Hat kötött kategória és szabad, normalizált tagek. A mediaAssetId kizárólag adminmező; puszta jelenléte nem igazolja az asset létezését vagy lejátszhatóságát. Részletek DECISIONS D04.
 
 **Határ:** nincs párhuzamos draft/published revíziórendszer. Videófájl-feltöltés, tartalomtörlés, időzített publikálás és többlépcsős jóváhagyás nem kerül automatikusan a scope-ba.
 
@@ -116,7 +116,7 @@ Az életciklus, a validálás, a konkurens módosítás és a rollback eredmény
 
 A rendszer bizonyíthatóan megkülönböztesse, ki hívja az API-t és mire jogosult. A szerkesztői jogot az ellenőrzött identitás alkalmazásjogai igazolják.
 
-### Javasolt jogosultsági mátrix
+### Jogosultsági mátrix
 
 | Művelet | Viewer | Editor | Publisher |
 | --- | --- | --- | --- |
@@ -124,11 +124,11 @@ A rendszer bizonyíthatóan megkülönböztesse, ki hívja az API-t és mire jog
 | Admin tartalom olvasása | Nem | Igen | Igen |
 | Draft létrehozás és szerkesztés | Nem | Igen | Igen |
 | Publikálás és visszavonás | Nem | Nem | Igen |
-| Feldolgozási állapot olvasása | Nem | Egyeztetendő | Egyeztetendő |
+| Feldolgozási állapot olvasása | Nem | Nem | Igen |
 
-A mátrix **javaslat**. Különösen a publisher szerkesztési joga és a processing-status hozzáférése nyitott. A szerepek permissionhalmazokat állítanak össze; a README-ben a `content:write` és `content:publish` már rögzített. Az admin olvasási és működésmegfigyelési jog meghatározandó.
+A mátrix rögzített. Editor: content:read + content:write; publisher: ezek és content:publish + ops:read. A processing-status publishernek elérhető, editornak és viewernek nem. A konkrét ellenőrzött claim mapping M2 feladata.
 
-**Javaslat:** a nyilvános metaadatkeresés és részletlekérés a PoC-ban login nélkül is elérhető legyen. A viewer loginját ettől függetlenül bemutatjuk. A termék későbbi nézői belépési vagy entitlement-szabályait ez nem dönti el.
+**Rögzített:** a nyilvános metaadatkeresés és részletlekérés a PoC-ban login nélkül is elérhető legyen. A viewer loginját ettől függetlenül bemutatjuk. A termék későbbi nézői belépési vagy entitlement-szabályait ez nem dönti el.
 
 ### Belépési és tokenéletciklus
 
@@ -147,7 +147,7 @@ A mátrix **javaslat**. Különösen a publisher szerkesztési joga és a proces
 
 ### Döntési pontok és határok
 
-**Nyitott:** a tényleges providerértékek, csoport/claim mapping, token-élettartam és a kulcsrotáció próbájának körülményei. Offline tokenellenőrzés mellett a visszavonás nem feltétlenül azonnali; az elfogadott ablakot fel kell jegyezni.
+**Rögzített:** csoportok és jogok, access token 5 perces és refresh session 1 órás cél-élettartama a DECISIONS D06 szerint. A tényleges issuer/audience/JWKS URI, beállítható élettartamok és kulcsrotáció tokenpróbával M2-ben igazolandók. Offline visszavonás célablaka legfeljebb 5 perc 30 másodperc a már kiadott tokenre.
 
 **Határ:** nincs saját jelszókezelés, teljes felhasználókezelő UI, fizetős előfizetés vagy lejátszási engedélyezés.
 
@@ -190,7 +190,7 @@ A keresési fogyasztó az azonosító alapján az aktuális PostgreSQL-állapoto
 
 **Rögzített:** egy relay, tartós CONTENT stream, külön A/B durable fogyasztók, helyi R1. A deduplikációs időablak nem váltja ki az idempotens feldolgozást.
 
-**Nyitott:** retention végleges limitekkel, retry- és timeoutparaméterek, függő események operátori értelmezése. A hét nap retention kezdeti javaslat; a hosszabb távú kereső-újraépítés PostgreSQL-ből történik.
+**Rögzített:** retention 7 nap, 1 GiB és 1 millió üzenet; kapacitáskorlátnál új publikálás elutasítása, outbox megőrzése. Publish ACK timeout 5 másodperc; fokozatos retry 1–30 másodperc között. A pontos konfiguráció és további paraméterek a DECISIONS D08-ban, működésük bizonyítása M3-ban.
 
 **Határ:** átmeneti kiesés és újraindítás vizsgálata; teljes NATS-adatvesztés, több relay és termelési redundancia nem kap automatikus garanciát.
 
@@ -232,9 +232,9 @@ A láthatósági ellenőrzés az olvasáskor megfigyelt adatbázis-állapotra vo
 
 ### Döntési pontok és határok
 
-**Nyitott:** kereshető mezők súlya, kezdeti keresési beállítások, magyar ékezetes példák elvárt találatai, lekérdezés- és oldalhatárok, fallbackre jogosító hibák, retry-időzítés és a karantén megfigyelése.
+**Rögzített:** title/tags/summary sorrend, kategória egyenlőségszűrő, query 1–200 karakter, oldal alap 20/max 100, offset max 1000. A/B kérésenként 1 másodperces timeout; hálózati, timeout, 429/5xx hiba fallbacket indít, üres találat és hibás klienskérés nem. Retry és karantén a DECISIONS D08 szerint.
 
-**Javaslat:** az első demó cím-, leírás- és tagalapú keresést ellenőrizzen néhány előre rögzített magyar példán. A relevancia finomhangolása és összetett facetták későbbi bővítés legyen.
+**Rögzített:** az első demó cím-, leírás- és tagalapú keresést ellenőrizzen néhány előre rögzített magyar példán. A relevancia finomhangolása és összetett facetták későbbi bővítés legyen.
 
 **Határ:** a rangsor és az indexből származó találatszám átmenetileg elavulhat. Két helyi konténer alkalmazásoldali hibakezelést bizonyít; független hibazónákat és termelési HA-t nem.
 
@@ -267,7 +267,7 @@ A PoC értékelése megismételhető tapasztalatra épüljön. Legyen világos, 
 
 Az érintett index élő fogyasztójának koordinált megállítása után PostgreSQL-ből felépül a projekció, majd a közben felgyűlt változások feldolgozása következik. A végállapotnak az aktuális publikált tartalmakhoz kell konvergálnia.
 
-**Nyitott:** mikortól tekinthető az újraépített index olvasásra alkalmasnak, hogyan jelezzük az újraépítést, és mi történik a reindex megszakításakor. **Javaslat:** az érintett indexet az újraépítés és az egyeztetett catch-up feltétel teljesüléséig ne tekintsük normál olvasási célpontnak. A pontos feltételt a működési terv folytatásában kell rögzíteni.
+**Rögzített:** reindex alatt tartós rebuilding jelzés, az érintett index kimarad a routingból. Teljes import és rögzített catch-up határ feldolgozása után, függő task nélkül, a demóban szüneteltetett írások melletti DB/index egyezéssel kerül vissza. Megszakítás után rebuilding marad és új teljes futás indul. A konkrét snapshot/stream-határ koordináció M5 implementációs feladata; működési feltételek DECISIONS D09.
 
 ### Mérés és értelmezés
 
@@ -275,14 +275,14 @@ Kiinduló minta a README-ből: 1000 szintetikus tartalom és 100 publikálási/v
 
 - Publikálás → kereshetőség: a sikeres mentéstől az adott indexből elérhető találatig, A-ra és B-re külön.
 - Outbox pending és oldest-age: a ki nem kézbesített igény mennyisége és legöregebb elemének kora.
-- Indexenkénti lemaradás és catch-up idő: a feldolgozás elmaradása, majd visszatérés után a felzárkózás ideje. A lag pontos mérési definíciója egyeztetendő.
+- Indexenkénti lemaradás: broker pending + in-flight, valamint a legöregebb ismert be nem fejezett esemény kora; outbox külön. Catch-up idő: a visszatéréstől a rögzített feldolgozási határ eléréséig. Ezek nem globális tranzakciós snapshotok; részletek DECISIONS D09.
 - Reindexidő: az újraépítés kezdete és az elfogadott aktuális végállapot között eltelt idő, a catch-upot is figyelembe véve.
 
-**Nyitott:** késleltetési vagy felzárkózási számszerű elfogadási határ. Előre vállalt SLO nélkül a mért eredmény baseline; nem nevezhető automatikusan megfelelő termelési teljesítménynek.
+**Rögzített:** nincs numerikus teljesítmény-SLO a PoC lezárásához. Helyes végállapot, a kötelező helyreállási esetek sikere és a p50/p95/max/hibaarány jegyzőkönyve szükséges. Öt percen belül helyre nem álló hibapróba sikertelen/befejezetlen eredmény, nem kihagyható mérés.
 
 ### Mikor zárható le?
 
-A README hét végi checklistje teljes egészében bizonyítékhoz rendelhető. Minden forgatókönyvnél szerepel kiinduló állapot, beavatkozás, elvárt és megfigyelt eredmény, valamint a helyreállás ellenőrzése. Sikertelen kötelező esetnél a lezárás nyitva marad.
+A README PoC-zárási checklistje teljes egészében bizonyítékhoz rendelhető. Minden forgatókönyvnél szerepel kiinduló állapot, beavatkozás, elvárt és megfigyelt eredmény, valamint a helyreállás ellenőrzése. Sikertelen kötelező esetnél a lezárás nyitva marad.
 
 Az átadás része a futtatási és helyreállási útmutató, a demó, a bizonyítékjegyzék, a mérési eredmény és a következő kör prioritásai. Az éles infrastruktúra, mentés/DR, biztonsági felülvizsgálat és kapacitástervezés külön következő munkák; a PoC lezárása ezeket nem helyettesíti.
 
@@ -301,26 +301,18 @@ Az alapfolyamatra építve pontosítja, hol csatlakozik a tartalom a valódi mé
 ### Bemutatandó helyzetek
 
 1. A CMS azonosító és szolgáltatói médiaazonosító egyértelműen összerendelhető; valódi adapterrel a kész és nem kész asset állapota megkülönböztethető.
-2. Médiaellenőrzéssel bővített publikálás csak a megfelelő készállapotnál sikeres. **Nyitott:** szolgáltatói kiesés esetén elutasítás vagy más dokumentált működés legyen; a kiesés nem kezelhető automatikusan készállapotként.
+2. Médiaellenőrzéssel bővített publikálás csak kész assetnél sikeres; nem kész állapot 422, szolgáltatói kiesés 503, állapotváltás nélkül. Külső ellenőrzés nem tarthat content sorzárat. A szolgáltatói készállapot tényleges leképezése az adapterpróba kimenete.
 3. A delivery policyból világos, mely lejátszási mód elvárt, és milyen külső szolgáltatások kellenek hozzá. A feature flag önmagában nem bizonyít titkosítást.
 4. A playback-szerződés példáin külön értelmezhető a nem publikált tartalom, a hiányzó entitlement és a megfelelő üzleti engedély. A DRM-licenc kiadása ettől külön lépés.
 
 ### Döntési pontok és lezárás
 
-**Nyitott:** rendelkezésre álló sandboxok, tényleges adapterpróba scope-ja, média-készállapot fogalma, delivery policy részletei és entitlement-szabályok. A külső szerződésben elvárt lejárat vagy hozzáférési adat tartalmát külön kell egyeztetni.
+**Külső előfeltétel:** sandbox és tényleges entitlement-szabályok Zolitól M6 előtt. Rögzített scope: Ant Media állapot/manifest adapter és delivery/playback szerződés; valódi DRM-próba külön későbbi kör. Addig csak egyértelműen szintetikus jogosultságpélda használható, DECISIONS D10 szerint.
 
 A részterületek önállóan értékelhetők. Szerződés, fake/szimulált működés és valódi adapterpróba külön státuszt kap. M6 nem akadályozza az alap-PoC lezárását; a NestJS-be nem kerül végleges playback hot path.
 
-## A döntések következő köre
+## A tervezési kör lezárása
 
-Az alábbi sorrend a bizonytalanságok csökkentését szolgálja, még nem implementációs backlog.
+A működési döntések és az M0–M1 review eltérései a [DECISIONS](DECISIONS.md) alapján rendezettek. A [milestone-terv](MILESTONES.md) 17 munkanap + 2 nap tartalék keretet ad. A konkrét M0/M1 feladatok a két implementációs tervben követhetők.
 
-| Sorrend | Egyeztetés tárgya | Eredmény |
-| --- | --- | --- |
-| 1. | M0–M1: draft/publikálási minimum, slug, mezők, ismételt műveletek, audit/verzió/eseményszabályok | Elfogadott tartalom-életciklus és mentési viselkedés |
-| 2. | M2: szerepek, admin olvasás, feldolgozási állapot elérése, nyilvános metaadat hozzáférése | Elfogadott jogosultsági mátrix |
-| 3. | M3–M4: kézbesítés és feldolgozottság jelentése, fallback/retry, keresési minimum és lag | Elfogadott aszinkron és keresési működés |
-| 4. | M5: reindex alatti olvasás, bizonyítékok, mérési definíciók és esetleges küszöbök | Elfogadott demó- és helyreállási feltételek |
-| 5. | M6: hozzáférések és kiválasztott második köri részterület | Körülhatárolt opcionális integráció |
-
-A következő beszélgetésben az első sor üzleti döntéseit érdemes végigvenni. A konkrét fájlokra, könyvtárakra, végrehajtandó fejlesztési feladatokra és technikai megoldásokra bontás ezek elfogadása után következhet.
+A tényleges dependency-kompatibilitás, OIDC provideradat, mért feldolgozási idők és külső hozzáférések a megvalósítás kijelölt kimenetei. Ezeket futási bizonyíték nélkül nem minősítjük teljesítettnek.

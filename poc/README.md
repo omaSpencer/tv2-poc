@@ -2,7 +2,9 @@
 
 2026-09-15 · Rögzített PoC-scope és közös munkaterv
 
-Ez a fájl a PoC tervét és elfogadási feltételeit rögzíti. Még nem futtatható implementáció, és az alábbi könyvtárstruktúra is tervezett. A jelenlegi workspace dokumentumtár; a későbbi kód a `poc/backend/` könyvtárba kerülhet.
+Ez a fájl a PoC tervét és elfogadási feltételeit rögzíti.
+
+**Megvalósítási státusz (2026-09-15):** az M0 alap és infrastruktúra, valamint az M1 tranzakciós CMS-életciklus implementálva a [`poc/backend/`](backend/) könyvtárban, valódi PostgreSQL 17 elleni futási bizonyítékkal: 50 teszt, 6/6 core smoke eset és a mintademó sikeresen lefut. A részletes jegyzőkönyv – benne a még nyitott elemekkel – a [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md). A futtatási útmutató a [backend README](backend/README.md). Identity (M2), JetStream relay (M3), kereső (M4) és média (M6) továbbra is nyitott.
 
 A megvalósítás sorrendjének és lezárási feltételeinek első bontása: [Milestone-terv](MILESTONES.md).
 
@@ -12,7 +14,7 @@ Az első milestone feladatokra bontott terve, rögzített döntésekkel és a me
 
 Az M0 áttekintésének megállapításai: [M0 review](M0-REVIEW.md). A következő milestone részletes terve: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md).
 
-A rögzített működési döntések, alapértékek és a review lezárása: [DECISIONS](DECISIONS.md). Az aktuális ütemezés 17 munkanap + 2 nap tartalék; a korábbi ötnapos cél felülvizsgálva.
+A megvalósítás bizonyítékai és a nyitott pontok: [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md). A rögzített működési döntések, alapértékek és a review lezárása: [DECISIONS](DECISIONS.md). Az aktuális ütemezés 17 munkanap + 2 nap tartalék; a korábbi ötnapos cél felülvizsgálva.
 
 ## Mit építsünk?
 
@@ -46,7 +48,7 @@ A lokális Compose a fejlesztés indítását segíti. CNPG, RKE2, Traefik, GitO
 ## Modulok és adatgazdák
 
 ```text
-poc/backend/                      # tervezett struktúra
+poc/backend/                      # megvalósítva; a modulhatárok a backend READMÉ-ben
   src/
     app.module.ts
     identity/                     # OIDC konfiguráció, JWT guard, permission guard

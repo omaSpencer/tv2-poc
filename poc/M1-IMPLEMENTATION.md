@@ -1,6 +1,8 @@
 # M1 – Tranzakciós CMS-életciklus: részletes implementációs terv
 
-2026-09-15 · Codex · Rögzített terv; alkalmazáskód és futási bizonyíték még nincs.
+2026-09-15 · Codex · Rögzített terv.
+
+**Státusz: implementálva.** A 7. szakasz T01–T23 próbái valódi PostgreSQL 17 ellen futnak és sikeresek, a `demo:m1` mintafolyamat a dokumentált v1→v6 sorrendet, 6 auditot és 3 függő eseményt adja. Bizonyítékok: [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md).
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md), [Claude M0-terve](M0-IMPLEMENTATION.md) és annak [review-ja](M0-REVIEW.md).
 
@@ -229,16 +231,16 @@ A dokumentált eredmény tartalmazza a parancsot, környezetet, verziókat, elle
 
 ## 8. Lezárás és átadás
 
-- [ ] A rögzített M0/M1 döntések a tényleges contracts dokumentumokba átvezetve és azokkal egyeznek.
-- [ ] A séma friss adatbázisban létrejön, az újrafuttatás és a fontos DB-korlátok ellenőrzöttek.
-- [ ] Létrehozás, szerkesztés, publish, withdraw és republish a definiált verzió/audit/eseményszabályt követi.
-- [ ] A no-op, stale verzió, állapothiba és publikálási hiány következetes eredményt ad.
-- [ ] A valóban konkurens mentés/publikálás és a külön tartalmak slugversenye bizonyított.
-- [ ] Audit- és outboxhiba, valamint commit előtti hiba esetén nincs félkész állapot.
-- [ ] A nyilvános részlet csak aktuálisan publikált tartalmat és a kijelölt mezőket adja.
-- [ ] Identity nélkül az admin HTTP zárt; tesztactor nem szivárog át a normál alkalmazásba.
-- [ ] V1 események tartósak és helyesek, delivered_at null; nincs véletlen külső kézbesítés.
-- [ ] A dokumentált ellenőrzések és a demó reprodukálhatók; az eredmények és fennmaradó korlátok feljegyezve.
+- [x] A rögzített M0/M1 döntések a tényleges contracts dokumentumokba átvezetve és azokkal egyeznek. (`src/contracts/`)
+- [x] A séma friss adatbázisban létrejön, az újrafuttatás és a fontos DB-korlátok ellenőrzöttek. (T01)
+- [x] Létrehozás, szerkesztés, publish, withdraw és republish a definiált verzió/audit/eseményszabályt követi. (T02–T03, T08–T09)
+- [x] A no-op, stale verzió, állapothiba és publikálási hiány következetes eredményt ad. (T03, T06, T07, T10)
+- [x] A valóban konkurens mentés/publikálás és a külön tartalmak slugversenye bizonyított. (T05, T11, T12, T13)
+- [x] Audit- és outboxhiba, valamint commit előtti hiba esetén nincs félkész állapot. (T14–T16)
+- [x] A nyilvános részlet csak aktuálisan publikált tartalmat és a kijelölt mezőket adja. (T18)
+- [x] Identity nélkül az admin HTTP zárt; tesztactor nem szivárog át a normál alkalmazásba. (T19–T21; a teszt-összeállítás a `test/` fa alatt él, a `dist/` buildbe nem kerül)
+- [x] V1 események tartósak és helyesek, delivered_at null; nincs véletlen külső kézbesítés. (T08, T17)
+- [x] A dokumentált ellenőrzések és a demó reprodukálhatók; az eredmények és fennmaradó korlátok feljegyezve. ([M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md))
 
 **M2-nek átadandó:** tényleges route/permission tábla, actor kontextus, adminblokkolás lecserélésének illesztési pontja, public nézet és HTTP-hibák. A service-réteg explicit actort vár, az identity a megbízható actor előállításáért és a hozzáférés ellenőrzéséért felel.
 

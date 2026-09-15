@@ -1,6 +1,8 @@
 # M0 – Közös alap és indíthatóság: implementációs terv
 
-2026-09-15 · 3. változat · A review és az M0–M1 eltérései rendezve a felhasználó döntési felhatalmazása alapján. Implementáció és futási bizonyíték még nincs.
+2026-09-15 · 3. változat · A review és az M0–M1 eltérései rendezve a felhasználó döntési felhatalmazása alapján.
+
+**Státusz: implementálva.** Az M0 core alap, a szerződések, a migrációs keret, a Compose definíciók és a smoke-runner elkészültek és lefutottak; a bizonyítékok a [M0–M1 futtatási jegyzőkönyvben](M0-M1-EVIDENCE.md). Két pont marad nyitott, mindkettő konténerregiszter-elérés hiánya miatt: az image-digestek rögzítése (M0-17 része) és a full profil indulási próbája (M0-16b, eleve nem M0-kapu). Az M0-18 Authentik-előkészítés az M2 feladata marad.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md). Irányadó döntési alap: [DECISIONS.md](DECISIONS.md). A [review](M0-REVIEW.md) korábbi megállapításai történeti állapotot rögzítenek; a következő részletes terv az [M1](M1-IMPLEMENTATION.md).
 
@@ -190,13 +192,13 @@ Külön `npm run smoke:full` futtató készül az M2–M4 munkában ugyanilyen f
 
 ## 6. M0 lezárási lista
 
-- [ ] Toolchain teljes pinlistával és go eredménnyel bizonyított.
-- [ ] Core PostgreSQL/app indítás és migráció friss izolált környezetben sikeres.
-- [ ] Konfiguráció, adminvédelem, health, log és OpenAPI core smoke ellenőrzött.
-- [ ] Contracts/http, events, permissions, DDL-terv egyezik az M1 és DECISIONS szabályaival.
-- [ ] Full Compose definíció és image-verziók rögzítve, a konfiguráció validált; futásuk nem kapu.
-- [ ] A közös fájlok gazdái, futtatási útmutató, fixture és külső előfeltételek jegyzéke megvan.
-- [ ] A smoke hibára megáll, saját erőforrásait takarítja; a bizonyítékjegyzék reprodukálható.
+- [x] Toolchain teljes pinlistával és go eredménnyel bizonyított. (`VERSIONS.md`; Node 24.20.0, Nest 12, TS 6, ESM, Vitest)
+- [x] Core PostgreSQL/app indítás és migráció friss izolált környezetben sikeres. (smoke 5.1, T01)
+- [x] Konfiguráció, adminvédelem, health, log és OpenAPI core smoke ellenőrzött. (smoke 5.2–5.6)
+- [x] Contracts/http, events, permissions, DDL-terv egyezik az M1 és DECISIONS szabályaival. (`test/integration/contracts.test.ts`)
+- [~] Full Compose definíció rögzítve és validált (`docker compose --profile full config -q`); **az image-digestek nyitottak**, mert a regiszter nem elérhető. Futásuk továbbra sem kapu.
+- [x] A közös fájlok gazdái, futtatási útmutató, fixture és külső előfeltételek jegyzéke megvan. (`backend/README.md`, `backend/docs/external-access.md`, `src/content/demo-fixture.ts`)
+- [x] A smoke hibára megáll, saját erőforrásait takarítja; a bizonyítékjegyzék reprodukálható. (szándékos hibapróba: exit 1, nincs maradék adatbázis vagy folyamat)
 
 Ezek teljesítendő futási/fájl-eredmények; a tervezési döntések lezárása nem pipálja ki őket.
 

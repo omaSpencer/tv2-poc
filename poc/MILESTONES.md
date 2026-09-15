@@ -2,7 +2,7 @@
 
 2026-09-15 · Rendezett tervezési alap a [README](README.md) és [DECISIONS](DECISIONS.md) szerint.
 
-Státusz: tervezett; az alábbi lezárási feltételek még nincsenek teljesítve. A README a scope és a technológiai határok alapja, ez a dokumentum a megvalósítás sorrendjét és ellenőrzési pontjait bontja ki. Egyelőre high level terv, nem részletes implementációs backlog.
+Státusz: **M0 és M1 implementálva** (lásd [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md)); M2–M6 lezárási feltételei még nincsenek teljesítve. A README a scope és a technológiai határok alapja, ez a dokumentum a megvalósítás sorrendjét és ellenőrzési pontjait bontja ki. Egyelőre high level terv, nem részletes implementációs backlog.
 
 A fázisok működési forgatókönyvei, döntési pontjai és részletes elfogadási feltételei: [Részletes fázisterv](PHASES.md).
 
@@ -16,16 +16,16 @@ A kötelező végállapot: valódi belépés → szerkesztés → publikálás �
 
 Az opcionális `M6` az alapfolyamat lezárása és a külső teszthozzáférések megléte után következik. Az identity konfiguráció előkészítése már M0-ban indulhat. A modulok minden milestone végén ugyanabba az alkalmazásba integrálódnak.
 
-| Milestone | Elérendő eredmény | Relatív munkanap |
-| --- | --- | --- |
-| M0 – Alap és szerződések | Core környezet, konfiguráció, contracts, smoke | 1–4. |
-| M1 – Tranzakciós CMS | Életciklus, audit, outbox, konkurencia és rollback | 5–8. |
-| M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. |
-| M3 – Eseményút | JetStream és kiesés utáni kézbesítés | 11–12. |
-| M4 – Keresés | Két index, fallback, retry és karantén | 13–15. |
-| M5 – Bizonyítás | Reindex, helyreállás, mérés, átadás | 16–17. |
-| Tartalék | Feltárt integrációs hibák és újraellenőrzés | 18–19. |
-| M6 – Média/playback | Opcionális, külön külső előfeltételekkel | Külön második kör |
+| Milestone | Elérendő eredmény | Relatív munkanap | Státusz |
+| --- | --- | --- | --- |
+| M0 – Alap és szerződések | Core környezet, konfiguráció, contracts, smoke | 1–4. | ✅ kész (image-digest nyitott) |
+| M1 – Tranzakciós CMS | Életciklus, audit, outbox, konkurencia és rollback | 5–8. | ✅ kész |
+| M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. | nyitott |
+| M3 – Eseményút | JetStream és kiesés utáni kézbesítés | 11–12. | nyitott |
+| M4 – Keresés | Két index, fallback, retry és karantén | 13–15. | nyitott |
+| M5 – Bizonyítás | Reindex, helyreállás, mérés, átadás | 16–17. | nyitott |
+| Tartalék | Feltárt integrációs hibák és újraellenőrzés | 18–19. | nyitott |
+| M6 – Média/playback | Opcionális, külön külső előfeltételekkel | Külön második kör | nyitott |
 
 **Döntés: 17 munkanap + 2 nap tartalék**, a tényleges kezdéstől, körülbelül napi 6 óra érdemi munkával. Nem feltételez két egyidejű agentet. M0 18 óra 20 perc kötelező munkája és M1 14–22 órás becslése mellett így review-ra és integrációra is marad hely. M2–M5 időkerete tervezési keret, amelyet a saját részletes tervükben ellenőrzünk; nem már bizonyított becslés vagy határidővállalás.
 

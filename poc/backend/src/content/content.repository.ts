@@ -3,11 +3,11 @@
  * never opens a connection of its own and never commits.
  */
 import { Injectable } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Executor, Transaction } from '../database.js';
 import { content, contentAudit, type ContentAuditRow, type ContentRow } from '../schema.js';
 import type { ChangedField } from '../contracts/http.js';
-import type { AuditAction, ContentStatus } from '../schema.js';
+import type { AuditAction, ContentCategory, ContentStatus } from '../schema.js';
 
 export type ContentInsert = typeof content.$inferInsert;
 export type ContentPatch = Partial<Omit<ContentInsert, 'id' | 'createdAt' | 'createdBy'>>;
@@ -55,6 +55,26 @@ export class ContentRepository {
   async update(tx: Transaction, id: string, patch: ContentPatch): Promise<ContentRow> {
     const updated = await tx.update(content).set(patch).where(eq(content.id, id)).returning();
     return updated[0]!;
+  }
+
+  /**
+   * M4-03 – ordered public hydration for the search read path.
+   *
+   * The index returns ids only; the response fields and the published state both
+   * come from here, in one query. A hit that was withdrawn, deleted or moved to
+   * another category since it was indexed simply does not come back, which is
+   * why a search page may be shorter than the index's estimate. The caller
+   * restores the index's relevance order — SQL has no opinion about it.
+   */
+  async findPublishedByIds(
+    executor: Executor,
+    ids: readonly string[],
+    category: ContentCategory | null = null,
+  ): Promise<ContentRow[]> {
+    if (ids.length === 0) return [];
+    const conditions = [inArray(content.id, [...ids]), eq(content.status, 'published')];
+    if (category !== null) conditions.push(eq(content.category, category));
+    return executor.select().from(content).where(and(...conditions));
   }
 
   async insertAudit(tx: Transaction, entry: AuditEntry): Promise<ContentAuditRow> {

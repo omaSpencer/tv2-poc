@@ -6,10 +6,10 @@
 | # | Előfeltétel | Felelős | Célfázis | Állapot |
 | --- | --- | --- | --- | --- |
 | E01 | Konténerregiszter-elérés az image-ek húzásához és digest rögzítéséhez | Zoli | M0-16b | Hiányzik a jelen munkakörnyezetben; a `VERSIONS.md` digest sorai emiatt nyitottak |
-| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott; a full Compose definíció és a blueprint terve kész (M2-01), az image húzása E01-től függ |
-| E03 | Tényleges OIDC issuer, audience, JWKS URI és egy kiadott teszttoken | Claude | M2 | Nyitott; a discovery önmagában nem igazolja az audience-t. Az M2-02 tokenpróba rögzíti a tényleges claimkészletet |
-| E04 | Három tesztidentitás (viewer, editor, publisher) és a csoport→jog leképezés | Zoli | M2 | Nyitott; a `poc-viewer/editor/publisher` csoportneveket a blueprint hozza létre, a leképezés a `ROLE_GROUPS` táblában él |
-| E05 | Token- és refresh-élettartam tényleges providerbeállítása | Claude | M2 | Nyitott; a D06 célértékek (5 perc / 1 óra) még nem mértek, a mérés az M2-T21 próba |
+| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott; blueprint + Compose mount kész (`authentik/blueprints/poc.yaml`), image húzás E01-től függ |
+| E03 | Tényleges OIDC issuer, audience, JWKS URI és egy kiadott teszttoken | Claude | M2 | Nyitott; L1 mock JWKS kész; L2 discovery a blueprint szerinti `…/application/o/poc-backend/` |
+| E04 | Három tesztidentitás (viewer, editor, publisher) és a csoport→jog leképezés | Zoli | M2 | Blueprint létrehozza a `poc-*` usereket/csoportokat; `ROLE_GROUPS` bekötve; L2 login pending |
+| E05 | Token- és refresh-élettartam tényleges providerbeállítása | Claude | M2 | Blueprint: 5 perc / 1 óra; mérés (M2-T21) pending |
 | E06 | Ant Media tesztkörnyezet, asset- és broadcast-azonosítók | Zoli | M6 | Nyitott |
 | E07 | DRMaaS sandbox, kulcs- és licencszolgáltatás, kompatibilis player | Zoli | M6 | Nyitott |
 | E08 | Valós üzleti entitlement-szabályok a playback-authorize szerződéshez | Zoli | M6 | Nyitott |

@@ -57,8 +57,10 @@ services:
       retries: 20
       start_period: 5s
 
-  # Two separate instances so the application-side fan-out is exercised. They
-  # are not independent failure domains; both run on this one host.
+  # Two separate instances so the application-side fan-out is exercised. Each
+  # gets its own master key, its own port and its own volume, which is what lets
+  # M4 stop one of them and prove the other keeps indexing and serving. They are
+  # still not independent failure domains: both run on this one host.
   meilisearch-a: &meilisearch
     image: ${MEILI_IMAGE:-getmeili/meilisearch:v1.15}
     profiles: ["full"]
@@ -118,7 +120,7 @@ services:
       retries: 20
 
   authentik-server: &authentik
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2025.8}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2025.8@sha256:f162a2664fc54337be65f796130443e19d038caa82be572b7d44aa8b1a895af2}
     profiles: ["full"]
     command: ["server"]
     environment: &authentik-env
@@ -129,8 +131,13 @@ services:
       AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?set AUTHENTIK_POSTGRES_PASSWORD in the env file}
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:?set AUTHENTIK_BOOTSTRAP_PASSWORD in the env file}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:?set AUTHENTIK_BOOTSTRAP_TOKEN in the env file}
+      AUTHENTIK_POC_USER_PASSWORD: ${AUTHENTIK_POC_USER_PASSWORD:?set AUTHENTIK_POC_USER_PASSWORD in the env file}
     ports:
       - "${AUTHENTIK_PORT:-9000}:9000"
+    volumes:
+      - ./authentik/blueprints/poc.yaml:/blueprints/poc.yaml:ro
     depends_on:
       authentik-postgres:
         condition: service_healthy
@@ -142,6 +149,8 @@ services:
     command: ["worker"]
     environment: *authentik-env
     ports: []
+    volumes:
+      - ./authentik/blueprints/poc.yaml:/blueprints/poc.yaml:ro
 
 volumes:
   postgres-data:

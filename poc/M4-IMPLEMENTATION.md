@@ -2,10 +2,15 @@
 
 2026-09-16 · Codex · Rögzített terv.
 
-**Státusz: tervezett, még nincs implementálva.** Ez a dokumentum az M4
-megvalósítási szerződése. A kész állapotot csak valódi PostgreSQL 17,
-JetStream és két külön Meilisearch-példány ellen lefutott ellenőrzések, a teljes
-üzleti demó és az `M4-EVIDENCE.md` jegyzőkönyv igazolhatja.
+**Státusz: implementálva.** Ez a dokumentum maradt az M4 megvalósítási
+szerződése; a hozzá tartozó futási bizonyíték az
+[`M4-EVIDENCE.md`](M4-EVIDENCE.md). Az M4-T01–T26 próbák valódi PostgreSQL,
+valódi NATS JetStream és **két külön Meilisearch 1.15.2 példány** ellen futottak
+le (153/153 teszt, `smoke:full` 4 PASS / 1 PENDING, `demo:m4` PASS). A teljes
+„belépés → publikálás → keresés" üzleti demó `M2 L2 pending` marad, mert valódi
+Authentik access token még nincs; a keresőút maga hiánytalanul bizonyított. Az
+ellenőrző környezet eltéréseit (PostgreSQL 16.13 a tervezett 17 helyett, hálózati
+határon injektált A/B kiesés) az evidence 6. szakasza sorolja fel.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md),
 [fázisterv](PHASES.md), [döntésnapló](DECISIONS.md), az

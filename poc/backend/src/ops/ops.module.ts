@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ContentModule } from '../content/content.module.js';
 import { MessagingModule } from '../messaging/messaging.module.js';
+import { SearchModule } from '../search/search.module.js';
 import { ProcessingStatusController } from './processing-status.controller.js';
 import { PermissionGuard } from '../content/permission.guard.js';
 
 @Module({
-  imports: [ContentModule, MessagingModule],
+  imports: [ContentModule, MessagingModule, SearchModule],
   controllers: [ProcessingStatusController],
   providers: [PermissionGuard],
 })

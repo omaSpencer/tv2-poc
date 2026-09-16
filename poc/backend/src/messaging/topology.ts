@@ -27,6 +27,13 @@ const DEFAULT_DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 const DEFAULT_MAX_BYTES = 1024 * 1024 * 1024;
 const DEFAULT_MAX_MSGS = 1_000_000;
 const DEFAULT_MAX_MSG_SIZE = 65_536;
+/**
+ * Redelivery deadline for an unacknowledged message. Pinned rather than left to
+ * the server default because the M4 worker's `working()` heartbeat interval is
+ * derived from it: a shorter ack_wait would redeliver an event that is still
+ * being indexed.
+ */
+export const CONSUMER_ACK_WAIT_MS = 30_000;
 
 export type TopologyNames = {
   stream: string;
@@ -201,6 +208,7 @@ export async function ensureTopology(
       ack_policy: AckPolicy.Explicit,
       deliver_policy: DeliverPolicy.All,
       filter_subject: names.subject,
+      ack_wait: nanos(CONSUMER_ACK_WAIT_MS),
     };
     try {
       const info = await jsm.consumers.info(names.stream, durable);

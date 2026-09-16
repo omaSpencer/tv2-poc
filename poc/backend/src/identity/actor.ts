@@ -15,6 +15,7 @@ declare module 'express-serve-static-core' {
   interface Locals {
     correlationId?: string;
     actor?: Actor;
+    tokenExpiresAt?: Date;
   }
 }
 

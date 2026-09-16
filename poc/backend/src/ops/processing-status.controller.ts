@@ -3,14 +3,17 @@
  * reported in the body — never as HTTP 500. DB outages remain 503.
  */
 import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { PermissionGuard, RequirePermission } from '../content/permission.guard.js';
 import { DatabaseService, isConnectionFailure } from '../database.js';
 import { OutboxRepository } from '../outbox/outbox.repository.js';
 import { ApiError } from '../contracts/errors.js';
+import { jsonResponse, problemResponse } from '../contracts/openapi.js';
 import { JetStreamAdapter } from '../messaging/jetstream.adapter.js';
 import { RelayState } from '../messaging/relay.state.js';
+import { SearchRegistry } from '../search/search.registry.js';
+import { SearchState, type SearchIndexStatusSnapshot } from '../search/worker.state.js';
 
 export type ProcessingStatusView = {
   outbox: {
@@ -31,9 +34,17 @@ export type ProcessingStatusView = {
   consumers?: Array<{ name: string; pending: number }>;
   quarantine?: { pending: number };
   consumersUnavailable?: boolean;
+  /**
+   * Per-index worker progress (M4-07). Kept beside `consumers[].pending` rather
+   * than merged into it: the broker's pending count does not necessarily
+   * include the message a worker currently holds in flight, so the two numbers
+   * answer different questions.
+   */
+  indexes?: { a: SearchIndexStatusSnapshot; b: SearchIndexStatusSnapshot };
 };
 
 @ApiTags('admin')
+@ApiBearerAuth()
 @Controller('admin')
 @UseGuards(PermissionGuard)
 export class ProcessingStatusController {
@@ -43,15 +54,20 @@ export class ProcessingStatusController {
     @Inject(OutboxRepository) private readonly outbox: OutboxRepository,
     @Inject(JetStreamAdapter) private readonly broker: JetStreamAdapter,
     @Inject(RelayState) private readonly relay: RelayState,
+    @Inject(SearchRegistry) private readonly search: SearchRegistry,
+    @Inject(SearchState) private readonly searchState: SearchState,
   ) {}
 
   @Get('processing-status')
   @RequirePermission('ops:read')
   @ApiOperation({ summary: 'Outbox and relay processing status' })
-  @ApiResponse({ status: 200, description: 'Best-effort snapshot of outbox, relay and broker state' })
-  @ApiResponse({ status: 401, description: 'unauthenticated' })
-  @ApiResponse({ status: 403, description: 'forbidden' })
-  @ApiResponse({ status: 503, description: 'dependency_unavailable when the database is down' })
+  @ApiResponse({
+    status: 200,
+    ...jsonResponse('ProcessingStatusView', 'Best-effort snapshot of outbox, relay and broker state'),
+  })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; ops:read is required') })
+  @ApiResponse({ status: 503, ...problemResponse('dependency_unavailable when the database is down') })
   async status(): Promise<ProcessingStatusView> {
     let stats: { pending: number; oldestOccurredAt: Date | null };
     try {
@@ -88,6 +104,13 @@ export class ProcessingStatusController {
         streamPresent: null,
       },
     };
+
+    // Search state is in-memory and cannot fail; it is reported whether or not
+    // the relay is on, and a Meilisearch outage shows up here, never as a 500.
+    if (this.search.enabled) {
+      await this.search.probeReachability();
+      view.indexes = this.searchState.snapshot();
+    }
 
     if (!relayEnabled) return view;
 

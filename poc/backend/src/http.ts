@@ -77,6 +77,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const correlationId = res.locals.correlationId ?? randomUUID();
 
     if (exception instanceof ApiError) {
+      if (exception.code === 'unauthenticated') {
+        res.setHeader('WWW-Authenticate', 'Bearer');
+      }
       this.send(res, problem(exception.code, correlationId, exception.detail, req.path, exception.extras));
       return;
     }

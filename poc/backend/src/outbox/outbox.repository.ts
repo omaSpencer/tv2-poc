@@ -39,6 +39,32 @@ export function envelopeFromRow(row: OutboxEventRow): unknown {
 }
 
 
+/**
+ * Driver-independent decoders for aggregate columns. Drizzle's `sql<T>` does
+ * not decode anything at runtime, so a `min(timestamptz)` may arrive as a
+ * string, a Date or null depending on the driver and the parser settings.
+ */
+function toDate(value: unknown): Date | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  throw new ApiError('internal_error', 'The outbox aggregate returned an undecodable timestamp.');
+}
+
+function toCount(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  if (typeof value === 'bigint') return Number(value);
+  throw new ApiError('internal_error', 'The outbox aggregate returned an undecodable count.');
+}
+
+
 @Injectable()
 export class OutboxRepository {
   /**
@@ -90,15 +116,27 @@ export class OutboxRepository {
       .limit(limit);
   }
 
+  /**
+   * Aggregate read for the operator status endpoint. `sql<T>` is a TypeScript
+   * annotation only: the pg driver hands back `min(occurred_at)` as a string
+   * and `count(*)` can arrive as a string too, so both are converted here, at
+   * the repository boundary. The declared return type describes the runtime
+   * value, never the raw driver output.
+   */
   async pendingStats(executor: Executor): Promise<{ pending: number; oldestOccurredAt: Date | null }> {
     const rows = await executor
       .select({
-        pending: sql<number>`count(*)::int`,
-        oldestOccurredAt: sql<Date | null>`min(${outboxEvent.occurredAt})`,
+        pending: sql<unknown>`count(*)::int`,
+        oldestOccurredAt: sql<unknown>`min(${outboxEvent.occurredAt})`,
       })
       .from(outboxEvent)
       .where(isNull(outboxEvent.deliveredAt));
-    return rows[0] ?? { pending: 0, oldestOccurredAt: null };
+    const row = rows[0];
+    if (!row) return { pending: 0, oldestOccurredAt: null };
+    return {
+      pending: toCount(row.pending),
+      oldestOccurredAt: toDate(row.oldestOccurredAt),
+    };
   }
 
   /**

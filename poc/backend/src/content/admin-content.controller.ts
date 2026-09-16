@@ -1,17 +1,28 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
   normalizeCreateCommand, normalizePatchCommand, normalizeVersionedCommand, parseContentId, toAdminView,
   type AdminContentView,
 } from '../contracts/http.js';
+import { jsonResponse, problemResponse, schemaRef } from '../contracts/openapi.js';
 import { operationContext } from '../identity/actor.js';
 import { ContentService } from './content.service.js';
 import { PermissionGuard, RequirePermission } from './permission.guard.js';
 
 const CONFLICTS = '409 version_conflict, state conflict or slug_conflict';
 
+/** Path parameter shared by every single-content route. */
+const ID_PARAM = { name: 'id', required: true, schema: { type: 'string', format: 'uuid' } } as const;
+
+/**
+ * The request bodies are documented from the same Zod objects the normalisation
+ * path parses with (`src/contracts/openapi.ts`), so the published schema and
+ * the enforced rule cannot drift apart. `@Body() body: unknown` stays: Nest
+ * must not run a second, differently-behaving validation pipe.
+ */
 @ApiTags('admin')
+@ApiBearerAuth()
 @Controller('admin/contents')
 @UseGuards(PermissionGuard)
 export class AdminContentController {
@@ -21,9 +32,12 @@ export class AdminContentController {
   @HttpCode(201)
   @RequirePermission('content:write')
   @ApiOperation({ summary: 'Create a draft content' })
-  @ApiResponse({ status: 201, description: 'Draft created at version 1' })
-  @ApiResponse({ status: 409, description: 'slug_conflict for a manual slug already in use' })
-  @ApiResponse({ status: 422, description: 'validation_failed with the offending field names' })
+  @ApiBody({ required: true, schema: schemaRef('CreateContentBody') })
+  @ApiResponse({ status: 201, ...jsonResponse('AdminContentView', 'Draft created at version 1') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:write is required') })
+  @ApiResponse({ status: 409, ...problemResponse('slug_conflict for a manual slug already in use') })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed with the offending field names') })
   async create(@Body() body: unknown, @Res({ passthrough: true }) res: Response): Promise<AdminContentView> {
     return toAdminView(await this.service.create(normalizeCreateCommand(body), operationContext(res)));
   }
@@ -31,8 +45,14 @@ export class AdminContentController {
   @Patch(':id')
   @RequirePermission('content:write')
   @ApiOperation({ summary: 'Edit a draft or withdrawn content' })
-  @ApiResponse({ status: 200, description: 'Updated, or the unchanged record on a no-op' })
-  @ApiResponse({ status: 409, description: CONFLICTS })
+  @ApiParam(ID_PARAM)
+  @ApiBody({ required: true, schema: schemaRef('PatchContentBody') })
+  @ApiResponse({ status: 200, ...jsonResponse('AdminContentView', 'Updated, or the unchanged record on a no-op') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:write is required') })
+  @ApiResponse({ status: 404, ...problemResponse('content_not_found') })
+  @ApiResponse({ status: 409, ...problemResponse(CONFLICTS) })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed with the offending field names') })
   async patch(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -46,8 +66,17 @@ export class AdminContentController {
   @HttpCode(200)
   @RequirePermission('content:publish')
   @ApiOperation({ summary: 'Publish a draft or withdrawn content' })
-  @ApiResponse({ status: 200, description: 'Published; the DB write is committed, searchability is not implied' })
-  @ApiResponse({ status: 409, description: CONFLICTS })
+  @ApiParam(ID_PARAM)
+  @ApiBody({ required: true, schema: schemaRef('VersionedCommandBody') })
+  @ApiResponse({
+    status: 200,
+    ...jsonResponse('AdminContentView', 'Published; the DB write is committed, searchability is not implied'),
+  })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:publish is required') })
+  @ApiResponse({ status: 404, ...problemResponse('content_not_found') })
+  @ApiResponse({ status: 409, ...problemResponse(CONFLICTS) })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed with the offending field names') })
   async publish(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -61,8 +90,14 @@ export class AdminContentController {
   @HttpCode(200)
   @RequirePermission('content:publish')
   @ApiOperation({ summary: 'Withdraw a published content' })
-  @ApiResponse({ status: 200, description: 'Withdrawn; the slug stays reserved' })
-  @ApiResponse({ status: 409, description: CONFLICTS })
+  @ApiParam(ID_PARAM)
+  @ApiBody({ required: true, schema: schemaRef('VersionedCommandBody') })
+  @ApiResponse({ status: 200, ...jsonResponse('AdminContentView', 'Withdrawn; the slug stays reserved') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:publish is required') })
+  @ApiResponse({ status: 404, ...problemResponse('content_not_found') })
+  @ApiResponse({ status: 409, ...problemResponse(CONFLICTS) })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed with the offending field names') })
   async withdraw(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -75,8 +110,11 @@ export class AdminContentController {
   @Get(':id')
   @RequirePermission('content:read')
   @ApiOperation({ summary: 'Editorial detail in every state' })
-  @ApiResponse({ status: 200, description: 'Editorial view including mediaAssetId' })
-  @ApiResponse({ status: 404, description: 'content_not_found' })
+  @ApiParam(ID_PARAM)
+  @ApiResponse({ status: 200, ...jsonResponse('AdminContentView', 'Editorial view including mediaAssetId') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:read is required') })
+  @ApiResponse({ status: 404, ...problemResponse('content_not_found') })
   async get(@Param('id') id: string): Promise<AdminContentView> {
     return toAdminView(await this.service.findForAdmin(parseContentId(id)));
   }

@@ -28,7 +28,7 @@ Az opcionális `M6` az alapfolyamat lezárása és a külső teszthozzáférése
 | M1 – Tranzakciós CMS | Életciklus, audit, outbox, konkurencia és rollback | 5–8. | ✅ kész |
 | M2 – Identity | Authentik és valós tokenes szerkesztés/publikálás | 9–10. | terv kész, implementáció nyitott |
 | M3 – Eseményút | JetStream és kiesés utáni kézbesítés | 11–12. | nyitott |
-| M4 – Keresés | Két index, fallback, retry és karantén | 13–15. | nyitott |
+| M4 – Keresés | Két index, fallback, retry és karantén | 13–15. | implementálva ([jegyzőkönyv](M4-EVIDENCE.md)); a teljes üzleti demó M2 L2 pending |
 | M5 – Bizonyítás | Reindex, helyreállás, mérés, átadás | 16–17. | nyitott |
 | Tartalék | Feltárt integrációs hibák és újraellenőrzés | 18–19. | nyitott |
 | M6 – Média/playback | Opcionális, külön külső előfeltételekkel | Külön második kör | nyitott |

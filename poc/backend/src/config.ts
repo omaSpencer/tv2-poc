@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
+import { DEFAULT_SEARCH_INDEX_UID, SEARCH_INDEX_UID_PATTERN } from './contracts/search.js';
 
 const flag = z.enum(['off', 'on']).default('off');
 const optional = z.string().min(1).optional();
@@ -21,11 +22,11 @@ const schema = z.object({
   FEATURE_OUTBOX_RELAY: flag,
   FEATURE_SEARCH: flag,
   FEATURE_MEDIA: flag,
-  // Integration keys are optional here and made mandatory by the feature that
-  // needs them. Their actual provider values land in M2–M4.
   OIDC_ISSUER_URL: optional,
   OIDC_AUDIENCE: optional,
   OIDC_JWKS_URI: optional,
+  OIDC_CLOCK_TOLERANCE_S: z.coerce.number().int().min(0).max(30).default(30),
+  OIDC_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
   NATS_URL: optional,
   NATS_STREAM: optional,
   NATS_SUBJECT: optional,
@@ -36,10 +37,38 @@ const schema = z.object({
   MEILI_A_KEY: optional,
   MEILI_B_URL: optional,
   MEILI_B_KEY: optional,
-  SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  MEILI_INDEX_UID: z.string().regex(SEARCH_INDEX_UID_PATTERN).default(DEFAULT_SEARCH_INDEX_UID),
+  SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().default(1000),
+  MEILI_TASK_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  MEILI_TASK_POLL_MS: z.coerce.number().int().positive().default(100),
+  SEARCH_CONSUMER_WORKING_MS: z.coerce.number().int().positive().default(10_000),
   ANTMEDIA_BASE_URL: optional,
   ANTMEDIA_TOKEN: optional,
 });
+
+/**
+ * Keys that must parse as an absolute http(s) URL once their feature is on.
+ * Validated locally at startup so a typo fails with a named configuration key
+ * instead of surfacing later as an IdP outage on the first token (R11). Plain
+ * `http` stays allowed on purpose: the PoC runs Authentik over http on a local
+ * host name.
+ */
+const URL_KEYS = {
+  FEATURE_IDENTITY: ['OIDC_ISSUER_URL', 'OIDC_JWKS_URI'],
+  FEATURE_SEARCH: ['MEILI_A_URL', 'MEILI_B_URL'],
+} as const satisfies Partial<Record<string, readonly (keyof AppConfigShape)[]>>;
+
+const ALLOWED_URL_PROTOCOLS = new Set(['http:', 'https:']);
+
+function isAbsoluteHttpUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return ALLOWED_URL_PROTOCOLS.has(url.protocol) && url.host.length > 0;
+}
 
 /** An enabled integration makes its own configuration keys mandatory. */
 const REQUIRED_KEYS = {
@@ -50,10 +79,15 @@ const REQUIRED_KEYS = {
 } as const satisfies Record<string, readonly (keyof AppConfigShape)[]>;
 
 /**
- * Integrations whose verifying adapter exists. M2 adds FEATURE_IDENTITY; M3
- * adds FEATURE_OUTBOX_RELAY. Everything else still fails startup when enabled.
+ * Integrations whose verifying adapter exists. M2 adds FEATURE_IDENTITY, M3
+ * FEATURE_OUTBOX_RELAY and M4 FEATURE_SEARCH. Everything else still fails
+ * startup when enabled.
  */
-export const IMPLEMENTED_ADAPTERS = ['FEATURE_OUTBOX_RELAY'] as const satisfies readonly (keyof typeof REQUIRED_KEYS)[];
+export const IMPLEMENTED_ADAPTERS = [
+  'FEATURE_IDENTITY',
+  'FEATURE_OUTBOX_RELAY',
+  'FEATURE_SEARCH',
+] as const satisfies readonly (keyof typeof REQUIRED_KEYS)[];
 
 export const INTEGRATIONS = Object.keys(REQUIRED_KEYS) as (keyof typeof REQUIRED_KEYS)[];
 
@@ -95,10 +129,42 @@ export function validateConfig(input: Record<string, unknown>): AppConfig {
   // so a missing key is reported as that key and not as the feature flag.
   const missing = enabled.flatMap(key => REQUIRED_KEYS[key].filter(required => config[required] === undefined));
   if (missing.length) throw new ConfigurationError([...new Set(missing)]);
+  // Shape of the supplied URLs is a local, deterministic check; reaching the
+  // IdP over the network stays lazy and is never done at startup.
+  const malformedUrls = enabled.flatMap(key => {
+    const keys: readonly (keyof AppConfigShape)[] = URL_KEYS[key as keyof typeof URL_KEYS] ?? [];
+    return keys.filter(urlKey => {
+      const value = config[urlKey];
+      return typeof value === 'string' && !isAbsoluteHttpUrl(value);
+    });
+  });
+  if (malformedUrls.length) throw new ConfigurationError([...new Set(malformedUrls.map(String))]);
+  // Two index instances that resolve to the same endpoint cannot demonstrate an
+  // A/B outage: the second search would hit the process that just failed. This
+  // is a configuration error, not a degraded mode we accept silently.
+  if (config.FEATURE_SEARCH === 'on' && sameEndpoint(config.MEILI_A_URL, config.MEILI_B_URL)) {
+    throw new ConfigurationError(['MEILI_A_URL', 'MEILI_B_URL']);
+  }
   // Features without a verifying adapter still refuse to start.
   const unimplemented = enabled.filter(key => !(IMPLEMENTED_ADAPTERS as readonly string[]).includes(key));
   if (unimplemented.length) throw new ConfigurationError([...unimplemented]);
   return config;
+}
+
+/**
+ * Same host, port and base path means one Meilisearch process. Compared through
+ * `URL` so a trailing slash or an upper-case host is not read as a difference.
+ */
+function sameEndpoint(left: string | undefined, right: string | undefined): boolean {
+  if (left === undefined || right === undefined) return false;
+  try {
+    const a = new URL(left);
+    const b = new URL(right);
+    const path = (url: URL) => url.pathname.replace(/\/+$/, '');
+    return a.protocol === b.protocol && a.host.toLowerCase() === b.host.toLowerCase() && path(a) === path(b);
+  } catch {
+    return false;
+  }
 }
 
 /** Names of integrations that are currently off, for the startup diagnostic. */

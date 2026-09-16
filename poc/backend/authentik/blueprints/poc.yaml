@@ -1,0 +1,112 @@
+# IndaPlay PoC – Authentik blueprint (M2-01).
+# Mounted at /blueprints/poc.yaml on authentik-server and authentik-worker.
+# Secrets (bootstrap password, test-user passwords) come from env via !Env.
+version: 1
+metadata:
+  name: indaplay-poc
+entries:
+  - model: authentik_core.group
+    id: group-viewer
+    identifiers:
+      name: poc-viewer
+    attrs:
+      name: poc-viewer
+
+  - model: authentik_core.group
+    id: group-editor
+    identifiers:
+      name: poc-editor
+    attrs:
+      name: poc-editor
+
+  - model: authentik_core.group
+    id: group-publisher
+    identifiers:
+      name: poc-publisher
+    attrs:
+      name: poc-publisher
+
+  - model: authentik_core.user
+    id: user-viewer
+    identifiers:
+      username: poc-viewer
+    attrs:
+      username: poc-viewer
+      name: PoC Viewer
+      email: poc-viewer@example.invalid
+      password: !Env [AUTHENTIK_POC_USER_PASSWORD, ""]
+      groups:
+        - !KeyOf group-viewer
+      path: users
+
+  - model: authentik_core.user
+    id: user-editor
+    identifiers:
+      username: poc-editor
+    attrs:
+      username: poc-editor
+      name: PoC Editor
+      email: poc-editor@example.invalid
+      password: !Env [AUTHENTIK_POC_USER_PASSWORD, ""]
+      groups:
+        - !KeyOf group-editor
+      path: users
+
+  - model: authentik_core.user
+    id: user-publisher
+    identifiers:
+      username: poc-publisher
+    attrs:
+      username: poc-publisher
+      name: PoC Publisher
+      email: poc-publisher@example.invalid
+      password: !Env [AUTHENTIK_POC_USER_PASSWORD, ""]
+      groups:
+        - !KeyOf group-publisher
+      path: users
+
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-audience
+    identifiers:
+      name: PoC API audience
+    attrs:
+      name: PoC API audience
+      scope_name: poc-aud
+      description: Sets the access-token audience expected by the PoC backend
+      expression: |
+        return {"aud": "poc-backend-api"}
+
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider-poc
+    identifiers:
+      name: PoC Backend
+    attrs:
+      name: PoC Backend
+      client_type: public
+      client_id: poc-backend
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      issuer_mode: per_provider
+      sub_mode: hashed_user_id
+      access_code_validity: minutes=1
+      access_token_validity: minutes=5
+      refresh_token_validity: hours=1
+      redirect_uris:
+        - matching_mode: strict
+          url: http://127.0.0.1:8765/callback
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
+        - !KeyOf scope-audience
+
+  - model: authentik_core.application
+    id: app-poc
+    identifiers:
+      slug: poc-backend
+    attrs:
+      name: PoC Backend
+      slug: poc-backend
+      provider: !KeyOf provider-poc
+      policy_engine_mode: any

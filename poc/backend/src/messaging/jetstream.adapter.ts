@@ -6,7 +6,8 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  jetstream, jetstreamManager, type JetStreamClient, type JetStreamManager, type PubAck,
+  jetstream, jetstreamManager,
+  type Consumer, type ConsumerInfo, type JetStreamClient, type JetStreamManager, type PubAck,
 } from '@nats-io/jetstream';
 import { connect, type NatsConnection } from '@nats-io/transport-node';
 import {
@@ -124,9 +125,18 @@ export class JetStreamAdapter {
   }
 
   async publish(payload: Uint8Array, msgID: string): Promise<PublishResult> {
+    return this.publishTo(this.names.subject, payload, msgID);
+  }
+
+  /**
+   * Publish to a named subject on this topology. The quarantine path needs it
+   * (M4-05); the msgID makes a repeat after a lost PubAck deduplicate rather
+   * than write a second record.
+   */
+  async publishTo(subject: string, payload: Uint8Array, msgID: string): Promise<PublishResult> {
     await this.ensureConnected();
     if (!this.js) throw new Error('JetStream client is not connected.');
-    const ack: PubAck = await this.js.publish(this.names.subject, payload, {
+    const ack: PubAck = await this.js.publish(subject, payload, {
       msgID,
       timeout: this.publishAckTimeoutMs,
     });
@@ -135,6 +145,25 @@ export class JetStreamAdapter {
       streamSeq: ack.seq,
       duplicate: ack.duplicate === true,
     };
+  }
+
+  /** Durable pull consumer handle for a search projection worker (M4-04). */
+  async consumer(durable: string): Promise<Consumer> {
+    await this.ensureConnected();
+    if (!this.js) throw new Error('JetStream client is not connected.');
+    return this.js.consumers.get(this.names.stream, durable);
+  }
+
+  /**
+   * Live consumer configuration. The worker verifies ack_policy, deliver_policy,
+   * filter subject and ack_wait against the M3 contract before it consumes, so a
+   * consumer that was reconfigured elsewhere cannot silently change the ACK
+   * semantics M4 depends on.
+   */
+  async consumerInfo(durable: string): Promise<ConsumerInfo> {
+    await this.ensureConnected();
+    if (!this.jsm) throw new Error('JetStream manager is not connected.');
+    return this.jsm.consumers.info(this.names.stream, durable);
   }
 
   async snapshot(): Promise<BrokerSnapshot> {
@@ -176,6 +205,27 @@ export class JetStreamAdapter {
 
   private isClosed(): boolean {
     return this.connection === null || this.connection.isClosed();
+  }
+
+  /**
+   * Immediate, non-draining close. Used when a shutdown grace period expires:
+   * closing the connection makes an in-flight publish reject instead of
+   * hanging on its own ACK timeout, so `stop(graceMs)` can be a real bound.
+   */
+  async abort(closeTimeoutMs = 500): Promise<void> {
+    const nc = this.connection;
+    this.connection = null;
+    this.js = null;
+    this.jsm = null;
+    this.topologyReady = false;
+    this.connecting = null;
+    if (!nc || nc.isClosed()) return;
+    try {
+      await Promise.race([
+        nc.close(),
+        new Promise<void>(resolve => setTimeout(resolve, closeTimeoutMs)),
+      ]);
+    } catch { /* aborting best-effort */ }
   }
 
   async close(drainMs = 2000): Promise<void> {

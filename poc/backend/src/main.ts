@@ -1,10 +1,13 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
 import { ConfigurationError, disabledIntegrationNames, type AppConfig } from './config.js';
+import { createOpenApiDocument } from './openapi-document.js';
+import { identityBoundary } from './identity/identity.boundary.js';
+import { TokenVerifier } from './identity/token-verifier.js';
 
 async function bootstrap() {
   // Dynamic import keeps config/module evaluation inside the sanitized error boundary.
@@ -13,13 +16,15 @@ async function bootstrap() {
   app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const log = pino({ level: config.getOrThrow<string>('LOG_LEVEL') });
-  // Identity is off until M2, so the whole /admin prefix answers 503.
-  app.use(requestBoundary(log, { blockAdmin: config.getOrThrow<string>('FEATURE_IDENTITY') !== 'on' }));
+  const identityOn = config.getOrThrow<string>('FEATURE_IDENTITY') === 'on';
+  app.use(requestBoundary(log, { blockAdmin: !identityOn }));
+  if (identityOn) {
+    app.use(identityBoundary(app.get(TokenVerifier), log));
+  }
   app.use(jsonBody());
   app.use(jsonBodyErrors());
   app.useGlobalFilters(new ApiExceptionFilter());
-  const document = SwaggerModule.createDocument(app, new DocumentBuilder()
-    .setTitle('IndaPlay PoC backend').setVersion('0.0.0').build());
+  const document = createOpenApiDocument(app);
   SwaggerModule.setup('docs', app, document, { jsonDocumentUrl: '/docs-json' });
   try {
     await app.listen(config.getOrThrow<number>('PORT'), '127.0.0.1');

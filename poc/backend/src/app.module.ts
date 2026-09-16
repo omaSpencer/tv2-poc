@@ -6,6 +6,8 @@ import { HealthController } from './health.js';
 import { ContentModule } from './content/content.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
 import { OpsModule } from './ops/ops.module.js';
+import { SearchModule } from './search/search.module.js';
+import { IdentityModule } from './identity/identity.module.js';
 
 @Module({
   imports: [
@@ -15,8 +17,10 @@ import { OpsModule } from './ops/ops.module.js';
       validate: validateConfig,
     }),
     DatabaseModule,
+    IdentityModule,
     ContentModule,
     MessagingModule,
+    SearchModule,
     OpsModule,
   ],
   controllers: [HealthController],

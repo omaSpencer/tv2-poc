@@ -80,9 +80,16 @@ describe('M0 application base', () => {
       FEATURE_OUTBOX_RELAY: 'on',
       NATS_URL: 'nats://127.0.0.1:4222',
     }).FEATURE_OUTBOX_RELAY).toBe('on');
-    for (const flag of ['FEATURE_IDENTITY', 'FEATURE_SEARCH', 'FEATURE_MEDIA']) {
+    expect(validateConfig({
+      ...base,
+      FEATURE_IDENTITY: 'on',
+      OIDC_ISSUER_URL: 'https://idp.invalid/application/o/poc/',
+      OIDC_AUDIENCE: 'poc-backend-api',
+    }).FEATURE_IDENTITY).toBe('on');
+    for (const flag of ['FEATURE_SEARCH', 'FEATURE_MEDIA']) {
       expect(() => validateConfig({ ...base, [flag]: 'on' })).toThrow(ConfigurationError);
     }
+    expect(() => validateConfig({ ...base, FEATURE_IDENTITY: 'on' })).toThrow(ConfigurationError);
     expect(() => validateConfig({ ...base, FEATURE_OUTBOX_RELAY: 'on' })).toThrow(ConfigurationError);
   });
   it('boots, exposes OpenAPI and reports DB down independently of liveness', async () => {
@@ -124,7 +131,7 @@ describe('M0 application base', () => {
     expect(invalid.status).toBe(404);
     expect(invalid.headers.get('x-correlation-id')).toMatch(/^[0-9a-f-]{36}$/);
   });
-  it('fails startup for missing ENV_FILE and identity without adapter', async () => {
+  it('fails startup for missing ENV_FILE and identity without OIDC keys; boots with keys (M2-T01/T02)', async () => {
     const missing = await start({ ENV_FILE: '/missing/tv2-env-file' });
     expect(missing.exit).not.toBe(0);
     expect(missing.logs()).toContain('ENV_FILE');
@@ -135,15 +142,14 @@ describe('M0 application base', () => {
     expect(withoutKeys.logs()).toContain('OIDC_ISSUER_URL');
     expect(withoutKeys.logs()).toContain('OIDC_AUDIENCE');
 
-    // ...and even with them it refuses to start while no adapter can verify a token.
-    const withoutAdapter = await start({
+    // ...and with them the verifying adapter lets the process listen even if the IdP is unreachable.
+    const withKeys = await start({
       FEATURE_IDENTITY: 'on',
       OIDC_ISSUER_URL: 'https://idp.invalid/application/o/poc/',
-      OIDC_AUDIENCE: 'poc-backend',
+      OIDC_AUDIENCE: 'poc-backend-api',
     });
-    expect(withoutAdapter.exit).not.toBe(0);
-    expect(withoutAdapter.url).toBeUndefined();
-    expect(withoutAdapter.logs()).toContain('FEATURE_IDENTITY');
+    expect(withKeys.url).toBeTruthy();
+    expect((await get(withKeys.url!, '/health/ready')).status).toBe(503);
   });
   it.skipIf(!process.env.TEST_DATABASE_URL)('T19: blocks real admin operations against a live database', async () => {
     const database = process.env.TEST_DATABASE_URL!;

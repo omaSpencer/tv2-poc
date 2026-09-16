@@ -1,13 +1,14 @@
 # IndaPlay / TV2 PoC backend
 
-NestJS moduláris monolit. Jelen állapot: **M0 alap + M1 tranzakciós CMS + M3
-outbox→JetStream relay implementálva**, valódi PostgreSQL 17 és NATS JetStream
-elleni futási bizonyítékkal. Identity (M2), kereső (M4) és média (M6) még nincs
-bekötve.
+NestJS moduláris monolit. Jelen állapot: **M0 alap + M1 tranzakciós CMS + M2 L1
+identity + M3 outbox→JetStream relay + M4 kétindexes kereső implementálva**,
+valódi PostgreSQL, NATS JetStream és két külön Meilisearch példány elleni futási
+bizonyítékkal. Az M2 L2 (valódi Authentik tokenek) és a média (M6) nyitott.
 
 A terv és a döntések: [../README.md](../README.md), [../DECISIONS.md](../DECISIONS.md),
 [../M0-IMPLEMENTATION.md](../M0-IMPLEMENTATION.md), [../M1-IMPLEMENTATION.md](../M1-IMPLEMENTATION.md),
-[../M3-IMPLEMENTATION.md](../M3-IMPLEMENTATION.md), [../M3-EVIDENCE.md](../M3-EVIDENCE.md).
+[../M3-IMPLEMENTATION.md](../M3-IMPLEMENTATION.md), [../M3-EVIDENCE.md](../M3-EVIDENCE.md),
+[../M4-IMPLEMENTATION.md](../M4-IMPLEMENTATION.md), [../M4-EVIDENCE.md](../M4-EVIDENCE.md).
 
 ## Előfeltételek
 
@@ -55,15 +56,19 @@ open http://localhost:3000/docs
 | `npm run lint` | oxlint a `src`, `scripts` és `test` fákon |
 | `npm test` | Teljes Vitest futás (alap + integrációs próbák) |
 | `npm run test:integration:m1` | M1 T01–T23 integrációs próbák |
+| `npm run test:integration:m2` | M2 L1 identity próbák (mock JWKS + TEST_DATABASE_URL) |
 | `npm run test:integration:m3` | M3 T01–T20 relay próbák (NATS_URL + TEST_DATABASE_URL) |
+| `npm run test:integration:m4` | M4 T01–T25 kereső próbák (NATS_URL + TEST_DATABASE_URL + két Meili) |
 | `npm run db:migrate` | A hiányzó migrációk alkalmazása a `DATABASE_URL`-en |
 | `npm run db:generate` | Új migráció generálása a `src/schema.ts` alapján |
 | `npm run db:reset` | **Csak** a `TEST_DATABASE_URL` eldobható adatbázisának újraépítése |
 | `npm run contracts:emit` | A v1 esemény JSON Schema újragenerálása |
 | `npm run smoke:m0` | Az M0 core smoke (izolált Compose-projekt, saját childok) |
-| `npm run smoke:full` | Full-profil smoke: NATS szakasz; kereső pending (M4) |
+| `npm run smoke:full` | Identity + NATS + kétindexes kereső smoke; az Authentik L2 pending marad |
 | `npm run demo:m1` | Az M1 mintafolyamat HTTP-listener nélkül |
+| `npm run demo:m2` | Bearer tokenes admin út (`OIDC_ACCESS_TOKEN` + `OIDC_ISSUER_URL`) |
 | `npm run demo:m3` | Outbox → publish ACK → kézbesítés, relay stop/start mellett |
+| `npm run demo:m4` | Publikálás → A/B index → keresés, egy példány kiesésével és felzárkózásával |
 
 ## Migráció
 
@@ -154,23 +159,73 @@ src/
   contracts/              errors, http (DTO + normalizálás), events, permissions
   content/                szolgáltatás, repository, slug, admin és katalógus route
   outbox/                 eseményrögzítés; kézbesítés M3
-  identity/               actor kontextus; valódi tokenellenőrzés M2
+  identity/               OIDC verifier, boundary, /me, szerepleképezés (M2)
+  messaging/              JetStream adapter, topológia, outbox relay (M3)
+  search/                 Meili adapter és bootstrap, projekció, két worker,
+                          karantén, A→B olvasási út (M4)
+  ops/                    processing-status: outbox, relay, broker, A/B index
 ```
 
 A `ContentModule` birtokolja a tartalom életciklusát. Az outbox csak rögzít: a
 `delivered_at` mezőt kizárólag az M3 relay írhatja, publish ACK után.
+
+## Kereső-határ (M4)
+
+`FEATURE_SEARCH=off` mellett a `GET /catalog/search` stabil
+`503 search_unavailable` választ ad: nincs worker, nincs Meilisearch-kliens és
+nincs hálózati hívás. A query-validálás ilyenkor is előbb fut, tehát a hibás
+kérés továbbra is `422`.
+
+`FEATURE_SEARCH=on` kötelezővé teszi mind a négy `MEILI_*` kulcsot, és **két
+különböző endpointot követel**: azonos A és B URL indulási hiba, mert egyetlen
+példány nem tudja bizonyítani az A/B kiesést.
+
+Bekapcsolva két egymástól független, soros worker indul (`search-a-v1`,
+`search-b-v1` durable). Mindkettő minden eseménynél újraolvassa az aggregátum
+**aktuális** PostgreSQL-állapotát, és abból dönt: publikált → dokumentum-upsert,
+minden más (draft, visszavont, törölt) → törlés. Az esemény változási jelzés, nem
+adatforrás, ezért egy régi publish esemény visszajátszása nem hozza vissza a
+közben visszavont tartalmat.
+
+Az üzenet ACK-ja **kizárólag** a hozzá tartozó Meilisearch-task `succeeded`
+végállapota után történik. Hosszú task alatt a worker `working()` jelzéssel
+tartja életben a kézbesítést, és nem kér új üzenetet. Átmeneti hibánál helyben
+retryzik (1, 2, 4, 8, 16, 30 s, ±20% jitter), és ezt a várakozást új CMS-esemény
+nem rövidítheti le. Hibás JSON, érvénytelen v1 séma vagy tartósan
+visszautasított projekció karanténba kerül (`CONTENT_DLQ`), és az eredeti üzenet
+csak a karantén PubAck után ACK-olódik. Hibás kulcs vagy eltérő indexbeállítás
+nem karantén és nem csendes fallback: az adott példány `halted` állapotba kerül
+és operátori beavatkozást vár.
+
+Az olvasási úton a Meilisearch **csak rendezett azonosítólistát** ad
+(`displayedAttributes: ['id']`). A válasz minden mezője és a publikáltság egyetlen
+PostgreSQL-lekérdezésből származik, ezért egy elavult indextalálat legfeljebb
+rövidebb oldalt okoz, adatszivárgást soha. A-ról B-re csak hálózati hiba,
+timeout, 429 és 5xx esetén esünk vissza, példányonként egyetlen próbával; 4xx,
+401/403 és konfigurációs eltérés nem fallback, hanem `503 search_unavailable`.
+A Meilisearch állapota nem része a `/health/ready` válaszának — az továbbra is
+csak PostgreSQL —, hanem a keresési válaszban és a
+`GET /admin/processing-status` `indexes.a` / `indexes.b` mezőiben látszik.
 
 ## Identity-határ
 
 `FEATURE_IDENTITY=off` mellett a teljes `/admin` prefix – a nem létező
 útvonalakkal együtt – `503 dependency_unavailable` választ ad, a route
 létezésétől és a kérés methodjától függetlenül. Bodyban vagy headerben küldött
-hamis actor nem segít. `FEATURE_IDENTITY=on` ellenőrző adapter nélkül indítási
-hiba, tehát a flag bekapcsolása nem nyit utat.
+hamis actor nem segít.
+
+`FEATURE_IDENTITY=on` kötelezővé teszi az `OIDC_ISSUER_URL` és `OIDC_AUDIENCE`
+kulcsokat, bekapcsolja a Bearer ellenőrzést (`jose` + discovery/JWKS), és a
+prefix-503 helyett hiányzó tokenre `401` + `WWW-Authenticate: Bearer`, hiányzó
+jogra `403` válasz jön. Az IdP hálózati állapota nem része a `/health/ready`
+vizsgálatnak. Csoportnevek → szerepek: `poc-viewer` / `poc-editor` /
+`poc-publisher` (`ROLE_GROUPS`). Audience: `poc-backend-api` (az ID token
+`poc-backend` client_id-ja szándékosan elutasított).
 
 Az M1 tesztek saját összeállítást használnak (`test/support/test-app.ts`),
-amelybe az actort a teszt injektálja. Ez a fájl a `test/` fa alatt él, a `dist/`
-buildbe nem kerül bele. A valódi tokenellenőrzést M2 adja hozzá.
+amelybe az actort a teszt injektálja. Az M2 L1 próbák mock JWKS-sel futnak
+(`test/support/oidc-mock.ts`); a valódi Authentik (L2) a full Compose blueprinttel
+és `demo:m2` / `authentik-login.mjs` scripteken keresztül jön, E01–E05 után.
 
 ## Hibaformátum
 

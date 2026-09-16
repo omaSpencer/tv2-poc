@@ -28,7 +28,9 @@ export type CreateContentCommand = { fields: ContentFields; provided: BusinessFi
 export type PatchContentCommand = { expectedVersion: number; changes: Partial<ContentFields> };
 export type VersionedCommand = { expectedVersion: number };
 
-const nullableString = z.union([z.string(), z.null()]);
+// `.nullable()` rather than a union: identical runtime behaviour, but it
+// projects to a clean `nullable: true` in the generated OpenAPI schema.
+const nullableString = z.string().nullable();
 const expectedVersion = z.number().int().positive();
 
 /** `strictObject` is what rejects unknown and server-owned fields with a 422. */

@@ -40,8 +40,9 @@ export function isProcessingActive(status: ProcessingStatus | undefined): boolea
   if (!status) return false;
   if (status.relay.state === 'publishing' || status.relay.state === 'retrying') return true;
   if (!status.indexes) return false;
+  const indexes = status.indexes;
   return (['a', 'b'] as const).some(alias => {
-    const index = status.indexes![alias];
+    const index = indexes[alias];
     return index.state === 'processing' || index.state === 'retrying'
       || (index.phase !== null && index.phase !== 'ready' && index.phase !== 'failed');
   });

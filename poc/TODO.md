@@ -12,8 +12,8 @@
 - A részletes üzleti/API döntések forrása mindig a belinkelt fázisterv; ez a fájl
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–3 helyi
-  implementációja elkészült, a közös Authentik L2 E2E kapu pending.
+- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–4 helyi
+  implementációja elkészült, a közös Authentik/full-stack böngészős E2E kapuk pending.
 
 ## Végrehajtási sorrend
 
@@ -22,7 +22,7 @@
 3. Fázis 1 – Alkalmazásváz és valódi identity — **implementáció kész, L2 validációra vár**
 4. Fázis 2 – Szerkesztői tartalomkezelés — **implementáció kész, L2 E2E-re vár**
 5. Fázis 3 – Publikus katalógus és keresés — **implementáció kész, full-stack E2E-re vár**
-6. Fázis 4 – Operációs megfigyelő dashboard
+6. Fázis 4 – Operációs megfigyelő dashboard — **implementáció kész, full-stack E2E-re vár**
 7. Fázis 5 – M5 operátori beavatkozások
 8. Fázis 6 – Vezetett demó és bizonyíték
 9. Fázis 7 – Minőségkapu és átadás
@@ -209,30 +209,34 @@
 
 ## Fázis 4 – Operációs megfigyelő dashboard
 
-**Állapot:** nyitott  
+**Állapot:** folyamatban — implementáció és helyi tesztkapuk készek; full-stack browser E2E pending
+
 **Becslés:** 3–4 mérnöknap  
 **Függőség:** Fázis 0 processing contract és Fázis 1 permission route  
 **Részletes terv:** [FRONTEND-PHASE-4-DELIVERY-BRIEF.md](FRONTEND-PHASE-4-DELIVERY-BRIEF.md)
 
 ### Végrehajtási terv
 
-- [ ] **P4-01:** `/operations` route és `ops:read` permission boundary.
-- [ ] **P4-02:** normalizált view model, duration/time/progress helper.
-- [ ] **P4-03:** overview, outbox, relay, broker és quarantine kártyák.
-- [ ] **P4-04:** consumer tábla mobil kártyanézettel.
-- [ ] **P4-05:** egységes A/B indexkártyák runtime és tartós állapottal.
-- [ ] **P4-06:** 10 s/2 s adaptív polling, hidden tab stop és hibabackoff.
-- [ ] **P4-07:** optional/partial/stale/401/403/503 állapotok.
-- [ ] **P4-08:** unit/component/E2E és accessibility ellenőrzés.
+- [x] **P4-01:** `/operations` route és `ops:read` permission boundary.
+- [x] **P4-02:** normalizált view model, duration/time/progress helper.
+- [x] **P4-03:** overview, outbox, relay, broker és quarantine kártyák.
+- [x] **P4-04:** consumer tábla mobil kártyanézettel.
+- [x] **P4-05:** egységes A/B indexkártyák runtime és tartós állapottal.
+- [x] **P4-06:** 10 s/2 s adaptív polling, hidden tab stop és hibabackoff.
+- [x] **P4-07:** optional/partial/stale/401/403/503 állapotok.
+- [~] **P4-08:** 52 új unit/component/integration-style teszt és hozzáférhető
+  natív vezérlők zöldek; valódi backend+browser E2E még futtatandó.
 
 ### Kötelező ellenőrzések
 
-- [ ] Minden processing mező UI-n vagy technikai disclosure-ben látszik.
-- [ ] Összesített search állapot kizárólag a backend `routeEligible` mezőiből készül.
-- [ ] Két routolható index = teljes, egy = fallback, nulla = unavailable.
-- [ ] `off`, `unknown`, `down` és optional-hiány nem mosódik össze.
-- [ ] Polling háttértabon leáll és requestek nem halmozódnak.
-- [ ] Egy index down és mindkettő down E2E bizonyított.
+- [x] Minden processing mező UI-n vagy technikai disclosure-ben látszik.
+- [x] Összesített search állapot kizárólag a backend `routeEligible` mezőiből készül.
+- [x] Két routolható index = teljes, egy = fallback, nulla = unavailable.
+- [x] `off`, `unknown`, `down` és optional-hiány nem mosódik össze.
+- [x] Polling háttértabon leáll és requestek nem halmozódnak.
+- [~] Egy index down és mindkettő down fixture-szinten bizonyított; valódi
+  backend+browser E2E pending.
+- [x] Frontend contract, build, React Compiler, warningmentes lint és 106/106 teszt zöld.
 
 ---
 

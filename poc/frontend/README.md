@@ -80,6 +80,12 @@ mutatja, a publikus detail pedig nem renderel adminmezőket. Publish/withdraw ut
 a szerkesztői detail korlátozott katalógus-láthatósági ellenőrzést indít; ez
 háttértabon szünetel, és a timeout nem minősíti sikertelennek a lifecycle műveletet.
 
+Az operációs dashboard a keresés összesített állapotát kizárólag az A/B
+`routeEligible` mezőkből számolja. Normál állapotban 10, aktív feldolgozáskor 2
+másodpercenként frissít, háttértabon leáll, hálózati/503 hiba után legfeljebb 30
+másodperces backoffot használ, és a legutóbbi sikeres snapshotot elavultként
+megőrzi. A 401/403 leállítja a pollingot.
+
 ## API-szerződés
 
 A commitolt `../contracts/backend.openapi.json` snapshotból generált TypeScript

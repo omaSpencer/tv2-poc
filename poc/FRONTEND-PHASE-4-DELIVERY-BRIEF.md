@@ -130,10 +130,13 @@ nyers JSON csak „Technikai részletek” alatt jelenik meg.
 
 ## 5. Definition of Done
 
-- [ ] Minden processing response mező UI-n vagy technikai disclosure-ben látszik.
-- [ ] Összesített search állapot kizárólag `routeEligible` alapján készül.
-- [ ] Off/unknown/down és optional-hiány nem mosódik össze.
-- [ ] Polling adaptív, háttértabon áll, hibán nem terheli túl a backendet.
-- [ ] 401/403/503 és stale data állapot hozzáférhetően kezelve.
-- [ ] A/B fallback és teljes kiesés E2E-ben bizonyított.
+- [x] Minden processing response mező UI-n vagy technikai disclosure-ben látszik.
+- [x] Összesített search állapot kizárólag `routeEligible` alapján készül.
+- [x] Off/unknown/down és optional-hiány nem mosódik össze.
+- [x] Polling adaptív, háttértabon áll, hibán nem terheli túl a backendet.
+- [x] 401/403/503 és stale data állapot hozzáférhetően kezelve.
+- [~] A/B fallback és teljes kiesés fixture/component szinten bizonyított; a
+  valódi backend+browser E2E külső futtatása még nyitott.
 
+Helyi átadás: 52 új operációs teszt, teljes frontend `verify` 19 fájlban 106/106
+teszttel zöld (contract, build, React Compiler és lint kapukkal együtt).

@@ -422,6 +422,231 @@ fieldset .stack {
   margin: 0.75rem 0;
 }
 
+.operations-page .eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.operations-heading,
+.operations-overview,
+.ops-callout,
+.operations-card-header,
+.index-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.operations-heading h2,
+.operations-overview h2,
+.index-card-header h2 {
+  margin-bottom: 0.3rem;
+}
+
+.operations-refresh {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.operations-updated {
+  max-width: 18rem;
+  margin: 0.5rem 0 0 !important;
+  font-size: 0.8rem;
+}
+
+.operations-overview {
+  border-left-width: 0.4rem;
+}
+
+.operations-overview-ok {
+  border-left-color: var(--ok);
+  background: color-mix(in srgb, var(--ok-bg) 50%, var(--surface));
+}
+
+.operations-overview-warning,
+.ops-callout-warning {
+  border-color: #c9a227;
+  background: #fff8e5;
+}
+
+.operations-overview-danger {
+  border-left-color: var(--bad);
+  background: #fff8f8;
+}
+
+.operations-overview-neutral {
+  border-left-color: var(--muted);
+}
+
+.operations-service-grid,
+.operations-index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.operations-service-card {
+  min-width: 0;
+}
+
+.operations-card-header {
+  margin-bottom: 0.9rem;
+}
+
+.operations-card-header h2 {
+  margin: 0;
+}
+
+.ops-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ops-status-ok {
+  color: var(--ok);
+  border-color: #9fd4b8;
+  background: var(--ok-bg);
+}
+
+.ops-status-warning {
+  color: var(--unknown);
+  border-color: #dfd0a0;
+  background: var(--unknown-bg);
+}
+
+.ops-status-danger {
+  color: var(--bad);
+  border-color: #e2a8a8;
+  background: var(--bad-bg);
+}
+
+.ops-status-neutral {
+  color: var(--muted);
+  background: var(--bg-accent);
+}
+
+.ops-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.ops-callout {
+  align-items: center;
+}
+
+.ops-callout h2,
+.ops-callout p {
+  margin-bottom: 0.25rem;
+}
+
+.operations-retry {
+  align-self: flex-start;
+}
+
+.compact-kv > div {
+  grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr);
+}
+
+.compact-kv dd {
+  overflow-wrap: anywhere;
+}
+
+.operations-consumer-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.84rem;
+}
+
+.operations-consumer-table th,
+.operations-consumer-table td {
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.operations-consumer-table thead th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.operations-consumer-cards {
+  display: none;
+}
+
+.index-card {
+  min-width: 0;
+  border-left-width: 0.35rem;
+}
+
+.index-card-ok {
+  border-left-color: var(--ok);
+}
+
+.index-card-warning {
+  border-left-color: #c9a227;
+}
+
+.index-card-danger {
+  border-left-color: var(--bad);
+}
+
+.index-card-neutral {
+  border-left-color: var(--muted);
+}
+
+.index-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.75rem 0;
+  margin-bottom: 0.75rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.index-progress > div {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.index-progress progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--accent);
+}
+
+.index-progress p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.operations-technical summary,
+.index-card summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .subpanel {
   padding: 0.8rem;
   border: 1px solid var(--line);
@@ -912,6 +1137,38 @@ button.linkish {
   .catalog-detail-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .operations-heading,
+  .operations-overview,
+  .ops-callout,
+  .index-card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .operations-refresh {
+    text-align: left;
+  }
+
+  .operations-refresh button,
+  .ops-callout button {
+    width: 100%;
+  }
+
+  .operations-service-grid,
+  .operations-index-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-consumer-table {
+    display: none;
+  }
+
+  .operations-consumer-cards {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
   }
 
   .content-form .form-span {

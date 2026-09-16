@@ -8,7 +8,8 @@ implementációja és a Fázis 1–7 részletes végrehajtási dokumentumai onna
 el; ez a fájl a playground eredeti high-level kontextusát őrzi.
 
 > Státuszfrissítés (2026-09-16): a Fázis 0, a Fázis 1 helyi implementációja és a
-> Fázis 2 szerkesztői workspace és a Fázis 3 publikus katalógus elkészült. A valódi Authentik L2 böngészős E2E
+> Fázis 2 szerkesztői workspace, a Fázis 3 publikus katalógus és a Fázis 4
+> operációs dashboard elkészült. A valódi Authentik L2 böngészős E2E
 > továbbra is külső függőség; az aktuális állapot forrása a `TODO.md`.
 
 Ez a fájl a backend mellé készülő **fejlesztői playground** célját, határait és a későbbi megvalósítás irányát rögzíti. Nem implementációs backlog, nem UI-wireframe, és nem termelési frontend-terv.
@@ -220,7 +221,8 @@ A futtatás: [frontend/README.md](frontend/README.md).
 
 ---
 
-**Következő lépés:** a valódi Authentik L2 adatok után a PKCE gomb és refresh út bekötése; a screenek addig is használhatók fejlesztői Bearerrel és pontos függőségi hibákkal.
+**Következő lépés:** a Fázis 5 operátori beavatkozásai; ezzel párhuzamosan a
+valódi Authentik L2 és full-stack böngészős bizonyítékok továbbra is nyitottak.
 
 ## 11. Elfogadás – mit jelent „kész a playground”?
 

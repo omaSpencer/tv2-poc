@@ -3,7 +3,7 @@
 2026-09-16 · A `frontend/` és a `backend/` aktuális forrása alapján.
 
 > Státuszfrissítés: a Fázis 0 és a Fázis 1 P1-01–P1-11 munkacsomagja már
-> implementált; a Fázis 2 backend- és frontendcsomagja, valamint a Fázis 3 helyi
+> implementált; a Fázis 2 backend- és frontendcsomagja, valamint a Fázis 3–4 helyi
 > implementációja is elkészült. A lentebbi
 > audit az indulási baseline-t rögzíti; a valódi Authentik L2 ellenőrzés és az
 > arra épülő böngészős E2E továbbra is külső függőségen vár.

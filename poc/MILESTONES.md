@@ -6,7 +6,13 @@ Státusz: **M0 és M1 implementálva** (lásd [M0–M1 futtatási jegyzőkönyv]
 
 A fázisok működési forgatókönyvei, döntési pontjai és részletes elfogadási feltételei: [Részletes fázisterv](PHASES.md).
 
-Az M0 feladatszintű lebontása, technológiai verziópinnel és smoke-check listával: [M0 implementációs terv](M0-IMPLEMENTATION.md). A további részletes tervek: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md) és [M2 – Identity](M2-IMPLEMENTATION.md).
+Az M0 feladatszintű lebontása, technológiai verziópinnel és smoke-check
+listával: [M0 implementációs terv](M0-IMPLEMENTATION.md). A további részletes
+tervek: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md),
+[M2 – Identity](M2-IMPLEMENTATION.md), [M3 – Tartós
+eseményút](M3-IMPLEMENTATION.md), [M4 – Kereshető katalógus két
+indexszel](M4-IMPLEMENTATION.md) és [M5 – Helyreállás és
+bizonyítékok](M5-IMPLEMENTATION.md).
 
 ## Cél és sorrend
 

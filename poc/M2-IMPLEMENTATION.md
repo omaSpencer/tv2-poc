@@ -2,7 +2,11 @@
 
 2026-09-15 · Claude · Rögzített terv.
 
-**Státusz: nincs implementálva.** A checklist teljesítendő, futási bizonyíték nincs. Ez a dokumentum az M0 és M1 implementációs terv szerkezetét követi: rögzített szerződés, tervezett séma/illesztés, feladatlebontás becsléssel, számozott ellenőrzési terv, lezárási lista.
+**Státusz: L1 implementálva, L2 pending.** A tokenellenőrzés, a csoport→jog leképezés és az
+identity boundary elkészült és determinisztikus mock issuer ellen bizonyított ([M2 jegyzőkönyv](M2-EVIDENCE.md)); a [M0–M3 code review](M0-M3-CODE-REVIEW.md) R04, R07, R08 és R11
+megállapításai javítva ([javítási jegyzőkönyv](M0-M3-REVIEW-FIXES.md)). Nyitott: a valódi Authentik L2
+kapu (E01–E05) és a `scripts/authentik-login.mjs` teljes PKCE/token/refresh kliensfolyamata – ezek
+nélkül az M2 milestone nem zárható. Ez a dokumentum az M0 és M1 implementációs terv szerkezetét követi: rögzített szerződés, tervezett séma/illesztés, feladatlebontás becsléssel, számozott ellenőrzési terv, lezárási lista.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md), [döntésnapló](DECISIONS.md), [M0-terv](M0-IMPLEMENTATION.md), [M1-terv](M1-IMPLEMENTATION.md) és az [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md).
 

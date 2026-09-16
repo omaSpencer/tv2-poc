@@ -68,6 +68,7 @@ export const OUTBOX_SEQUENCE_NAME = 'outbox_event_outbox_sequence_seq';
 export const outboxSequenceAllocation = pgSequence(OUTBOX_SEQUENCE_NAME, { startWith: 1, increment: 1 });
 
 
+// Schema constants only: never pass runtime input to this raw SQL helper.
 const inList = (column: string, values: readonly string[]) =>
   sql.raw(`${column} in (${values.map(value => `'${value}'`).join(', ')})`);
 

@@ -103,6 +103,17 @@ describe('T18 public detail', () => {
 });
 
 describe('T23 consistent request errors', () => {
+  it('returns 413 for an oversized JSON body without echoing its contents', async () => {
+    const response = await app.request('POST', '/admin/contents', {
+      body: { title: 'x'.repeat(256 * 1024) }, correlationId: 'audit-body-limit',
+    });
+    expect(response.status).toBe(413);
+    expect(response.headers.get('content-type')).toContain('application/problem+json');
+    expect(response.body).toMatchObject({ code: 'payload_too_large', correlationId: 'audit-body-limit' });
+    expect(JSON.stringify(response.body).length).toBeLessThan(1024);
+    expect(response.body.fields).toBeUndefined();
+  });
+
   it('answers 404, 422, 400 and 422 without leaking internals', async () => {
     const missing = await app.request('GET', `/admin/contents/${randomUUID()}`);
     expect(missing.status).toBe(404);

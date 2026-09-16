@@ -356,7 +356,7 @@ export class MeiliIndexAdapter {
     const response = await this.index().search(q, {
       limit: options.limit,
       offset: options.offset,
-      ...(options.category === null ? {} : { filter: `category = "${options.category}"` }),
+      ...(options.category === null ? {} : { filter: `category = ${JSON.stringify(options.category)}` }),
     });
     const ids: string[] = [];
     for (const hit of response.hits) {

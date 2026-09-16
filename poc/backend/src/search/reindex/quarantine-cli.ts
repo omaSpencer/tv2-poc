@@ -1,6 +1,6 @@
 import 'reflect-metadata';
+import { z } from 'zod';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../../app.module.js';
 import { JetStreamAdapter } from '../../messaging/jetstream.adapter.js';
 import { contentEventV1Schema } from '../../contracts/events.js';
 import { searchQuarantineV1Schema, SEARCH_INDEX_ALIASES, type SearchIndexAlias } from '../../contracts/search.js';
@@ -42,6 +42,10 @@ async function inspect(broker: JetStreamAdapter, value: number) {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
+  if (command === 'repair' && !z.uuid().safeParse(option('id')).success) {
+    throw new Error('repair_target_unknown');
+  }
+  const { AppModule } = await import('../../app.module.js');
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   try {
     const broker = app.get(JetStreamAdapter);
@@ -75,7 +79,7 @@ async function main(): Promise<void> {
     if (command === 'repair') {
       const id = option('id');
       const target = option('index');
-      if (!id) throw new Error('repair_target_unknown');
+      if (!id || !z.uuid().safeParse(id).success) throw new Error('repair_target_unknown');
       if (target !== 'both' && !(SEARCH_INDEX_ALIASES as readonly string[]).includes(target ?? '')) {
         throw new Error('invalid_index');
       }

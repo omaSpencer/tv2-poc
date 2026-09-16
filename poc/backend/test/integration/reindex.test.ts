@@ -8,16 +8,32 @@ describe.skipIf(!databaseUrl)('M5 reindex persistence', () => {
   const services = databaseUrl ? createServices(testDatabaseUrl()) : null;
   const control = services ? new ReindexControlRepository(services.database) : null;
 
-  beforeEach(async () => {
-    await truncateAll();
-    await query(`
+  const resetControl = () => query(`
       update search_index_control set
         phase = 'ready', desired_worker_state = 'running', run_id = null,
         owner_id = null, worker_paused_at = null, last_error_code = null,
         completed_at = statement_timestamp(), updated_at = statement_timestamp()
     `);
+  beforeEach(async () => {
+    await truncateAll();
+    await resetControl();
   });
-  afterAll(async () => { await services?.database.onApplicationShutdown(); });
+  afterAll(async () => {
+    try { await resetControl(); }
+    finally { await services?.database.onApplicationShutdown(); }
+  });
+
+  it('allows a server-side timeout override beyond the former 5.5-second client limit', async () => {
+    await services!.database.withClient(async client => {
+      await client.query('begin');
+      try {
+        await client.query("set local statement_timeout = '8000ms'");
+        await client.query('select pg_sleep(6)');
+      } finally {
+        await client.query('rollback');
+      }
+    });
+  });
 
   it('M5-T01 seeds exactly the durable A/B control rows', async () => {
     const rows = await control!.all();

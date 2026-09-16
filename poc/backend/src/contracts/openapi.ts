@@ -14,7 +14,7 @@
  * contract tests that compare a real response against these schemas.
  */
 import { z } from 'zod';
-import { CONTENT_CATEGORIES, CONTENT_STATUSES } from '../schema.js';
+import { CONTENT_CATEGORIES, CONTENT_STATUSES, REINDEX_PHASES, WORKER_DESIRED_STATES } from '../schema.js';
 import { ERROR_CODES } from './errors.js';
 import { PERMISSIONS, ROLES } from './permissions.js';
 import {
@@ -103,13 +103,26 @@ export const catalogSearchViewSchema = z.strictObject({
 
 /** Per-index worker view inside processing-status (M4-07). */
 export const searchIndexStatusSchema = z.strictObject({
-  state: z.enum(['off', 'bootstrapping', 'idle', 'processing', 'retrying', 'halted']),
+  state: z.enum(['off', 'bootstrapping', 'idle', 'processing', 'retrying', 'paused', 'halted']),
   durable: z.string(),
   inFlightEventId: z.uuid().nullable()
     .describe('Not necessarily included in the durable pending count.'),
+  inFlightTaskUid: z.number().int().nullable(),
   lastAckedAt: isoDateTime.nullable(),
   lastErrorCode: z.string().nullable(),
   reachable: z.boolean().nullable().describe('Null until the endpoint has been probed.'),
+  phase: z.enum(REINDEX_PHASES).nullable(),
+  desiredWorkerState: z.enum(WORKER_DESIRED_STATES).nullable(),
+  runId: z.uuid().nullable(),
+  snapshotStreamSequence: z.number().int().nullable(),
+  outboxHighWater: z.number().int().nullable(),
+  catchUpStreamSequence: z.number().int().nullable(),
+  importedDocuments: z.number().int().nonnegative(),
+  expectedDocuments: z.number().int().nullable(),
+  startedAt: isoDateTime.nullable(),
+  updatedAt: isoDateTime.nullable(),
+  completedAt: isoDateTime.nullable(),
+  routeEligible: z.boolean().describe('phase === ready AND the runtime state is routable.'),
 });
 
 export const processingStatusViewSchema = z.strictObject({
@@ -131,6 +144,10 @@ export const processingStatusViewSchema = z.strictObject({
   consumers: z.array(z.strictObject({
     name: z.string(),
     pending: z.number().int().nonnegative(),
+    ackPending: z.number().int().nonnegative(),
+    ackFloorStreamSequence: z.number().int().nonnegative(),
+    oldestUnfinishedAt: isoDateTime.nullable(),
+    oldestUnfinishedAgeMs: z.number().int().nonnegative().nullable(),
   })).optional(),
   quarantine: z.strictObject({ pending: z.number().int().nonnegative() }).optional(),
   consumersUnavailable: z.boolean().optional(),

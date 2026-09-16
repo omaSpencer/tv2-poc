@@ -23,7 +23,7 @@ import { DatabaseService, isConnectionFailure } from '../database.js';
 import { ContentRepository } from '../content/content.repository.js';
 import { classifyMeiliError, meiliErrorCode, type MeiliSearchHits } from './meili.adapter.js';
 import { SearchRegistry } from './search.registry.js';
-import { SearchState } from './worker.state.js';
+import { SearchState, runtimeStateIsRoutable } from './worker.state.js';
 import { ReindexControlRepository } from './reindex/control.repository.js';
 import { phaseIsRoutable } from '../contracts/reindex.js';
 
@@ -118,7 +118,7 @@ export class SearchService {
     }
     return (this.control === null || phaseIsRoutable(control?.phase as import('../schema.js').ReindexPhase | undefined))
       && index.bootstrapped
-      && (index.state === 'idle' || index.state === 'processing' || index.state === 'retrying');
+      && runtimeStateIsRoutable(index.state);
   }
 
   private async queryInstance(alias: SearchIndexAlias, query: CatalogSearchQuery): Promise<MeiliSearchHits> {

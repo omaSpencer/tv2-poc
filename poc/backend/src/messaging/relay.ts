@@ -108,8 +108,7 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
       this.log.warn({ event: 'relay_start_refused', reason: 'previous_loop_still_running' });
       return;
     }
-    const enabled = this.config.getOrThrow<string>('FEATURE_OUTBOX_RELAY') === 'on'
-      || process.env.FEATURE_OUTBOX_RELAY === 'on';
+    const enabled = this.config.getOrThrow<string>('FEATURE_OUTBOX_RELAY') === 'on';
     if (!enabled) return;
     this.status.setEnabled(true);
     this.running = true;
@@ -253,14 +252,7 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
 
       this.status.setState('publishing');
       await this.hooks.beforePublish?.(row.eventId);
-      let published;
-      try {
-        published = await this.broker.publish(payload, row.eventId);
-      } catch (error) {
-        const kind = classifyBrokerError(error);
-        if (kind === 'fatal') throw error;
-        throw error;
-      }
+      const published = await this.broker.publish(payload, row.eventId);
 
       this.log.info({
         event: 'relay_published',

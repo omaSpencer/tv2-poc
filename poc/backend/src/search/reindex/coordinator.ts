@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { PoolClient } from 'pg';
+import { pino, type Logger } from 'pino';
 import type { SearchIndexAlias } from '../../contracts/search.js';
 import { ADVISORY_LOCK_CLASS, ADVISORY_LOCK_OBJECT, type ReindexErrorCode } from '../../contracts/reindex.js';
 import { DatabaseService } from '../../database.js';
@@ -47,6 +48,7 @@ export type ReindexTestHooks = {
 
 @Injectable()
 export class ReindexCoordinator {
+  private readonly log: Logger;
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(DatabaseService) private readonly database: DatabaseService,
@@ -55,7 +57,9 @@ export class ReindexCoordinator {
     @Inject(SearchState) private readonly state: SearchState,
     @Inject('SEARCH_BROKER') private readonly broker: JetStreamAdapter,
     @Optional() @Inject(REINDEX_TEST_HOOKS) private readonly hooks: ReindexTestHooks | null = null,
-  ) {}
+  ) {
+    this.log = pino({ level: this.config.get<string>('LOG_LEVEL') ?? 'info' });
+  }
 
   async run(options: ReindexRunOptions): Promise<ReindexRunResult> {
     if (!this.registry.enabled) throw new ReindexRunError('index_unreachable', 'search_disabled');
@@ -63,6 +67,10 @@ export class ReindexCoordinator {
     const runId = randomUUID();
     const ownerId = randomUUID();
     let began = false;
+    let importer: StagingImporter | null = null;
+    // A lost response can leave a successfully submitted swap unresolved.
+    // Preserve the staging UID once submission starts: it may hold the old live index.
+    let swapStarted = false;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
 
     return this.database.withClient(async client => {
@@ -86,7 +94,8 @@ export class ReindexCoordinator {
         await this.control.setPhase(options.index, 'importing');
 
         const adapter = this.registry.adapter(options.index);
-        const importer = new StagingImporter(adapter, this.control, options.index, runId);
+        const staging = new StagingImporter(adapter, this.control, options.index, runId);
+        importer = staging;
         const batchSize = this.config.get<number>('REINDEX_BATCH_SIZE') ?? 500;
         const importTimeout = this.config.get<number>('REINDEX_IMPORT_TIMEOUT_MS') ?? 300_000;
         const importDeadline = Date.now() + importTimeout;
@@ -97,11 +106,11 @@ export class ReindexCoordinator {
               outboxHighWater: metadata.highWater,
               expectedDocuments: metadata.expectedDocuments,
             });
-            await importer.prepare();
+            await staging.prepare();
           }, async documents => {
             this.assertNotAborted(options.signal);
             if (Date.now() >= importDeadline) throw new ReindexRunError('import_timeout');
-            await importer.import(documents);
+            await staging.import(documents);
           });
         } catch (error) {
           if (error instanceof ReindexRunError) throw error;
@@ -111,7 +120,7 @@ export class ReindexCoordinator {
         const current = await this.control.get(options.index);
         const highWater = current?.outboxHighWater ?? 0;
         const expected = current?.expectedDocuments ?? 0;
-        await importer.assertCount(expected);
+        await staging.assertCount(expected);
         await this.hooks?.afterImport?.(runId);
 
         await this.waitForRelay(highWater, importDeadline, options.signal);
@@ -122,7 +131,8 @@ export class ReindexCoordinator {
         }
 
         await this.control.setPhase(options.index, 'swapping');
-        await importer.swap();
+        swapStarted = true;
+        await staging.swap();
         await this.hooks?.afterSwap?.(runId);
         await this.control.setPhase(options.index, 'catching_up');
         await this.control.resumeWorker(options.index);
@@ -133,7 +143,7 @@ export class ReindexCoordinator {
         // The swap leaves the former live index at the staging UID. Cleanup is
         // deliberately after the atomic ready commit; failure is a maintenance
         // warning, never a reason to invalidate a verified live index.
-        await importer.cleanupOldIndex().catch(() => undefined);
+        await this.cleanup(staging, runId);
         return {
           runId,
           index: options.index,
@@ -144,6 +154,7 @@ export class ReindexCoordinator {
           durationMs: Date.now() - started,
         };
       } catch (error) {
+        if (began && importer !== null && !swapStarted) await this.cleanup(importer, runId);
         if (began) await this.control.fail(options.index, this.errorCode(error)).catch(() => undefined);
         throw error;
       } finally {
@@ -262,7 +273,7 @@ export class ReindexCoordinator {
       return result;
     } catch (error) {
       await client.query('rollback').catch(() => undefined);
-      if ((error as { code?: string }).code === '55P03') throw new ReindexRunError('verify_timeout');
+      if (['55P03', '57014'].includes((error as { code?: string }).code ?? '')) throw new ReindexRunError('verify_timeout');
       throw error;
     }
   }
@@ -271,10 +282,13 @@ export class ReindexCoordinator {
     if (signal?.aborted) throw new ReindexRunError('aborted');
   }
 
+  private async cleanup(importer: StagingImporter, runId: string): Promise<void> {
+    await importer.cleanupOldIndex().catch(() => {
+      this.log.warn({ event: 'reindex_cleanup_failed', runId, stagingUid: importer.stagingUid });
+    });
+  }
+
   private errorCode(error: unknown): ReindexErrorCode {
-    if (error instanceof ReindexRunError) return error.code;
-    const message = error instanceof Error ? error.message : '';
-    if (/timeout/i.test(message)) return 'internal_error';
-    return 'internal_error';
+    return error instanceof ReindexRunError ? error.code : 'internal_error';
   }
 }

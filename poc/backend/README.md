@@ -39,6 +39,9 @@ Az alkalmazás a `.env` fájlból olvas, hacsak az `ENV_FILE` nem jelöl ki más
 Kijelölt, de hiányzó `ENV_FILE` indítási hiba; másik `.env`-re **nincs** csendes
 visszaesés. A `.env.example` placeholder, nem indításra kész konfiguráció.
 
+A `HOST` alapértéke `127.0.0.1`; konténeres futtatáshoz állítsd `0.0.0.0`-ra.
+A 256 KB feletti JSON request body `413 payload_too_large` választ kap.
+
 Ellenőrzés:
 
 ```bash

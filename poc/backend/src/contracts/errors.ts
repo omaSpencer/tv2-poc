@@ -16,6 +16,7 @@ export const ERROR_CODES = {
   content_not_published: 409,
   content_not_editable: 409,
   slug_conflict: 409,
+  payload_too_large: 413,
   validation_failed: 422,
   internal_error: 500,
   dependency_unavailable: 503,

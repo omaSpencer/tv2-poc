@@ -128,7 +128,7 @@ export function jsonBodyErrors() {
       return;
     }
     const correlationId = res.locals.correlationId ?? randomUUID();
-    const code: ErrorCode = candidate.type === 'entity.parse.failed' ? 'invalid_json' : 'validation_failed';
+    const code: ErrorCode = candidate.type === 'entity.parse.failed' ? 'invalid_json' : 'payload_too_large';
     const detail = code === 'invalid_json'
       ? 'The request body is not valid JSON.'
       : 'The request body exceeds the accepted size.';

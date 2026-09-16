@@ -60,10 +60,18 @@ export class DatabaseService implements OnApplicationShutdown {
     this.pool = new Pool({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
       max: 10, connectionTimeoutMillis: 1000, idleTimeoutMillis: 10000,
-      statement_timeout: 5000, query_timeout: 5500,
+      // Server-side only: SET LOCAL can extend the timeout for recovery operations.
+      statement_timeout: 5000,
     });
     // pg emits idle-connection errors. Never log the raw connection/error object.
-    this.pool.on('error', () => {});
+    this.pool.on('error', error => {
+      const candidate = (error as { code?: unknown }).code;
+      // Only recognized connection codes or SQLSTATEs; never arbitrary error text.
+      const code = typeof candidate === 'string'
+        && (CONNECTION_FAILURE_CODES.has(candidate) || /^[0-9A-Z]{5}$/.test(candidate))
+        ? candidate : 'unknown';
+      process.stderr.write(JSON.stringify({ event: 'pg_pool_error', code }) + '\n');
+    });
     this.db = drizzle(this.pool, { schema });
   }
 

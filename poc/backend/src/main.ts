@@ -27,7 +27,7 @@ async function bootstrap() {
   const document = createOpenApiDocument(app);
   SwaggerModule.setup('docs', app, document, { jsonDocumentUrl: '/docs-json' });
   try {
-    await app.listen(config.getOrThrow<number>('PORT'), '127.0.0.1');
+    await app.listen(config.getOrThrow<number>('PORT'), config.getOrThrow<string>('HOST'));
   } catch (error) { await app.close(); throw error; }
   // Independent of configured log level: the smoke parent learns the actual bound port.
   process.stdout.write(JSON.stringify({ event: 'listening', url: await app.getUrl() }) + '\n');

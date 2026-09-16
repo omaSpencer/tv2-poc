@@ -175,6 +175,10 @@ export class TokenVerifier {
     }
   }
 
+  /**
+   * Deliberately strict: only the exact `Bearer ` prefix (case-sensitive,
+   * single space) is accepted by this API's existing client contract.
+   */
   private extractBearer(header: string | undefined): string {
     if (header === undefined || header.length === 0) this.reject('missing_bearer');
     const match = /^(Bearer) (.+)$/.exec(header!);
@@ -245,7 +249,7 @@ export class TokenVerifier {
       this.log.warn({ event: 'token_rejected', reason: 'idp_unavailable' });
       throw new ApiError('dependency_unavailable', 'The identity provider is currently unavailable.');
     }
-    if (error instanceof TypeError || (error instanceof Error && /fetch|network|ECONNREFUSED|ENOTFOUND|timeout/i.test(error.message))) {
+    if (error instanceof TypeError) {
       this.log.warn({ event: 'token_rejected', reason: 'idp_unavailable' });
       throw new ApiError('dependency_unavailable', 'The identity provider is currently unavailable.');
     }

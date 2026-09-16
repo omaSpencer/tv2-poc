@@ -32,6 +32,7 @@ export class AdminContentController {
   @HttpCode(201)
   @RequirePermission('content:write')
   @ApiOperation({ summary: 'Create a draft content' })
+  @ApiResponse({ status: 413, ...problemResponse('payload_too_large: request body exceeds 256 KB') })
   @ApiBody({ required: true, schema: schemaRef('CreateContentBody') })
   @ApiResponse({ status: 201, ...jsonResponse('AdminContentView', 'Draft created at version 1') })
   @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
@@ -46,6 +47,7 @@ export class AdminContentController {
   @RequirePermission('content:write')
   @ApiOperation({ summary: 'Edit a draft or withdrawn content' })
   @ApiParam(ID_PARAM)
+  @ApiResponse({ status: 413, ...problemResponse('payload_too_large: request body exceeds 256 KB') })
   @ApiBody({ required: true, schema: schemaRef('PatchContentBody') })
   @ApiResponse({ status: 200, ...jsonResponse('AdminContentView', 'Updated, or the unchanged record on a no-op') })
   @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
@@ -67,6 +69,7 @@ export class AdminContentController {
   @RequirePermission('content:publish')
   @ApiOperation({ summary: 'Publish a draft or withdrawn content' })
   @ApiParam(ID_PARAM)
+  @ApiResponse({ status: 413, ...problemResponse('payload_too_large: request body exceeds 256 KB') })
   @ApiBody({ required: true, schema: schemaRef('VersionedCommandBody') })
   @ApiResponse({
     status: 200,
@@ -91,6 +94,7 @@ export class AdminContentController {
   @RequirePermission('content:publish')
   @ApiOperation({ summary: 'Withdraw a published content' })
   @ApiParam(ID_PARAM)
+  @ApiResponse({ status: 413, ...problemResponse('payload_too_large: request body exceeds 256 KB') })
   @ApiBody({ required: true, schema: schemaRef('VersionedCommandBody') })
   @ApiResponse({ status: 200, ...jsonResponse('AdminContentView', 'Withdrawn; the slug stays reserved') })
   @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })

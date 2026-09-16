@@ -103,3 +103,8 @@ export class SearchState {
     return Object.fromEntries(entries) as Record<SearchIndexAlias, SearchIndexStatusSnapshot>;
   }
 }
+
+/** Runtime eligibility; the durable phase and bootstrap are checked separately. */
+export function runtimeStateIsRoutable(state: SearchIndexRunState): boolean {
+  return state === 'idle' || state === 'processing' || state === 'retrying';
+}

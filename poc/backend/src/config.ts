@@ -7,6 +7,7 @@ const optional = z.string().min(1).optional();
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.coerce.number().int().min(0).max(65535),
+  HOST: z.string().trim().min(1).default('127.0.0.1'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']),
   // Parsed defensively: a malformed value must surface as a configuration
   // error naming the key, never as a URL parser message echoing the value.

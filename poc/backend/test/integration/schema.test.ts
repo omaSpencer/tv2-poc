@@ -25,11 +25,11 @@ describe('T01 migration and database constraints', () => {
   beforeAll(() => truncateAll(url));
   beforeEach(() => truncateAll(url));
 
-  it('created the three tables with their uniqueness rules', async () => {
+  it('created the content and recovery tables with their uniqueness rules', async () => {
     const tables = await query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema='public' order by table_name", [], url,
     );
-    expect(tables.map(row => row.table_name)).toEqual(['content', 'content_audit', 'outbox_event']);
+    expect(tables.map(row => row.table_name)).toEqual(['content', 'content_audit', 'outbox_event', 'search_index_control']);
 
     const constraints = await query<{ conname: string }>(
       "select conname from pg_constraint where connamespace='public'::regnamespace order by conname", [], url,
@@ -47,9 +47,9 @@ describe('T01 migration and database constraints', () => {
     expect(indexes).toHaveLength(1);
   });
 
-  it('recorded both migrations once and did not apply them twice', async () => {
+  it('recorded all three migrations once and did not apply them twice', async () => {
     const applied = await query<{ count: number }>('select count(*)::int as count from drizzle.__drizzle_migrations', [], url);
-    expect(applied[0].count).toBe(2);
+    expect(applied[0].count).toBe(3);
   });
 
   it('rejects a disallowed status or category', async () => {

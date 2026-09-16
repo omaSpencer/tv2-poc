@@ -13,7 +13,7 @@ import { jsonResponse, problemResponse } from '../contracts/openapi.js';
 import { JetStreamAdapter } from '../messaging/jetstream.adapter.js';
 import { RelayState } from '../messaging/relay.state.js';
 import { SearchRegistry } from '../search/search.registry.js';
-import { SearchState, type SearchIndexStatusSnapshot } from '../search/worker.state.js';
+import { SearchState, runtimeStateIsRoutable, type SearchIndexStatusSnapshot } from '../search/worker.state.js';
 import { ReindexControlRepository } from '../search/reindex/control.repository.js';
 import type { ReindexPhase, WorkerDesiredState } from '../schema.js';
 
@@ -140,7 +140,7 @@ export class ProcessingStatusController {
       const merged = (alias: 'a' | 'b') => {
         const row = byAlias.get(alias);
         const current = runtime[alias];
-        const runtimeRoutable = current.state === 'idle' || current.state === 'processing' || current.state === 'retrying';
+        const runtimeRoutable = runtimeStateIsRoutable(current.state);
         return {
           ...current,
           phase: (row?.phase as ReindexPhase | undefined) ?? null,

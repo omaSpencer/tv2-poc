@@ -96,3 +96,11 @@ Ant Media/DRM hozzáférés és tényleges entitlement-szabályok külső előfe
 ## Lezárási státusz
 
 Az M0–M1 dokumentumreview döntési pontjai rendezettek. Következő végrehajtási lépés az M0-02 spike és az M0 core alap elkészítése, külön implementációs munkában. A fázisok checklistjei változatlanul teljesítendő ellenőrzéseket jelölnek. A korábbi review történeti megállapításai a [review-naplóban](M0-REVIEW.md) maradnak.
+
+## D11 – Backend audit javítások (2026-09-16)
+
+- A 256 KB-os JSON body limit túllépése `413 payload_too_large`; a mezőhibák továbbra is `422 validation_failed`. A hibakódszótár és az OpenAPI ennek megfelelően bővült (F-13).
+- A `HOST` validált beállítás alapértéke `127.0.0.1`; konténeres futtatáshoz `0.0.0.0` adható meg (F-11).
+- Reindexhiba esetén a saját staging index a swap megkezdése előtt takarítható. A swap megkezdése után, bizonytalan válasz esetén is megmarad, mert már a régi éles indexet tartalmazhatja. Sikeres verify/ready után törölhető; sikertelen törlés strukturált `reindex_cleanup_failed` figyelmeztetést ad. Korábbi staging indexek automatikus söprése ezért nem történik (F-03, F-06).
+- A Bearer prefix szándékosan szigorú, a meglévő klienskontraktus változatlan (F-09).
+- Az audit információs I-01, I-03–I-06 megjegyzései továbbra is későbbi skálázási/élesítési feladatok. A sequence-tartomány teljes ellenőrzését nem helyettesítjük szúrópróbával, mert az nem bizonyítaná a köztes üzenetek meglétét. I-02-höz a konstansokra korlátozott SQL-helper használati feltételét dokumentáltuk.

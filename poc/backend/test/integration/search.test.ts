@@ -11,6 +11,7 @@
  * instances per case; cleanup removes only those.
  */
 import 'reflect-metadata';
+import { processingStatusViewSchema } from '../../src/contracts/openapi.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { connect, type NatsConnection } from '@nats-io/transport-node';
@@ -464,9 +465,10 @@ describe.skipIf(!ready)('M4: projection through both indexes', () => {
     // stream's dedup window does not swallow it.
     await publishRaw(h.nc, h.names, JSON.stringify(publishEnvelope), `replay-${publishEnvelope.eventId}`);
 
-    await waitFor('replay consumed', async () => {
-      const info = await consumerPending(h.jsm, h.names, h.app.state.get('a').durable);
-      return info.pending === 0 && info.ackPending === 0;
+    await waitFor('replay consumed by both indexes', async () => {
+      const progress = await Promise.all((['a', 'b'] as const).map(alias =>
+        consumerPending(h.jsm, h.names, h.app.state.get(alias).durable)));
+      return progress.every(info => info.pending === 0 && info.ackPending === 0);
     });
     // The current row is withdrawn, so the replay must not resurrect it.
     expect(await storedDocument(endpoints.a, h.indexUid, published.id)).toBeNull();
@@ -1030,6 +1032,7 @@ describe.skipIf(!ready)('M4: the public search route', () => {
 
     const ops = actor('publisher-1', ['publisher']);
     const normal = await h.app.request('GET', '/admin/processing-status', { actor: ops });
+    expect(processingStatusViewSchema.safeParse(normal.body).success).toBe(true);
     expect(normal.status).toBe(200);
     expect(normal.body.outbox.pending).toBeGreaterThanOrEqual(1);
     expect(normal.body.outbox.oldestOccurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
@@ -1049,6 +1052,7 @@ describe.skipIf(!ready)('M4: the public search route', () => {
     await deliverPending(h.nc, h.names);
     await waitFor('a is retrying', async () => h.app.state.get('a').state === 'retrying', 30_000, 50);
     const degraded = await h.app.request('GET', '/admin/processing-status', { actor: ops });
+    expect(processingStatusViewSchema.safeParse(degraded.body).success).toBe(true);
     expect(degraded.status).toBe(200);
     expect(degraded.body.indexes.a.state).toBe('retrying');
     expect(degraded.body.indexes.a.reachable).toBe(false);

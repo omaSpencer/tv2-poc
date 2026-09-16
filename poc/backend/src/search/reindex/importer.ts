@@ -67,6 +67,6 @@ export class StagingImporter {
 
   async cleanupOldIndex(): Promise<void> {
     const task = await this.adapter.deleteNamedIndex(this.stagingUid);
-    if (task !== null) await this.adapter.awaitTask(task);
+    if (task !== null) await this.succeeded(task, 'import_task_failed');
   }
 }

@@ -274,7 +274,7 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
       if (!this.running) return true;
 
       const deliveredAt = new Date();
-      await this.outbox.markDelivered(this.database.db, row.eventId, deliveredAt);
+      await this.outbox.markDelivered(this.database.db, row.eventId, deliveredAt, published.streamSeq);
       this.status.markDelivered(deliveredAt);
       this.log.info({
         event: 'relay_delivered',

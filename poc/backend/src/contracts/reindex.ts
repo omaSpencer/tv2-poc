@@ -55,6 +55,8 @@ export const REINDEX_ERROR_CODES = [
   'reindex_already_running',
   /** The other index is not `ready + reachable` and no outage was confirmed. */
   'other_index_unavailable',
+  /** A production/outage run did not name the exact target database. */
+  'target_confirmation_required',
   /** A live worker did not acknowledge the pause inside the drain budget. */
   'worker_drain_timeout',
   /** The snapshot transaction exceeded its statement or import budget. */

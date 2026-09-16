@@ -7,7 +7,7 @@
  * broken application path cannot persist an invalid row.
  */
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, jsonb, pgSequence, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const CONTENT_STATUSES = ['draft', 'published', 'withdrawn'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
@@ -65,6 +65,7 @@ export const CONSTRAINTS = {
  * assume the values are contiguous.
  */
 export const OUTBOX_SEQUENCE_NAME = 'outbox_event_outbox_sequence_seq';
+export const outboxSequenceAllocation = pgSequence(OUTBOX_SEQUENCE_NAME, { startWith: 1, increment: 1 });
 
 
 const inList = (column: string, values: readonly string[]) =>
@@ -195,7 +196,7 @@ export const outboxEvent = pgTable(
     // A stream sequence exists only for a row the relay has proved delivered.
     check(
       'outbox_event_stream_sequence_pair',
-      sql`(${table.streamSequence} is null and ${table.deliveredAt} is null) or (${table.streamSequence} >= 1 and ${table.deliveredAt} is not null)`,
+      sql`${table.streamSequence} is null or (${table.streamSequence} >= 1 and ${table.deliveredAt} is not null)`,
     ),
     index('outbox_event_outbox_sequence_idx').on(table.outboxSequence),
     // The envelope type and the payload status are one decision, stored once.

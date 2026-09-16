@@ -36,6 +36,7 @@ import {
 import { projectionFor } from './projection.js';
 import { buildQuarantine, quarantineMsgId, recoverEventId } from './quarantine.js';
 import type { SearchIndexState } from './worker.state.js';
+import type { ReindexControlRepository } from './reindex/control.repository.js';
 
 /** D08 backoff ladder. The last value repeats for every further attempt. */
 export const SEARCH_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16_000, 30_000] as const;
@@ -127,6 +128,7 @@ export class SearchProjectionWorker {
     private readonly database: DatabaseService,
     private readonly repository: ContentRepository,
     options: SearchWorkerOptions = {},
+    private readonly control: ReindexControlRepository | null = null,
   ) {
     this.log = pino({ level: options.logLevel ?? 'info' });
     this.retryDelays = options.retryDelaysMs ?? SEARCH_RETRY_DELAYS_MS;
@@ -219,6 +221,8 @@ export class SearchProjectionWorker {
       this.state.bootstrapped = false;
       this.state.setState('off');
       this.state.setInFlight(null);
+      this.state.setTask(null);
+      await this.control?.observeWorker(this.alias, null).catch(() => undefined);
       this.log.info({ event: 'search_worker_stopped', index: this.alias });
       this.stopping = null;
     })();
@@ -227,6 +231,13 @@ export class SearchProjectionWorker {
 
   private async runLoop(): Promise<void> {
     while (this.running) {
+      try {
+        if (await this.pauseWhenRequested()) continue;
+      } catch (error) {
+        this.recordFailure(error, 'search_control_retry');
+        await this.wake.backoff(this.nextDelayMs());
+        continue;
+      }
       if (this.isHalted()) {
         // Halted needs an operator, not a retry. Only shutdown ends this wait.
         await this.wake.backoff(HALT_POLL_MS);
@@ -335,6 +346,7 @@ export class SearchProjectionWorker {
       }
       const event = parsed.data;
       this.state.setInFlight(event.eventId);
+      await this.control?.observeWorker(this.alias, event.eventId);
       this.log.info({
         event: 'search_event_received',
         index: this.alias,
@@ -380,6 +392,7 @@ export class SearchProjectionWorker {
           pendingTaskUid = decision.operation === 'upsert'
             ? await this.adapter.submitUpsert(decision.document)
             : await this.adapter.submitDelete(decision.id);
+          this.state.setTask(pendingTaskUid);
           this.log.info({
             event: 'search_task_submitted',
             index: this.alias,
@@ -397,6 +410,7 @@ export class SearchProjectionWorker {
           if (!this.running) return;
           message.ack();
           this.state.markAcked();
+          await this.control?.observeWorker(this.alias, null);
           this.state.setState('idle');
           this.attempt = 0;
           this.log.info({
@@ -409,6 +423,7 @@ export class SearchProjectionWorker {
         }
         // Terminal but unsuccessful: this task UID is spent either way.
         pendingTaskUid = null;
+        this.state.setTask(null);
         if (isPermanentTaskError(result.errorCode)) {
           await this.quarantine(message, 'projection_rejected', event.eventId);
           return;
@@ -426,6 +441,8 @@ export class SearchProjectionWorker {
         }
         if (kind === 'client_error') {
           // A 4xx from a request we built: no retry can change the answer.
+          pendingTaskUid = null;
+          this.state.setTask(null);
           this.log.warn({
             event: 'search_projection_rejected',
             index: this.alias,
@@ -474,6 +491,7 @@ export class SearchProjectionWorker {
         if (!this.running) return;
         message.ack();
         this.state.markAcked();
+        await this.control?.observeWorker(this.alias, null);
         this.state.setState('idle');
         this.attempt = 0;
         this.log.warn({
@@ -550,5 +568,32 @@ export class SearchProjectionWorker {
     const delay = retryDelayMs(this.attempt, this.retryDelays);
     this.attempt += 1;
     return delay;
+  }
+
+  /**
+   * Durable pause handshake used by reindex. It is checked immediately before
+   * every fetch. An already-held message is deliberately not interrupted: its
+   * Meili task and ACK finish first, then the next loop iteration acknowledges
+   * the pause without asking JetStream for another delivery.
+   */
+  private async pauseWhenRequested(): Promise<boolean> {
+    if (this.control === null) return false;
+    const row = await this.control.get(this.alias);
+    if (row === null) {
+      this.state.halt('control_row_missing');
+      await this.wake.backoff(HALT_POLL_MS);
+      return true;
+    }
+    await this.control.observeWorker(this.alias, this.state.inFlightEventId);
+    if (row.desiredWorkerState !== 'paused') {
+      if (this.state.state === 'paused') this.state.setState('idle');
+      return false;
+    }
+    if (this.state.inFlightEventId === null) {
+      this.state.setState('paused');
+      await this.control.acknowledgePaused(this.alias);
+    }
+    await this.wake.backoff(250);
+    return true;
   }
 }

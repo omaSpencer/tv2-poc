@@ -42,6 +42,13 @@ const schema = z.object({
   MEILI_TASK_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   MEILI_TASK_POLL_MS: z.coerce.number().int().positive().default(100),
   SEARCH_CONSUMER_WORKING_MS: z.coerce.number().int().positive().max(10_000).default(10_000),
+  REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).default(500),
+  REINDEX_DRAIN_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  REINDEX_IMPORT_TIMEOUT_MS: z.coerce.number().int().positive().default(300_000),
+  REINDEX_OWNER_HEARTBEAT_MS: z.coerce.number().int().positive().default(5000),
+  REINDEX_WORKER_STALE_MS: z.coerce.number().int().positive().default(15_000),
+  REINDEX_VERIFY_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  CONTENT_WRITE_BARRIER_WAIT_MS: z.coerce.number().int().positive().default(5000),
   ANTMEDIA_BASE_URL: optional,
   ANTMEDIA_TOKEN: optional,
 });
@@ -144,6 +151,12 @@ export function validateConfig(input: Record<string, unknown>): AppConfig {
   // is a configuration error, not a degraded mode we accept silently.
   if (config.FEATURE_SEARCH === 'on' && sameEndpoint(config.MEILI_A_URL, config.MEILI_B_URL)) {
     throw new ConfigurationError(['MEILI_A_URL', 'MEILI_B_URL']);
+  }
+  if (config.REINDEX_WORKER_STALE_MS <= config.REINDEX_OWNER_HEARTBEAT_MS) {
+    throw new ConfigurationError(['REINDEX_WORKER_STALE_MS']);
+  }
+  if (config.REINDEX_VERIFY_TIMEOUT_MS < config.CONTENT_WRITE_BARRIER_WAIT_MS) {
+    throw new ConfigurationError(['REINDEX_VERIFY_TIMEOUT_MS']);
   }
   // Features without a verifying adapter still refuse to start.
   const unimplemented = enabled.filter(key => !(IMPLEMENTED_ADAPTERS as readonly string[]).includes(key));

@@ -21,6 +21,7 @@ import { MeiliIndexAdapter } from './meili.adapter.js';
 import { SearchProjectionWorker, type SearchWorkerOptions } from './projection.worker.js';
 import { resolveSearchConfig, type SearchConfig } from './search.config.js';
 import { SearchState } from './worker.state.js';
+import { ReindexControlRepository } from './reindex/control.repository.js';
 
 /** DI token for the search stack's own broker connection. */
 export const SEARCH_BROKER = 'SEARCH_BROKER';
@@ -40,6 +41,7 @@ export class SearchRegistry implements OnModuleInit, OnApplicationShutdown {
     @Inject(SEARCH_BROKER) private readonly broker: JetStreamAdapter,
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(ContentRepository) private readonly repository: ContentRepository,
+    @Inject(ReindexControlRepository) private readonly control: ReindexControlRepository,
     @Optional() @Inject(SEARCH_WORKER_OPTIONS) private readonly workerOptions: SearchWorkerOptions | null = null,
   ) {
     this.names = topologyNames(
@@ -71,6 +73,7 @@ export class SearchRegistry implements OnModuleInit, OnApplicationShutdown {
         this.database,
         this.repository,
         { workingMs: this.config.workingMs, logLevel, ...this.workerOptions },
+        this.control,
       ));
     }
   }

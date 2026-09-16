@@ -6,6 +6,8 @@ import { CatalogSearchController } from './catalog-search.controller.js';
 import { SEARCH_BROKER, SearchRegistry } from './search.registry.js';
 import { SearchService } from './search.service.js';
 import { SearchState } from './worker.state.js';
+import { ReindexControlRepository } from './reindex/control.repository.js';
+import { ReindexCoordinator } from './reindex/coordinator.js';
 
 /**
  * The search stack gets its own JetStream connection rather than sharing the
@@ -18,6 +20,8 @@ import { SearchState } from './worker.state.js';
   controllers: [CatalogSearchController],
   providers: [
     SearchState,
+    ReindexControlRepository,
+    ReindexCoordinator,
     {
       provide: SEARCH_BROKER,
       useFactory: (config: ConfigService) => new JetStreamAdapter(config),
@@ -26,6 +30,6 @@ import { SearchState } from './worker.state.js';
     SearchRegistry,
     SearchService,
   ],
-  exports: [SearchState, SearchRegistry, SearchService],
+  exports: [SearchState, SearchRegistry, SearchService, ReindexControlRepository, ReindexCoordinator],
 })
 export class SearchModule {}

@@ -15,12 +15,14 @@ export type SearchIndexRunState =
   | 'idle'
   | 'processing'
   | 'retrying'
+  | 'paused'
   | 'halted';
 
 export type SearchIndexStatusSnapshot = {
   state: SearchIndexRunState;
   durable: string;
   inFlightEventId: string | null;
+  inFlightTaskUid: number | null;
   lastAckedAt: string | null;
   lastErrorCode: string | null;
   reachable: boolean | null;
@@ -32,6 +34,7 @@ export class SearchIndexState {
   bootstrapped = false;
   durable = '';
   inFlightEventId: string | null = null;
+  inFlightTaskUid: number | null = null;
   lastAckedAt: Date | null = null;
   lastErrorCode: string | null = null;
   reachable: boolean | null = null;
@@ -53,6 +56,7 @@ export class SearchIndexState {
   markAcked(at = new Date()): void {
     this.lastAckedAt = at;
     this.inFlightEventId = null;
+    this.inFlightTaskUid = null;
     this.lastErrorCode = null;
   }
 
@@ -64,11 +68,16 @@ export class SearchIndexState {
     this.reachable = reachable;
   }
 
+  setTask(taskUid: number | null): void {
+    this.inFlightTaskUid = taskUid;
+  }
+
   snapshot(): SearchIndexStatusSnapshot {
     return {
       state: this.state,
       durable: this.durable,
       inFlightEventId: this.inFlightEventId,
+      inFlightTaskUid: this.inFlightTaskUid,
       lastAckedAt: this.lastAckedAt?.toISOString() ?? null,
       lastErrorCode: this.lastErrorCode,
       reachable: this.reachable,

@@ -1,7 +1,7 @@
 import { Global, Inject, Injectable, Module, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import * as schema from './schema.js';
 import { ApiError } from './contracts/errors.js';
 
@@ -44,6 +44,13 @@ export function isConnectionFailure(error: unknown): boolean {
   return false;
 }
 
+export function isLockTimeout(error: unknown): boolean {
+  for (const candidate of causes(error)) {
+    if (candidate.code === '55P03') return true;
+  }
+  return false;
+}
+
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
   private readonly pool: Pool;
@@ -78,7 +85,24 @@ export class DatabaseService implements OnApplicationShutdown {
       if (isConnectionFailure(error)) {
         throw new ApiError('dependency_unavailable', 'The database is currently unavailable.');
       }
+      if (isLockTimeout(error)) {
+        throw new ApiError('dependency_unavailable', 'A recovery operation is temporarily blocking content publication.');
+      }
       throw error;
+    }
+  }
+
+  /**
+   * A session-scoped operation. Reindex advisory locks and its repeatable-read
+   * snapshot must stay on one PostgreSQL connection; a pooled query helper
+   * cannot provide that guarantee.
+   */
+  async withClient<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      return await work(client);
+    } finally {
+      client.release();
     }
   }
 

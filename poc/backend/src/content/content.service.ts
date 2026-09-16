@@ -6,7 +6,9 @@
  * outbox record share one transaction; a failure anywhere rolls all of it back.
  */
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { sql } from 'drizzle-orm';
 import { CONSTRAINTS, type ContentRow, type ContentStatus } from '../schema.js';
 import { DatabaseService, isConnectionFailure, uniqueViolation, type Transaction } from '../database.js';
 import {
@@ -21,6 +23,7 @@ import { ContentRepository, type ContentPatch } from './content.repository.js';
 import { OutboxRepository } from '../outbox/outbox.repository.js';
 import { OutboxWake } from '../outbox/outbox.wake.js';
 import { slugCandidates } from './slug.js';
+import { ADVISORY_LOCK_CLASS, ADVISORY_LOCK_OBJECT } from '../contracts/reindex.js';
 
 const orderChangedFields = (fields: Iterable<ChangedField>): ChangedField[] => {
   const present = new Set(fields);
@@ -57,6 +60,7 @@ export class ContentService {
     @Inject(ContentRepository) private readonly repository: ContentRepository,
     @Inject(OutboxRepository) private readonly outbox: OutboxRepository,
     @Inject(OutboxWake) private readonly wake: OutboxWake,
+    @Optional() @Inject(ConfigService) private readonly config: ConfigService | null = null,
   ) {}
 
   async create(command: CreateContentCommand, context: OperationContext): Promise<ContentRow> {
@@ -120,6 +124,7 @@ export class ContentService {
 
   async publish(id: string, command: VersionedCommand, context: OperationContext): Promise<ContentRow> {
     const row = await this.database.transaction(async tx => {
+      await this.acquireWriteBarrier(tx);
       const current = await this.requireLocked(tx, id, command.expectedVersion);
       if (current.status === 'published') {
         throw new ApiError('content_already_published', 'The content is already published.');
@@ -161,6 +166,7 @@ export class ContentService {
 
   async withdraw(id: string, command: VersionedCommand, context: OperationContext): Promise<ContentRow> {
     const row = await this.database.transaction(async tx => {
+      await this.acquireWriteBarrier(tx);
       const current = await this.requireLocked(tx, id, command.expectedVersion);
       if (current.status !== 'published') {
         throw new ApiError('content_not_published', 'Only a published content can be withdrawn.');
@@ -221,6 +227,16 @@ export class ContentService {
     // receives a silent success.
     if (current.version !== expectedVersion) throw versionConflict(expectedVersion, current.version);
     return current;
+  }
+
+  private async acquireWriteBarrier(tx: Transaction): Promise<void> {
+    const waitMs = this.config?.get<number>('CONTENT_WRITE_BARRIER_WAIT_MS') ?? 5000;
+    // Config validation guarantees a positive integer; embedding it avoids the
+    // PostgreSQL SET statement's lack of bind-parameter support.
+    await tx.execute(sql.raw(`set local lock_timeout = '${waitMs}ms'`));
+    await tx.execute(sql`select pg_advisory_xact_lock_shared(
+      ${ADVISORY_LOCK_CLASS.writeBarrier}, ${ADVISORY_LOCK_OBJECT.writeBarrier}
+    )`);
   }
 
   /**

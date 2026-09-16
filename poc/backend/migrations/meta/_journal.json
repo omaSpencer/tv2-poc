@@ -15,6 +15,13 @@
       "when": 1789467530027,
       "tag": "0001_content_audit_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789562474544,
+      "tag": "0002_reindex_control",
+      "breakpoints": true
     }
   ]
 }

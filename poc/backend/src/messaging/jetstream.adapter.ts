@@ -26,9 +26,23 @@ export type PublishResult = {
 export type BrokerSnapshot = {
   connected: boolean;
   streamPresent: boolean | null;
-  consumers: Array<{ name: string; pending: number }> | null;
+  consumers: Array<{
+    name: string;
+    pending: number;
+    ackPending: number;
+    ackFloorStreamSequence: number;
+    oldestUnfinishedAt: string | null;
+  }> | null;
   quarantinePending: number | null;
 };
+
+export type ConsumerProgress = {
+  ackFloorStreamSequence: number;
+  pending: number;
+  ackPending: number;
+};
+
+export type StoredMessage = { subject: string; sequence: number; data: Uint8Array };
 
 export const JETSTREAM_TOPOLOGY_LIMITS = 'JETSTREAM_TOPOLOGY_LIMITS';
 
@@ -75,6 +89,10 @@ export class JetStreamAdapter {
 
   get hasTopology(): boolean {
     return this.topologyReady;
+  }
+
+  get serverVersion(): string | null {
+    return this.connection?.info?.version ?? null;
   }
 
   async ensureConnected(): Promise<void> {
@@ -166,6 +184,42 @@ export class JetStreamAdapter {
     return this.jsm.consumers.info(this.names.stream, durable);
   }
 
+  async streamSequence(): Promise<number> {
+    await this.ensureConnected();
+    if (!this.jsm) throw new Error('JetStream manager is not connected.');
+    return (await this.jsm.streams.info(this.names.stream)).state.last_seq;
+  }
+
+  async consumerProgress(durable: string): Promise<ConsumerProgress> {
+    const info = await this.consumerInfo(durable);
+    return {
+      ackFloorStreamSequence: info.ack_floor.stream_seq,
+      pending: info.num_pending,
+      ackPending: info.num_ack_pending,
+    };
+  }
+
+  /** Exact retention check for the finite S0+1…S1 catch-up interval. */
+  async hasSequenceRange(first: number, last: number): Promise<boolean> {
+    if (last < first) return true;
+    await this.ensureConnected();
+    if (!this.jsm) throw new Error('JetStream manager is not connected.');
+    const info = await this.jsm.streams.info(this.names.stream);
+    if (info.state.messages === 0 || info.state.first_seq > first || info.state.last_seq < last) return false;
+    for (let sequence = first; sequence <= last; sequence += 1) {
+      const message = await this.jsm.streams.getMessage(this.names.stream, { seq: sequence });
+      if (message === null) return false;
+    }
+    return true;
+  }
+
+  async storedMessage(stream: string, sequence: number): Promise<StoredMessage | null> {
+    await this.ensureConnected();
+    if (!this.jsm) throw new Error('JetStream manager is not connected.');
+    const message = await this.jsm.streams.getMessage(stream, { seq: sequence });
+    return message === null ? null : { subject: message.subject, sequence: message.seq, data: message.data };
+  }
+
   async snapshot(): Promise<BrokerSnapshot> {
     try {
       if (!this.isConnected || !this.jsm) {
@@ -181,11 +235,21 @@ export class JetStreamAdapter {
       if (!streamPresent) {
         return { connected: true, streamPresent: false, consumers: null, quarantinePending: null };
       }
-      const consumers: Array<{ name: string; pending: number }> = [];
+      const consumers: NonNullable<BrokerSnapshot['consumers']> = [];
       for (const name of this.names.durables) {
         try {
           const info = await this.jsm.consumers.info(this.names.stream, name);
-          consumers.push({ name, pending: info.num_pending });
+          const firstUnfinished = info.ack_floor.stream_seq + 1;
+          const message = info.num_pending + info.num_ack_pending > 0
+            ? await this.jsm.streams.getMessage(this.names.stream, { seq: firstUnfinished }).catch(() => null)
+            : null;
+          consumers.push({
+            name,
+            pending: info.num_pending,
+            ackPending: info.num_ack_pending,
+            ackFloorStreamSequence: info.ack_floor.stream_seq,
+            oldestUnfinishedAt: message?.time.toISOString() ?? null,
+          });
         } catch {
           return { connected: true, streamPresent: true, consumers: null, quarantinePending: null };
         }

@@ -149,8 +149,8 @@ export class MeiliIndexAdapter {
     return this.options.indexUid;
   }
 
-  private index(): Index {
-    return this.client.index(this.options.indexUid);
+  private index(uid = this.options.indexUid): Index {
+    return this.client.index(uid);
   }
 
   /** Cheap reachability probe for processing-status. Never throws. */
@@ -161,6 +161,10 @@ export class MeiliIndexAdapter {
     } catch {
       return false;
     }
+  }
+
+  async version(): Promise<string> {
+    return (await this.client.getVersion()).pkgVersion;
   }
 
   async indexExists(): Promise<boolean> {
@@ -216,6 +220,84 @@ export class MeiliIndexAdapter {
       sortableAttributes: [...SEARCH_SORTABLE_ATTRIBUTES],
     });
     return task.taskUid;
+  }
+
+  async createNamedIndex(uid: string): Promise<number> {
+    const task = await this.client.createIndex(uid, { primaryKey: SEARCH_PRIMARY_KEY });
+    return task.taskUid;
+  }
+
+  async namedIndexExists(uid: string): Promise<boolean> {
+    try {
+      await this.index(uid).getRawInfo();
+      return true;
+    } catch (error) {
+      if (classifyMeiliError(error) === 'not_found') return false;
+      throw error;
+    }
+  }
+
+  async deleteNamedIndex(uid: string): Promise<number | null> {
+    if (!(await this.namedIndexExists(uid))) return null;
+    const task = await this.client.deleteIndex(uid);
+    return task.taskUid;
+  }
+
+  async applyManagedSettingsTo(uid: string): Promise<number> {
+    const task = await this.index(uid).updateSettings({
+      searchableAttributes: [...SEARCH_SEARCHABLE_ATTRIBUTES],
+      filterableAttributes: [...SEARCH_FILTERABLE_ATTRIBUTES],
+      displayedAttributes: [...SEARCH_DISPLAYED_ATTRIBUTES],
+      sortableAttributes: [...SEARCH_SORTABLE_ATTRIBUTES],
+    });
+    return task.taskUid;
+  }
+
+  async managedSettingsOf(uid: string): ReturnType<MeiliIndexAdapter['managedSettings']> {
+    const settings = await this.index(uid).getSettings();
+    const names = (values: unknown): string[] =>
+      Array.isArray(values) ? values.map(value => (typeof value === 'string' ? value : JSON.stringify(value))) : [];
+    return {
+      searchableAttributes: names(settings.searchableAttributes),
+      filterableAttributes: names(settings.filterableAttributes),
+      displayedAttributes: names(settings.displayedAttributes),
+      sortableAttributes: names(settings.sortableAttributes),
+    };
+  }
+
+  async submitBatch(uid: string, documents: SearchProjectionV1[]): Promise<number> {
+    const task = await this.index(uid).addDocuments(documents, { primaryKey: SEARCH_PRIMARY_KEY });
+    return task.taskUid;
+  }
+
+  async documentCount(uid: string): Promise<number> {
+    return (await this.index(uid).getStats()).numberOfDocuments;
+  }
+
+  async swapWithLive(stagingUid: string): Promise<number> {
+    const task = await this.client.swapIndexes([{ indexes: [this.options.indexUid, stagingUid], rename: false }]);
+    return task.taskUid;
+  }
+
+  async projectionPage(uid: string, offset: number, limit: number): Promise<Array<{ id: string; aggregateVersion: number }>> {
+    const result = await this.index(uid).getDocuments<{ id: string; aggregateVersion: number }>({
+      offset,
+      limit,
+      fields: ['id', 'aggregateVersion'],
+    });
+    return result.results.map(document => ({ id: document.id, aggregateVersion: document.aggregateVersion }));
+  }
+
+  async documentVersion(id: string): Promise<number | null> {
+    try {
+      const document = await this.index().getDocument<{ id: string; aggregateVersion: number }>(id, {
+        fields: ['id', 'aggregateVersion'],
+      });
+      return typeof document.aggregateVersion === 'number' ? document.aggregateVersion : null;
+    } catch (error) {
+      if (classifyMeiliError(error) === 'not_found' || meiliErrorCode(error) === 'document_not_found') return null;
+      throw error;
+    }
   }
 
   /** Idempotent: the same document written twice leaves the same end state. */

@@ -1,7 +1,8 @@
 # IndaPlay / TV2 PoC backend
 
 NestJS moduláris monolit. Jelen állapot: **M0 alap + M1 tranzakciós CMS + M2 L1
-identity + M3 outbox→JetStream relay + M4 kétindexes kereső implementálva**,
+identity + M3 outbox→JetStream relay + M4 kétindexes kereső + M5 helyreállítási
+vezérlősík implementálva**,
 valódi PostgreSQL, NATS JetStream és két külön Meilisearch példány elleni futási
 bizonyítékkal. Az M2 L2 (valódi Authentik tokenek) és a média (M6) nyitott.
 
@@ -59,6 +60,7 @@ open http://localhost:3000/docs
 | `npm run test:integration:m2` | M2 L1 identity próbák (mock JWKS + TEST_DATABASE_URL) |
 | `npm run test:integration:m3` | M3 T01–T20 relay próbák (NATS_URL + TEST_DATABASE_URL) |
 | `npm run test:integration:m4` | M4 T01–T25 kereső próbák (NATS_URL + TEST_DATABASE_URL + két Meili) |
+| `npm run test:integration:m5` | M5 tartós state/lock szerződések; live tesztekhez full stack szükséges |
 | `npm run db:migrate` | A hiányzó migrációk alkalmazása a `DATABASE_URL`-en |
 | `npm run db:generate` | Új migráció generálása a `src/schema.ts` alapján |
 | `npm run db:reset` | **Csak** a `TEST_DATABASE_URL` eldobható adatbázisának újraépítése |
@@ -69,6 +71,13 @@ open http://localhost:3000/docs
 | `npm run demo:m2` | Bearer tokenes admin út (`OIDC_ACCESS_TOKEN` + `OIDC_ISSUER_URL`) |
 | `npm run demo:m3` | Outbox → publish ACK → kézbesítés, relay stop/start mellett |
 | `npm run demo:m4` | Publikálás → A/B index → keresés, egy példány kiesésével és felzárkózásával |
+| `npm run search:reindex -- --index=a` | A index teljes snapshot/import/swap/catch-up/verify újraépítése |
+| `npm run search:reindex:status` | A tartós A/B reindexállapot kiírása |
+| `npm run search:quarantine:inspect -- --sequence=N` | Karanténrekord titokmentes vizsgálata |
+| `npm run search:quarantine:replay -- --sequence=N --reason=...` | Validált eredeti esemény célzott replaye |
+| `npm run search:repair-content -- --id=UUID --index=a\|b\|both` | Aktuális DB-projekció célzott javítása |
+| `npm run baseline:m5 -- --output=DIR` | 1000 tartalom + 100 ciklus raw JSON/Markdown baseline |
+| `npm run demo:m5` | M4 üzleti demó, majd A és B teljes reindexe |
 
 ## Migráció
 
@@ -81,6 +90,8 @@ alkalmazásoldali migrációs napló. A migráció előrefelé alkalmazott; ált
   üzleti táblát nem hoz létre.
 - `migrations/0001_content_audit_outbox.sql` – M1-02: `content`, `content_audit`,
   `outbox_event` a korlátaikkal és egyediségeikkel.
+- `migrations/0002_reindex_control.sql` – M5: monoton outbox high-water,
+  PubAck stream sequence és a két tartós `search_index_control` sor.
 
 Séma módosításakor `src/schema.ts` változik, majd `npm run db:generate` állítja
 elő a következő fájlt. A már alkalmazott fájlt nem írjuk át.
@@ -162,7 +173,7 @@ src/
   identity/               OIDC verifier, boundary, /me, szerepleképezés (M2)
   messaging/              JetStream adapter, topológia, outbox relay (M3)
   search/                 Meili adapter és bootstrap, projekció, két worker,
-                          karantén, A→B olvasási út (M4)
+                          karantén, A→B olvasási út (M4), reindex koordinátor (M5)
   ops/                    processing-status: outbox, relay, broker, A/B index
 ```
 
@@ -206,6 +217,19 @@ timeout, 429 és 5xx esetén esünk vissza, példányonként egyetlen próbával
 A Meilisearch állapota nem része a `/health/ready` válaszának — az továbbra is
 csak PostgreSQL —, hanem a keresési válaszban és a
 `GET /admin/processing-status` `indexes.a` / `indexes.b` mezőiben látszik.
+
+## Helyreállítás és reindex (M5)
+
+Minden nem `ready` tartós indexfázis azonnal kimarad a keresési routingból. A
+reindex globális és indexenkénti PostgreSQL advisory lockot tart, megvárja a
+worker drain-nyugtáját, repeatable-read snapshotból run-scoped staging indexet
+épít, minden Meilisearch-task végét ellenőrzi, majd atomikusan swapol. A
+megőrzött durable consumer a rögzített stream-határig felzárkózik. A visszaengedés
+előtt rövid exclusive publish/withdraw barrier alatt a DB és a live index teljes
+`id + aggregateVersion` halmaza egyezni köteles.
+
+Megszakadt vagy eltérő futás `failed/paused` marad; induláskor sem válik magától
+routolhatóvá. Helyreállítási és karanténeljárás: [docs/recovery.md](docs/recovery.md).
 
 ## Identity-határ
 

@@ -2,7 +2,7 @@
  * GET /admin/processing-status (M3-05). Requires ops:read. Broker outages are
  * reported in the body — never as HTTP 500. DB outages remain 503.
  */
-import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Optional, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { PermissionGuard, RequirePermission } from '../content/permission.guard.js';
@@ -14,6 +14,8 @@ import { JetStreamAdapter } from '../messaging/jetstream.adapter.js';
 import { RelayState } from '../messaging/relay.state.js';
 import { SearchRegistry } from '../search/search.registry.js';
 import { SearchState, type SearchIndexStatusSnapshot } from '../search/worker.state.js';
+import { ReindexControlRepository } from '../search/reindex/control.repository.js';
+import type { ReindexPhase, WorkerDesiredState } from '../schema.js';
 
 export type ProcessingStatusView = {
   outbox: {
@@ -31,7 +33,14 @@ export type ProcessingStatusView = {
     connected: boolean;
     streamPresent: boolean | null;
   };
-  consumers?: Array<{ name: string; pending: number }>;
+  consumers?: Array<{
+    name: string;
+    pending: number;
+    ackPending: number;
+    ackFloorStreamSequence: number;
+    oldestUnfinishedAt: string | null;
+    oldestUnfinishedAgeMs: number | null;
+  }>;
   quarantine?: { pending: number };
   consumersUnavailable?: boolean;
   /**
@@ -40,7 +49,22 @@ export type ProcessingStatusView = {
    * include the message a worker currently holds in flight, so the two numbers
    * answer different questions.
    */
-  indexes?: { a: SearchIndexStatusSnapshot; b: SearchIndexStatusSnapshot };
+  indexes?: { a: SearchIndexStatusSnapshot & DurableIndexStatus; b: SearchIndexStatusSnapshot & DurableIndexStatus };
+};
+
+type DurableIndexStatus = {
+  phase: ReindexPhase | null;
+  desiredWorkerState: WorkerDesiredState | null;
+  runId: string | null;
+  snapshotStreamSequence: number | null;
+  outboxHighWater: number | null;
+  catchUpStreamSequence: number | null;
+  importedDocuments: number;
+  expectedDocuments: number | null;
+  startedAt: string | null;
+  updatedAt: string | null;
+  completedAt: string | null;
+  routeEligible: boolean;
 };
 
 @ApiTags('admin')
@@ -56,6 +80,7 @@ export class ProcessingStatusController {
     @Inject(RelayState) private readonly relay: RelayState,
     @Inject(SearchRegistry) private readonly search: SearchRegistry,
     @Inject(SearchState) private readonly searchState: SearchState,
+    @Optional() @Inject(ReindexControlRepository) private readonly control: ReindexControlRepository | null = null,
   ) {}
 
   @Get('processing-status')
@@ -109,7 +134,30 @@ export class ProcessingStatusController {
     // the relay is on, and a Meilisearch outage shows up here, never as a 500.
     if (this.search.enabled) {
       await this.search.probeReachability();
-      view.indexes = this.searchState.snapshot();
+      const runtime = this.searchState.snapshot();
+      const controls = this.control === null ? [] : await this.control.all().catch(() => []);
+      const byAlias = new Map(controls.map(row => [row.indexAlias, row]));
+      const merged = (alias: 'a' | 'b') => {
+        const row = byAlias.get(alias);
+        const current = runtime[alias];
+        const runtimeRoutable = current.state === 'idle' || current.state === 'processing' || current.state === 'retrying';
+        return {
+          ...current,
+          phase: (row?.phase as ReindexPhase | undefined) ?? null,
+          desiredWorkerState: (row?.desiredWorkerState as WorkerDesiredState | undefined) ?? null,
+          runId: row?.runId ?? null,
+          snapshotStreamSequence: row?.snapshotStreamSequence ?? null,
+          outboxHighWater: row?.outboxHighWater ?? null,
+          catchUpStreamSequence: row?.catchUpStreamSequence ?? null,
+          importedDocuments: row?.importedDocuments ?? 0,
+          expectedDocuments: row?.expectedDocuments ?? null,
+          startedAt: row?.startedAt?.toISOString() ?? null,
+          updatedAt: row?.updatedAt?.toISOString() ?? null,
+          completedAt: row?.completedAt?.toISOString() ?? null,
+          routeEligible: row?.phase === 'ready' && runtimeRoutable,
+        };
+      };
+      view.indexes = { a: merged('a'), b: merged('b') };
     }
 
     if (!relayEnabled) return view;
@@ -118,7 +166,12 @@ export class ProcessingStatusController {
     view.broker.connected = snapshot.connected;
     view.broker.streamPresent = snapshot.streamPresent;
     if (snapshot.consumers) {
-      view.consumers = snapshot.consumers;
+      view.consumers = snapshot.consumers.map(consumer => ({
+        ...consumer,
+        oldestUnfinishedAgeMs: consumer.oldestUnfinishedAt === null
+          ? null
+          : Math.max(0, now - Date.parse(consumer.oldestUnfinishedAt)),
+      }));
     } else {
       view.consumersUnavailable = true;
     }

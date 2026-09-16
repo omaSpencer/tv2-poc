@@ -13,7 +13,7 @@
  * A rejected API key or a settings mismatch is an operator problem: masking it
  * behind a working B would leave a broken instance broken and unnoticed.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { pino, type Logger } from 'pino';
 import { ConfigService } from '@nestjs/config';
 import { ApiError } from '../contracts/errors.js';
@@ -24,6 +24,8 @@ import { ContentRepository } from '../content/content.repository.js';
 import { classifyMeiliError, meiliErrorCode, type MeiliSearchHits } from './meili.adapter.js';
 import { SearchRegistry } from './search.registry.js';
 import { SearchState } from './worker.state.js';
+import { ReindexControlRepository } from './reindex/control.repository.js';
+import { phaseIsRoutable } from '../contracts/reindex.js';
 
 const searchUnavailable = () =>
   new ApiError('search_unavailable', 'The search index is currently unavailable.');
@@ -38,6 +40,7 @@ export class SearchService {
     @Inject(SearchState) private readonly state: SearchState,
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(ContentRepository) private readonly repository: ContentRepository,
+    @Optional() @Inject(ReindexControlRepository) private readonly control: ReindexControlRepository | null = null,
   ) {
     this.log = pino({ level: config.get<string>('LOG_LEVEL') ?? 'info' });
   }
@@ -61,7 +64,7 @@ export class SearchService {
 
   /** At most one A call and, when A fails transiently, at most one B call. */
   private async route(query: CatalogSearchQuery): Promise<MeiliSearchHits> {
-    if (this.routable('a')) {
+    if (await this.routable('a')) {
       try {
         return await this.queryInstance('a', query);
       } catch (error) {
@@ -78,15 +81,11 @@ export class SearchService {
         }
         this.log.warn({ event: 'search_fallback', from: 'a', to: 'b', kind });
       }
-    } else if (this.state.get('a').state === 'halted') {
-      // A halted instance is an operator problem that must stay visible.
-      this.log.error({ event: 'search_failed', index: 'a', kind: 'halted', code: this.state.get('a').lastErrorCode });
-      throw searchUnavailable();
     } else {
       this.log.warn({ event: 'search_fallback', from: 'a', to: 'b', kind: 'not_routable' });
     }
 
-    if (!this.routable('b')) throw searchUnavailable();
+    if (!(await this.routable('b'))) throw searchUnavailable();
     try {
       return await this.queryInstance('b', query);
     } catch (error) {
@@ -105,9 +104,20 @@ export class SearchService {
    * `bootstrapping` are not failures — they simply are not ready to answer, so
    * the other instance is tried directly.
    */
-  private routable(alias: SearchIndexAlias): boolean {
+  private async routable(alias: SearchIndexAlias): Promise<boolean> {
     const index = this.state.get(alias);
-    return index.bootstrapped
+    let control;
+    try {
+      control = await this.control?.get(alias);
+    } catch (error) {
+      if (isConnectionFailure(error)) {
+        throw new ApiError('dependency_unavailable', 'The database is currently unavailable.');
+      }
+      this.log.error({ event: 'search_control_unavailable', index: alias, code: 'control_read_failed' });
+      return false;
+    }
+    return (this.control === null || phaseIsRoutable(control?.phase as import('../schema.js').ReindexPhase | undefined))
+      && index.bootstrapped
       && (index.state === 'idle' || index.state === 'processing' || index.state === 'retrying');
   }
 

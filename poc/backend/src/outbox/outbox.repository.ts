@@ -143,10 +143,15 @@ export class OutboxRepository {
    * Marks delivery only after a publish ACK. The `delivered_at IS NULL` guard
    * makes a second mark a no-op so the timestamp does not move.
    */
-  async markDelivered(executor: Executor, eventId: string, deliveredAt = new Date()): Promise<boolean> {
+  async markDelivered(
+    executor: Executor,
+    eventId: string,
+    deliveredAt = new Date(),
+    streamSequence?: number,
+  ): Promise<boolean> {
     const updated = await executor
       .update(outboxEvent)
-      .set({ deliveredAt })
+      .set({ deliveredAt, ...(streamSequence === undefined ? {} : { streamSequence }) })
       .where(and(eq(outboxEvent.eventId, eventId), isNull(outboxEvent.deliveredAt)))
       .returning({ eventId: outboxEvent.eventId });
     return updated.length > 0;

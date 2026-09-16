@@ -2,6 +2,11 @@
 
 2026-09-15 · Kezdő dokumentum a Vite + React API-playgroundhoz.
 
+Az aktuális, backend-auditon alapuló végrehajtási roadmap:
+[FRONTEND-IMPLEMENTATION-PLAN.md](FRONTEND-IMPLEMENTATION-PLAN.md). A Fázis 0
+implementációja és a Fázis 1–7 részletes végrehajtási dokumentumai onnan érhetők
+el; ez a fájl a playground eredeti high-level kontextusát őrzi.
+
 Ez a fájl a backend mellé készülő **fejlesztői playground** célját, határait és a későbbi megvalósítás irányát rögzíti. Nem implementációs backlog, nem UI-wireframe, és nem termelési frontend-terv.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md), [döntésnapló](DECISIONS.md), [backend README](backend/README.md).
@@ -40,7 +45,7 @@ A backend marad az igazságforrás. A playground nem vezet be párhuzamos üzlet
 | React Router (opcionális, vékony) | Admin / katalógus / demó forgatókönyv oldalak |
 | Authentik Authorization Code + PKCE | Csak M2 után; a backend resource server marad, tokencserét a kliens végzi |
 
-**Nem tervezett** a playground első körében: Redux/Zustand az API-állapotra, SSR/Next.js, UI kit kötelező használata, E2E Playwright-csomag a PoC kapujaként, OpenAPI-codegen kötelező előfeltételként. Ha később codegen hasznos, a szerződés forrása továbbra is a backend `contracts/` és az OpenAPI (`/docs-json`).
+**Nem tervezett** a playground első körében: Redux/Zustand az API-állapotra, SSR/Next.js és UI kit kötelező használata. Az OpenAPI-codegen a frontend Fázis 0-tól kötelező contract-drift kapu; forrása ugyanaz a backend dokumentum, amelyet a `/docs-json` publikál.
 
 ### 3.1 Könyvtárhely
 
@@ -63,11 +68,11 @@ A playground a backend állapotához igazodik; nem előzi meg a szerződéses ka
 
 | Backend állapot | Mit tud a playground? |
 | --- | --- |
-| **Most (M0–M1 kész, `FEATURE_IDENTITY=off`)** | Health, OpenAPI-link, nyilvános `GET /catalog/contents/:id`. Az egész `/admin` prefix **503** `dependency_unavailable` – ez szándékos, nem bug a UI-ban. |
-| **M2 (valódi identity)** | PKCE belépés, `/me`, szerepkörönkénti admin műveletek, 401/403 demó. Itt válik élővé a szerkesztői életciklus a böngészőben. |
-| **M3** | Feldolgozási állapot olvasása (`ops:read`), outbox/pending jelzés a demóban – ha a végpont kész. |
-| **M4** | `GET /catalog/search`, fallback/lemaradás látható jelzése a találati oldalon. |
-| **M5** | A playground segíthet a demó narratívájában; a helyreállási bizonyíték továbbra is a jegyzőkönyv és a futtató script felelőssége. |
+| **M0–M1** | Health, OpenAPI, publikus részlet és a teljes verziókezelt content lifecycle implementált. |
+| **M2** | A resource-server, `/me`, role/permission ellenőrzés L1 szinten kész; a valódi Authentik L2 PKCE/refresh út továbbra is pending. |
+| **M3** | Outbox relay és `GET /admin/processing-status` implementált. |
+| **M4** | Kétindexes keresés, fallback és DB-visszaellenőrzés implementált. |
+| **M5** | Reindex/karantén/repair vezérlősík implementált; a teljes full-stack evidence pending. A mutációk egyelőre CLI-only eszközök. |
 
 Amíg nincs M2, a teljes M1 admin-életciklus **nem** a playground elsődleges bizonyítéka: arra megmarad a `npm run demo:m1` és az integrációs tesztek. A playground scaffoldja és a katalógus/health felület viszont már most felépíthető.
 
@@ -196,13 +201,13 @@ Amíg `FEATURE_IDENTITY=off`, a playground ne inventáljon „dev actor” bypas
 3. **Szerkesztői űrlap** – Create/Patch/Publish/Withdraw UI. ✅  
 4. **Router + Auth/Search/Processing/Demo screenek** – M2–M4 UI előre. ✅  
 5. **M2 PKCE kötés** – Authentik code flow, amikor megvan a provider.  
-6. **M3/M4 válaszmezők finomhangolása** – ha a backend szerződés végleges.
+6. **OpenAPI contract gate + M3/M4 válaszmezők** – frontend Fázis 0. ✅
 
 A futtatás: [frontend/README.md](frontend/README.md).
 
 ---
 
-**Következő lépés:** M2 identity bekötése után a PKCE gomb és a valódi tokenes demó; a screenek addig is használhatók Bearerrel / graceful hibákkal.
+**Következő lépés:** a valódi Authentik L2 adatok után a PKCE gomb és refresh út bekötése; a screenek addig is használhatók fejlesztői Bearerrel és pontos függőségi hibákkal.
 
 ## 11. Elfogadás – mit jelent „kész a playground”?
 

@@ -4,7 +4,7 @@
 
 Ez a fájl a PoC tervét és elfogadási feltételeit rögzíti.
 
-**Megvalósítási státusz (2026-09-16):** az M0 alap és infrastruktúra, az M1 tranzakciós CMS-életciklus, az M2 identity **L1 szinten** (tokenellenőrzés mock issuer ellen), az M3 outbox → JetStream relay és az **M4 kétindexes kereshető katalógus** implementálva a [`poc/backend/`](backend/) könyvtárban. A [M0–M3 code review](M0-M3-CODE-REVIEW.md) mind a 12 megállapítása (R01–R12) javítva; a javítások jegyzőkönyve a [javítási jegyzőkönyv](M0-M3-REVIEW-FIXES.md). Friss futási bizonyíték: **153 teszt**, 6/6 core smoke, full smoke **4 PASS + 1 dokumentált PENDING** (Authentik L2), `demo:m4` PASS — valódi PostgreSQL, NATS JetStream és két külön Meilisearch 1.15.2 példány ellen, a rögzített Node 24.20.0 runtime-on. Jegyzőkönyvek: [M0–M1](M0-M1-EVIDENCE.md), [M2](M2-EVIDENCE.md), [M3](M3-EVIDENCE.md), [M4](M4-EVIDENCE.md). A futtatási útmutató a [backend README](backend/README.md). **Nyitott:** az M2 L2 kapu (valódi Authentik belépés, E01–E05) és a teljes PKCE/token/refresh kliensfolyamat — emiatt az M4 teljes „belépés → publikálás → keresés" üzleti demója is M2 L2 pending —, valamint az M5 helyreállás/mérés és az M6 média.
+**Megvalósítási státusz (2026-09-16):** az M0 alap és infrastruktúra, az M1 tranzakciós CMS-életciklus, az M2 identity **L1 szinten** (tokenellenőrzés mock issuer ellen), az M3 outbox → JetStream relay, az **M4 kétindexes kereshető katalógus**, valamint az M5 reindex/karantén/repair vezérlősík implementálva a [`poc/backend/`](backend/) könyvtárban. A [M0–M3 code review](M0-M3-CODE-REVIEW.md) mind a 12 megállapítása (R01–R12) javítva; a javítások jegyzőkönyve a [javítási jegyzőkönyv](M0-M3-REVIEW-FIXES.md). A korábbi full smoke **4 PASS + 1 dokumentált PENDING** (Authentik L2), a `demo:m4` PASS — valódi PostgreSQL, NATS JetStream és két külön Meilisearch 1.15.2 példány ellen, a rögzített Node 24.20.0 runtime-on. Jegyzőkönyvek: [M0–M1](M0-M1-EVIDENCE.md), [M2](M2-EVIDENCE.md), [M3](M3-EVIDENCE.md), [M4](M4-EVIDENCE.md), [M5](M5-EVIDENCE.md). A futtatási útmutató a [backend README](backend/README.md). **Nyitott:** az M2 L2 kapu (valódi Authentik belépés, E01–E05) és a teljes PKCE/token/refresh kliensfolyamat, az M5 teljes full-stack evidence/baseline futása, valamint az M6 média.
 
 A megvalósítás sorrendjének és lezárási feltételeinek első bontása: [Milestone-terv](MILESTONES.md).
 
@@ -19,6 +19,11 @@ implementációs tervek: [M0 – Alap és infrastruktúra](M0-IMPLEMENTATION.md)
 JetStreammel](M3-IMPLEMENTATION.md), valamint [M4 – Kereshető katalógus két
 indexszel](M4-IMPLEMENTATION.md) és [M5 – Helyreállás és
 bizonyítékok](M5-IMPLEMENTATION.md).
+
+A meglévő backend képességeinek teljes UI-lefedési terve és a nyolc végrehajtási
+fázis indexe: [Frontend implementációs roadmap](FRONTEND-IMPLEMENTATION-PLAN.md).
+A Fázis 0 implementálva; az identity/API döntések és a Fázis 1–7 résztervei a
+roadmapből érhetők el.
 
 A megvalósítás bizonyítékai és a nyitott pontok: [M0–M1 futtatási jegyzőkönyv](M0-M1-EVIDENCE.md). A rögzített működési döntések, alapértékek és a review lezárása: [DECISIONS](DECISIONS.md). Az aktuális ütemezés 17 munkanap + 2 nap tartalék; a korábbi ötnapos cél felülvizsgálva.
 

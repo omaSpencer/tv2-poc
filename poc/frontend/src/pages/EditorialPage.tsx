@@ -19,6 +19,7 @@ import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
 import { ProblemPanel } from '../components/ProblemPanel';
 import { useNotifications } from '../components/notificationContext';
+import { catalogKeys } from '../features/catalog/queryKeys';
 
 type FormState = {
   title: string;
@@ -98,8 +99,7 @@ export function EditorialPage() {
     setLastResult(data);
     setLastMeta({ status, correlationId });
     void queryClient.invalidateQueries({ queryKey: ['admin-content'] });
-    void queryClient.invalidateQueries({ queryKey: ['catalog-content'] });
-    void queryClient.invalidateQueries({ queryKey: ['search'] });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
     void queryClient.invalidateQueries({ queryKey: ['processing'] });
     notify('A művelet sikeresen befejeződött.');
   }

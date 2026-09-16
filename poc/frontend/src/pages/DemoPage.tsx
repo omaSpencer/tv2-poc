@@ -12,6 +12,7 @@ import { fetchPublishedContent } from '../api/catalog';
 import { isApiProblemError, type AdminContentView, type ProblemDocument } from '../api/types';
 import { useAuth } from '../auth/authContext';
 import { useActiveContent } from '../content/activeContentContext';
+import { catalogKeys } from '../features/catalog/queryKeys';
 import {
   DEMO_CONTENT,
   DEMO_EDIT,
@@ -102,8 +103,7 @@ export function DemoPage() {
   async function invalidateAll() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['admin-content'] }),
-      queryClient.invalidateQueries({ queryKey: ['catalog-content'] }),
-      queryClient.invalidateQueries({ queryKey: ['search'] }),
+      queryClient.invalidateQueries({ queryKey: catalogKeys.all }),
       queryClient.invalidateQueries({ queryKey: ['processing'] }),
     ]);
   }
@@ -310,7 +310,7 @@ export function DemoPage() {
         <p className="muted">
           Az M1 mintafolyamat UI-ból. Aktív id: <span className="mono">{contentId || '—'}</span>.{' '}
           <Link to="/auth">Auth</Link> · <Link to="/editorial">Editorial</Link> ·{' '}
-          <Link to="/catalog">Catalog</Link>
+          <Link to={contentId ? `/catalog/${contentId}` : '/catalog/search'}>Catalog</Link>
         </p>
         {!isAuthenticated ? (
           <MilestoneGate

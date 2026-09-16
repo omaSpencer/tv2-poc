@@ -4,11 +4,11 @@ import { RequirePermission } from './auth/RequirePermission';
 import { AppShell } from './components/AppShell';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { AuthPage } from './pages/AuthPage';
-import { CatalogPage } from './pages/CatalogPage';
 import { DemoPage } from './pages/DemoPage';
 import { HomePage } from './pages/HomePage';
 import { ProcessingPage } from './pages/ProcessingPage';
-import { SearchPage } from './pages/SearchPage';
+import { CatalogDetailPage } from './features/catalog/routes/CatalogDetailPage';
+import { CatalogSearchPage } from './features/catalog/routes/CatalogSearchPage';
 import { ContentListPage } from './features/contents/routes/ContentListPage';
 import { ContentCreatePage } from './features/contents/routes/ContentCreatePage';
 import { ContentDetailPage } from './features/contents/routes/ContentDetailPage';
@@ -21,10 +21,10 @@ const router = createBrowserRouter(
       <Route path="login" element={<AuthPage />} />
       <Route path="auth" element={<Navigate to="/login" replace />} />
       <Route path="auth/callback" element={<AuthCallbackPage />} />
-      <Route path="catalog/search" element={<SearchPage />} />
-      <Route path="catalog/:id" element={<CatalogPage />} />
+      <Route path="catalog/search" element={<CatalogSearchPage />} />
+      <Route path="catalog/:id" element={<CatalogDetailPage />} />
       <Route path="search" element={<Navigate to="/catalog/search" replace />} />
-      <Route path="catalog" element={<CatalogPage />} />
+      <Route path="catalog" element={<Navigate to="/catalog/search" replace />} />
       <Route path="contents" element={<RequirePermission permission="content:read"><ContentListPage /></RequirePermission>} />
       <Route path="contents/new" element={(
         <RequirePermission permission="content:write">

@@ -50,7 +50,16 @@ export class ApiProblemError extends Error {
 }
 
 export function isApiProblemError(error: unknown): error is ApiProblemError {
-  return error instanceof ApiProblemError;
+  if (error instanceof ApiProblemError) return true;
+  if (!error || typeof error !== 'object' || !('problem' in error)) return false;
+  const problem = error.problem;
+  return Boolean(
+    problem && typeof problem === 'object' && 'code' in problem && typeof problem.code === 'string'
+    && 'status' in problem && typeof problem.status === 'number'
+    && 'detail' in problem && typeof problem.detail === 'string'
+    && 'correlationId' in problem && typeof problem.correlationId === 'string'
+    && 'correlationId' in error && typeof error.correlationId === 'string',
+  );
 }
 
 export function hasPermission(

@@ -476,6 +476,111 @@ fieldset .stack {
   font-size: 0.92rem;
 }
 
+.catalog-hero .eyebrow,
+.catalog-card .eyebrow,
+.catalog-results .eyebrow,
+.catalog-detail-heading .eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.catalog-search-form {
+  display: grid;
+  grid-template-columns: minmax(15rem, 2fr) repeat(2, minmax(9rem, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.catalog-results-heading,
+.catalog-detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.catalog-result-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 0.85rem;
+  margin: 1rem 0;
+}
+
+.catalog-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.catalog-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.catalog-card-date {
+  margin-top: auto !important;
+  padding-top: 0.75rem;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.tag-list li {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  background: var(--bg-accent);
+  font-size: 0.8rem;
+}
+
+.catalog-empty {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.catalog-skeleton {
+  height: 5.5rem;
+  margin: 0.65rem 0;
+  background: linear-gradient(90deg, var(--bg-accent), #f4f7fa, var(--bg-accent));
+  background-size: 200% 100%;
+  animation: catalog-loading 1.2s ease-in-out infinite;
+}
+
+.catalog-detail-body > p {
+  max-width: 65ch;
+  font-size: 1.05rem;
+}
+
+@keyframes catalog-loading {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-skeleton {
+    animation: none;
+  }
+}
+
 .hit-list {
   list-style: none;
   padding: 0;
@@ -793,8 +898,20 @@ button.linkish {
   }
 
   .content-filters,
-  .content-form .form-grid {
+  .content-form .form-grid,
+  .catalog-search-form {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-search-form button,
+  .catalog-detail-heading .button-link {
+    width: 100%;
+  }
+
+  .catalog-results-heading,
+  .catalog-detail-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .content-form .form-span {

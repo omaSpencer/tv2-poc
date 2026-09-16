@@ -6,6 +6,8 @@ import { can, permissionReason } from '../../../auth/permissions';
 import { isApiProblemError } from '../../../api/types';
 import { ProblemPanel } from '../../../components/ProblemPanel';
 import { useNotifications } from '../../../components/notificationContext';
+import { catalogKeys } from '../../catalog/queryKeys';
+import { useCatalogVisibilityPolling } from '../../catalog/useCatalogVisibilityPolling';
 import { getAdminContent, publishContent, withdrawContent } from '../api';
 import { AuditTimeline } from '../components/AuditTimeline';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -21,6 +23,19 @@ export function ContentDetailPage() {
   const { notify } = useNotifications();
   const queryClient = useQueryClient();
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
+  const catalogPolling = useCatalogVisibilityPolling(result => {
+    const published = result.target === 'visible';
+    const message = result.phase === 'success'
+      ? published ? 'Megjelent a katalógusban.' : 'Eltűnt a publikus katalógusból.'
+      : published
+        ? 'A publikálás sikerült, az indexelés még tart.'
+        : 'A visszavonás sikerült, az index frissítése még tart.';
+    setCatalogNotice(message);
+    notify(message);
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.searches() });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.detail(id) });
+  });
   const detail = useQuery({
     queryKey: contentKeys.detail(id),
     queryFn: () => getAdminContent(id),
@@ -32,13 +47,23 @@ export function ContentDetailPage() {
     queryClient.setQueryData(contentKeys.detail(id), response);
     void queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
     void queryClient.invalidateQueries({ queryKey: contentKeys.auditRoot(id) });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.searches() });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.detail(id) });
     notify(message);
+  }
+
+  function startCatalogPolling(target: 'visible' | 'hidden') {
+    setCatalogNotice(null);
+    catalogPolling.start(id, target);
   }
 
   const publish = useMutation({
     mutationFn: (version: number) => publishContent(id, { expectedVersion: version }),
     retry: false,
-    onSuccess: response => accept(response, 'A tartalom publikálva lett.'),
+    onSuccess: response => {
+      accept(response, 'A tartalom publikálva lett.');
+      startCatalogPolling('visible');
+    },
     onError: () => notify('A publikálás nem sikerült.', 'error'),
   });
   const withdraw = useMutation({
@@ -47,6 +72,7 @@ export function ContentDetailPage() {
     onSuccess: response => {
       setConfirmWithdraw(false);
       accept(response, 'A tartalom vissza lett vonva.');
+      startCatalogPolling('hidden');
     },
     onError: () => notify('A visszavonás nem sikerült.', 'error'),
   });
@@ -65,6 +91,15 @@ export function ContentDetailPage() {
       {location.state && typeof location.state === 'object' && 'notice' in location.state ? (
         <section className="panel panel-muted" role="status">{String(location.state.notice)}</section>
       ) : null}
+      {catalogPolling.phase === 'waiting' || catalogPolling.phase === 'paused' ? (
+        <section className="panel panel-muted" role="status">
+          {catalogPolling.target === 'visible'
+            ? 'A publikálás sikerült. A katalógusbeli megjelenést ellenőrizzük.'
+            : 'A visszavonás sikerült. A katalógusbeli eltűnést ellenőrizzük.'}
+          {catalogPolling.phase === 'paused' ? ' Az ellenőrzés a háttérben szünetel.' : ''}
+        </section>
+      ) : null}
+      {catalogNotice ? <section className="panel panel-muted" role="status">{catalogNotice}</section> : null}
       <section className="panel content-heading">
         <div>
           <p className="eyebrow">Tartalom részletei</p>

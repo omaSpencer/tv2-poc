@@ -2,6 +2,9 @@
 
 2026-09-16 · Delivery brief.
 
+**Állapot:** a frontend implementáció és a helyi tesztkapuk elkészültek. A valódi
+backenddel futó böngészős E2E ellenőrzés még nyitott.
+
 ## 1. Eredmény
 
 Anonim felhasználó megosztható URL-ből keres, kategóriát szűr, lapoz és publikus
@@ -102,10 +105,20 @@ A content detailből publish után indítható, de nem globális search viselked
 
 ## 5. Definition of Done
 
-- [ ] Query/filter/lapozás bookmarkolható URL-ből működik.
-- [ ] `returned` és `estimatedTotalHits` jelentése nem keveredik.
-- [ ] Public detail nem szivárogtat adminmezőt.
-- [ ] 404, 422, 503 és network állapot külön kezelve.
-- [ ] Polling korlátozott, háttértabon szünetel, timeout nem hamis publish hiba.
-- [ ] Anonymous E2E és accessibility ellenőrzés zöld.
+- [x] Query/filter/lapozás bookmarkolható URL-ből működik.
+- [x] `returned` és `estimatedTotalHits` jelentése nem keveredik.
+- [x] Public detail nem szivárogtat adminmezőt.
+- [x] 404, 422, 503 és network állapot külön kezelve.
+- [x] Polling korlátozott, háttértabon szünetel, timeout nem hamis publish hiba.
+- [~] Anonymous flow komponens-integráció és hozzáférhető fókuszkezelés zöld;
+  valódi browser/full-stack E2E pending.
 
+## 6. Megvalósítási bizonyíték
+
+- typed, kanonizáló URL-adapter `q`, `category`, `limit`, `offset` mezőkkel;
+- responsive publikus kártyák és detail kizárólag `PublicContentView` mezőkből;
+- külön 422, 404, `search_unavailable`, `dependency_unavailable` és network UX;
+- 30 másodperces 1 s → 2 s → 3 s polling, rejtett tabon aktív idő- és request-szünettel;
+- anoním search → filter → next → detail → back komponens-integráció;
+- teljes frontend kapu: contract, build, React Compiler, warningmentes lint és
+  54/54 teszt.

@@ -74,6 +74,11 @@ verziókonfliktus pedig explicit szerververzió-betöltést vagy kézi újraalka
 kér; automatikus overwrite és mutation retry nincs.
 A Search és Processing API M3/M4 óta implementált. Kikapcsolt feature vagy
 elérhetetlen függőség esetén a problem+json / MilestoneGate üzenet jelenik meg.
+A publikus keresés teljes `q/category/limit/offset` állapota bookmarkolható
+URL-ben él. A lista az index becslését és az oldal tényleges találatait külön
+mutatja, a publikus detail pedig nem renderel adminmezőket. Publish/withdraw után
+a szerkesztői detail korlátozott katalógus-láthatósági ellenőrzést indít; ez
+háttértabon szünetel, és a timeout nem minősíti sikertelennek a lifecycle műveletet.
 
 ## API-szerződés
 

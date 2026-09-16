@@ -12,7 +12,7 @@
 - A részletes üzleti/API döntések forrása mindig a belinkelt fázisterv; ez a fájl
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–2 helyi
+- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–3 helyi
   implementációja elkészült, a közös Authentik L2 E2E kapu pending.
 
 ## Végrehajtási sorrend
@@ -21,7 +21,7 @@
 2. Identity- és UI-glue API-döntési kapu — **contract kész, Authentik L2 nyitott**
 3. Fázis 1 – Alkalmazásváz és valódi identity — **implementáció kész, L2 validációra vár**
 4. Fázis 2 – Szerkesztői tartalomkezelés — **implementáció kész, L2 E2E-re vár**
-5. Fázis 3 – Publikus katalógus és keresés
+5. Fázis 3 – Publikus katalógus és keresés — **implementáció kész, full-stack E2E-re vár**
 6. Fázis 4 – Operációs megfigyelő dashboard
 7. Fázis 5 – M5 operátori beavatkozások
 8. Fázis 6 – Vezetett demó és bizonyíték
@@ -177,28 +177,33 @@
 
 ## Fázis 3 – Publikus katalógus és keresés
 
-**Állapot:** nyitott  
+**Állapot:** folyamatban — implementáció és helyi tesztkapuk készek; full-stack browser E2E pending
+
 **Becslés:** 2–3 mérnöknap  
 **Függőség:** Fázis 0; a publikus flow Fázis 1-től függetlenül fejleszthető  
 **Részletes terv:** [FRONTEND-PHASE-3-DELIVERY-BRIEF.md](FRONTEND-PHASE-3-DELIVERY-BRIEF.md)
 
 ### Végrehajtási terv
 
-- [ ] **P3-01:** `/catalog/search` typed URL-query parse/serialize.
-- [ ] **P3-02:** találati lista, category filter és limit/offset lapozás.
-- [ ] **P3-03:** `/catalog/:id` publikus detail adminmezők nélkül.
-- [ ] **P3-04:** 422, 404, `search_unavailable`, `dependency_unavailable` és network UX.
-- [ ] **P3-05:** publish/withdraw utáni korlátozott, háttértabon szünetelő polling.
-- [ ] **P3-06:** unit/component/E2E és adatminimalizálási tesztek.
+- [x] **P3-01:** `/catalog/search` typed URL-query parse/serialize.
+- [x] **P3-02:** találati lista, category filter és limit/offset lapozás.
+- [x] **P3-03:** `/catalog/:id` publikus detail adminmezők nélkül.
+- [x] **P3-04:** 422, 404, `search_unavailable`, `dependency_unavailable` és network UX.
+- [x] **P3-05:** publish/withdraw utáni korlátozott, háttértabon szünetelő polling.
+- [~] **P3-06:** 17 új unit/component/integration-style teszt és adatminimalizálás
+  zöld; valódi backend+browser E2E még futtatandó.
 
 ### Kötelező ellenőrzések
 
-- [ ] Query, category, limit és offset bookmarkolható URL-ben marad.
-- [ ] `returned` és `estimatedTotalHits` jelentése külön jelenik meg.
-- [ ] Rövid oldal stale indexhit esetén érthető magyarázatot kap.
-- [ ] Anonymous search → filter → next → detail → back E2E sikeres.
-- [ ] Withdrawn tartalom stale index esetén sem jelenik meg.
-- [ ] Polling timeout nem mutat hamis publish failure-t.
+- [x] Query, category, limit és offset bookmarkolható URL-ben marad.
+- [x] `returned` és `estimatedTotalHits` jelentése külön jelenik meg.
+- [x] Rövid oldal stale indexhit esetén érthető magyarázatot kap.
+- [~] Anonymous search → filter → next → detail → back komponens-integráció
+  sikeres; valódi browser/full-stack E2E pending.
+- [x] Withdrawn tartalom stale index esetén sem jelenik meg — backend M4-T21/T22
+  DB-visszaellenőrzési regresszióval védett, a detail 404 UI tesztelt.
+- [x] Polling timeout nem mutat hamis publish failure-t.
+- [x] Frontend contract, build, React Compiler, warningmentes lint és 54/54 teszt zöld.
 
 ---
 

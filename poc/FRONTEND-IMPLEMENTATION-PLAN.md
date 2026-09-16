@@ -3,7 +3,8 @@
 2026-09-16 · A `frontend/` és a `backend/` aktuális forrása alapján.
 
 > Státuszfrissítés: a Fázis 0 és a Fázis 1 P1-01–P1-11 munkacsomagja már
-> implementált; a Fázis 2 backend- és frontendcsomagja is elkészült. A lentebbi
+> implementált; a Fázis 2 backend- és frontendcsomagja, valamint a Fázis 3 helyi
+> implementációja is elkészült. A lentebbi
 > audit az indulási baseline-t rögzíti; a valódi Authentik L2 ellenőrzés és az
 > arra épülő böngészős E2E továbbra is külső függőségen vár.
 
@@ -43,7 +44,7 @@ L2 környezet elérhetősége külön külső függőség.
 | döntési kapu | rögzített contract | [Identity és UI-glue API-döntések](FRONTEND-IDENTITY-AND-API-DECISIONS.md) | kész; Authentik L2 külső kapu nyitott |
 | 1 | ticket-szintű | [Alkalmazásváz és valódi identity](FRONTEND-PHASE-1-IMPLEMENTATION.md) | P1-01–11 implementálva; P1-12 L2 pending |
 | 2 | ticket-szintű BE+FE | [Szerkesztői tartalomkezelés](FRONTEND-PHASE-2-IMPLEMENTATION.md) | implementálva; Authentik L2 E2E pending |
-| 3 | delivery brief | [Publikus katalógus és keresés](FRONTEND-PHASE-3-DELIVERY-BRIEF.md) | ready for breakdown |
+| 3 | delivery brief | [Publikus katalógus és keresés](FRONTEND-PHASE-3-DELIVERY-BRIEF.md) | implementálva; full-stack browser E2E pending |
 | 4 | delivery brief | [Operációs megfigyelő dashboard](FRONTEND-PHASE-4-DELIVERY-BRIEF.md) | ready for breakdown |
 | 5 | közös BE+FE, ticket-szintű | [M5 operátori beavatkozások](FRONTEND-PHASE-5-JOINT-IMPLEMENTATION.md) | dev-ready |
 | 6 | ticket-szintű | [Vezetett demó és bizonyíték](FRONTEND-PHASE-6-IMPLEMENTATION.md) | dev-ready a belépési kapuk után |
@@ -378,6 +379,10 @@ Kilépési feltételek:
 ### Fázis 3 — Publikus katalógus és keresés
 
 **Becslés:** 2–3 mérnöknap · **Függőség:** Fázis 0.
+
+**Aktuális állapot:** a typed URL-modell, publikus lista/detail, célzott hiba-UX,
+bounded visibility polling és helyi tesztek elkészültek; a valódi backenddel futó
+böngészős E2E maradt nyitva.
 
 Feladatok:
 

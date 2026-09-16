@@ -8,7 +8,7 @@ implementációja és a Fázis 1–7 részletes végrehajtási dokumentumai onna
 el; ez a fájl a playground eredeti high-level kontextusát őrzi.
 
 > Státuszfrissítés (2026-09-16): a Fázis 0, a Fázis 1 helyi implementációja és a
-> Fázis 2 szerkesztői workspace elkészült. A valódi Authentik L2 böngészős E2E
+> Fázis 2 szerkesztői workspace és a Fázis 3 publikus katalógus elkészült. A valódi Authentik L2 böngészős E2E
 > továbbra is külső függőség; az aktuális állapot forrása a `TODO.md`.
 
 Ez a fájl a backend mellé készülő **fejlesztői playground** célját, határait és a későbbi megvalósítás irányát rögzíti. Nem implementációs backlog, nem UI-wireframe, és nem termelési frontend-terv.
@@ -143,7 +143,8 @@ notification live region és permission hint.
 ```text
 frontend/src/
   features/contents/  lista, form, detail/edit/create, audit és konfliktuskezelés
-  pages/           Home, Auth, Catalog, Search, Processing, Demo
+  features/catalog/   URL-alapú keresés, publikus detail és visibility polling
+  pages/           Home, Auth, Processing, Demo
   components/      Shell, Nav, StatusBar, gates, panels
   api/             client, health, catalog, admin, me, search, processing
   auth/            OIDC adapter, provider és route guardok
@@ -180,7 +181,8 @@ Ugyanaz a ív, mint az M1 demó:
 
 ### 7.3 Aszinkron demóelemek (M3–M4)
 
-- Publikálás után: „DB-ben published ≠ azonnal kereshető” szöveges jelzés.
+- Publikálás és visszavonás után: legfeljebb 30 másodperces, háttértabon
+  szünetelő katalógus-láthatósági ellenőrzés; timeout nem lifecycle failure.
 - Processing-status panel: pending outbox / lag (ha a végpont kész).
 - Egy index kiesése: keresés még megy; mindkettő kiesése: egyértelmű 503 a keresőoldalon, miközben az admin mentés külön ellenőrizhető.
 

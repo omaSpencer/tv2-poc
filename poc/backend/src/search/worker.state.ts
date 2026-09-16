@@ -28,6 +28,8 @@ export type SearchIndexStatusSnapshot = {
 
 export class SearchIndexState {
   state: SearchIndexRunState = 'off';
+  /** True only after this worker has verified the index configuration. */
+  bootstrapped = false;
   durable = '';
   inFlightEventId: string | null = null;
   lastAckedAt: Date | null = null;

@@ -151,7 +151,7 @@ describe('M4-T01: search configuration is proved before listen', () => {
     DATABASE_URL: 'postgresql://poc@127.0.0.1:5432/poc',
     FEATURE_IDENTITY: 'off', FEATURE_OUTBOX_RELAY: 'off', FEATURE_MEDIA: 'off',
   };
-  const searchOn = (extra: Record<string, string>) => ({ ...base, FEATURE_SEARCH: 'on', ...extra });
+  const searchOn = (extra: Record<string, string>) => ({ ...base, NATS_URL: 'nats://127.0.0.1:4222', FEATURE_SEARCH: 'on', ...extra });
 
   it('names the missing key, not the feature flag', () => {
     try {
@@ -524,6 +524,8 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
 
     const worker = h.app.registry.worker('a');
     const before = worker.workingSignals;
+    let submittedTasks = 0;
+    worker.setHooks({ beforeSubmit: () => { submittedTasks += 1; } });
     // The task really succeeds upstream; the proxy keeps reporting `processing`
     // for longer than ack_wait, which is exactly the situation working() exists
     // for. B is untouched and finishes normally.
@@ -533,13 +535,12 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
     await waitFor('worker a is processing', async () => h.app.state.get('a').state === 'processing', 15_000, 50);
     const heldFor = 34_000;
     const start = Date.now();
-    let submittedTasks = 0;
     while (Date.now() - start < heldFor) {
       const info = await consumerPending(h.jsm, h.names, h.app.state.get('a').durable);
       // One message outstanding the whole time: no redelivery past ack_wait.
       expect(info.ackPending).toBe(1);
       expect(info.pending).toBe(0);
-      submittedTasks = Math.max(submittedTasks, 1);
+      expect(submittedTasks).toBe(1);
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
     expect(worker.workingSignals - before).toBeGreaterThanOrEqual(10);
@@ -566,6 +567,7 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
     const submits: number[] = [];
     worker.setHooks({ beforeSubmit: () => { submits.push(Date.now()); } });
 
+    const retryGaps: number[] = [];
     for (const mode of ['status503', 'status429', 'down', 'hang'] as const) {
       h.proxyA.setMode(mode);
       await deliverPending(h.nc, h.names).catch(() => undefined);
@@ -573,6 +575,8 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
       // for every failure class rather than only the first transition.
       const seen = submits.length;
       await waitFor(`two failed attempts under ${mode}`, async () => submits.length >= seen + 2, 25_000, 25);
+      // Both attempts belong to this same failing mode, before recovery.
+      retryGaps.push(submits[seen + 1]! - submits[seen]!);
       // The snapshot is taken right after a resubmission, so the state is
       // either the new attempt or the backoff between attempts; what matters is
       // that a failure was recorded and nothing was acknowledged.
@@ -603,15 +607,14 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
     }, 60_000, 100);
     expect(h.app.state.get('a').lastAckedAt).not.toBeNull();
 
-    // Every retry gap sits on the ladder step, within the documented jitter.
-    const gaps: number[] = [];
-    for (let i = 1; i < submits.length; i += 1) gaps.push(submits[i]! - submits[i - 1]!);
-    const retryGaps = gaps.filter(gap => gap > 300);
-    expect(retryGaps.length).toBeGreaterThanOrEqual(3);
+    // Measure retries within each outage, not gaps between unrelated messages
+    // processed successfully after recovery.
+    expect(retryGaps).toHaveLength(4);
     for (const gap of retryGaps) {
       expect(gap).toBeGreaterThanOrEqual(Math.round(1200 * 0.8));
-      // Upper bound leaves room for the failing request's own duration.
-      expect(gap).toBeLessThanOrEqual(Math.round(1200 * 1.2) + 2500);
+      // Submit-to-submit time also includes SDK/network and scheduler latency.
+      // Its upper bound is not the backoff bound; the exact timer is covered
+      // with a controlled clock in m4-review.test.ts.
     }
   }, 180_000);
 
@@ -937,10 +940,8 @@ describe.skipIf(!ready)('M4: the public search route', () => {
     const first = await indexOne();
     const second = await indexOne({ title: 'Vadon élő Alföld – tavaszi ébredés', summary: 'Vadon a pusztán.' });
 
-    // Withdraw the first, but let only A learn about it. B's worker is stopped
-    // rather than its endpoint blocked, so B stays reachable *and* stale —
-    // which is the situation the read path has to survive.
-    await h.app.stopWorker('b');
+    // Keep a real stale projection while both workers remain routable.
+    const stale = await storedDocument(endpoints.b, h.indexUid, first.published.id);
     await first.services.service.withdraw(
       first.published.id,
       normalizeVersionedCommand({ expectedVersion: first.published.version }),
@@ -949,7 +950,9 @@ describe.skipIf(!ready)('M4: the public search route', () => {
     await deliverPending(h.nc, h.names);
     await waitFor('a dropped the withdrawn document', async () =>
       (await storedDocument(endpoints.a, h.indexUid, first.published.id)) === null, 30_000, 100);
-    expect(await storedDocument(endpoints.b, h.indexUid, first.published.id)).not.toBeNull();
+    await waitFor('b dropped the withdrawn document', async () =>
+      (await storedDocument(endpoints.b, h.indexUid, first.published.id)) === null, 30_000, 100);
+    await seedDocument(endpoints.b, h.indexUid, stale!);
 
     // Serve the read from the stale instance on purpose.
     h.proxyA.setMode('down');

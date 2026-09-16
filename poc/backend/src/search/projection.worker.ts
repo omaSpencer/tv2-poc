@@ -159,6 +159,7 @@ export class SearchProjectionWorker {
     this.attempt = 0;
     this.consumerHandle = null;
     this.indexReady = false;
+    this.state.bootstrapped = false;
     this.wake.resume();
     this.state.state = 'bootstrapping';
     this.state.lastErrorCode = null;
@@ -215,6 +216,7 @@ export class SearchProjectionWorker {
 
       this.consumerHandle = null;
       this.indexReady = false;
+      this.state.bootstrapped = false;
       this.state.setState('off');
       this.state.setInFlight(null);
       this.log.info({ event: 'search_worker_stopped', index: this.alias });
@@ -233,6 +235,7 @@ export class SearchProjectionWorker {
       let message: JsMsg | null = null;
       try {
         await this.ensureReady();
+        if (!this.running) break;
         message = await this.fetchOne();
         this.attempt = 0;
       } catch (error) {
@@ -257,14 +260,16 @@ export class SearchProjectionWorker {
   }
 
   private async ensureReady(): Promise<void> {
-    if (this.consumerHandle === null) {
+    if (this.consumerHandle === null || !this.broker.isConnected) {
       await this.verifyConsumerContract();
       this.consumerHandle = await this.broker.consumer(this.durable);
     }
     if (!this.indexReady) {
       this.state.setState('bootstrapping');
       const outcome = await bootstrapIndex(this.adapter);
+      if (!this.running) return;
       this.indexReady = true;
+      this.state.bootstrapped = true;
       this.state.setReachable(true);
       this.log.info({
         event: 'search_index_bootstrapped',
@@ -291,12 +296,21 @@ export class SearchProjectionWorker {
     // Nanoseconds on the wire; the heartbeat interval must stay well inside it.
     const ackWaitMs = Number(info.config.ack_wait ?? 0) / 1_000_000;
     if (!Number.isFinite(ackWaitMs) || ackWaitMs < CONSUMER_ACK_WAIT_MS) fields.push('ack_wait');
+    if (!Number.isFinite(this.workingMs) || this.workingMs <= 0 || this.workingMs * 3 > ackWaitMs) {
+      fields.push('working_interval');
+    }
     if (fields.length > 0) throw new ConsumerContractError(this.durable, fields);
   }
 
   private async fetchOne(): Promise<JsMsg | null> {
     if (this.consumerHandle === null) return null;
-    return this.consumerHandle.next({ expires: FETCH_EXPIRES_MS });
+    try {
+      return await this.consumerHandle.next({ expires: FETCH_EXPIRES_MS });
+    } catch (error) {
+      // A closed connection's handle cannot recover with the replacement connection.
+      this.consumerHandle = null;
+      throw error;
+    }
   }
 
   private async handleMessage(message: JsMsg): Promise<void> {
@@ -344,6 +358,7 @@ export class SearchProjectionWorker {
 
     while (this.running) {
       try {
+        if (!this.indexReady) await this.ensureReady();
         if (pendingTaskUid === null) {
           // Always the *current* database state: an old publish event replayed
           // after a withdrawal must converge on a delete.
@@ -361,6 +376,7 @@ export class SearchProjectionWorker {
           }
           this.state.setState('processing');
           await this.hooks.beforeSubmit?.(event.eventId);
+          if (!this.running) return;
           pendingTaskUid = decision.operation === 'upsert'
             ? await this.adapter.submitUpsert(decision.document)
             : await this.adapter.submitDelete(decision.id);
@@ -401,9 +417,10 @@ export class SearchProjectionWorker {
       } catch (error) {
         // A poll that never reached a terminal state keeps its task UID: the
         // work may still be running, and resubmitting would duplicate it.
-        if (!(error instanceof MeiliTaskTimeoutError)) pendingTaskUid = null;
+        // Keep an accepted UID across network/429/5xx poll failures. Terminal
+        // failures already clear it above; failed submissions never assigned it.
         const kind = classifyMeiliError(error);
-        if (kind === 'config') {
+        if (kind === 'config' || error instanceof ConsumerContractError) {
           this.haltOn(error);
           return;
         }
@@ -418,7 +435,10 @@ export class SearchProjectionWorker {
           await this.quarantine(message, 'projection_rejected', event.eventId);
           return;
         }
-        if (kind === 'not_found') this.indexReady = false;
+        if (kind === 'not_found') {
+          this.indexReady = false;
+          this.state.bootstrapped = false;
+        }
         if (!this.running) return;
         this.recordFailure(error, 'search_worker_retry', event.eventId);
         await this.wake.backoff(this.nextDelayMs());
@@ -451,6 +471,7 @@ export class SearchProjectionWorker {
     while (this.running) {
       try {
         await this.broker.publishTo(this.names.quarantineSubject, payload, msgId);
+        if (!this.running) return;
         message.ack();
         this.state.markAcked();
         this.state.setState('idle');

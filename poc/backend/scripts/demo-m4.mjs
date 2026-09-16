@@ -28,6 +28,7 @@
  * Requires FEATURE_SEARCH=on, NATS_URL, DATABASE_URL and the four MEILI_* keys.
  */
 import { randomUUID } from 'node:crypto';
+import { assertFixtureState } from './lib/demo-m4-state.mjs';
 import { createServer } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -118,7 +119,9 @@ async function meiliDocument(url, key, indexUid, id) {
     headers: { authorization: `Bearer ${key}` },
     signal: AbortSignal.timeout(8000),
   });
-  return response.ok ? response.json() : null;
+  if (response.status === 404) return null;
+  expect(response.ok, `reading the demo document answered ${response.status}`);
+  return response.json();
 }
 
 async function meiliSeed(url, key, indexUid, document) {
@@ -165,6 +168,7 @@ const { OutboxRelay } = await import('../dist/messaging/relay.js');
 const { SearchRegistry } = await import('../dist/search/search.registry.js');
 const { SearchService } = await import('../dist/search/search.service.js');
 const { SearchState } = await import('../dist/search/worker.state.js');
+const { SEARCH_BROKER } = await import('../dist/search/search.registry.js');
 
 const appContext = await NestFactory.createApplicationContext(AppModule, {
   logger: false,
@@ -190,7 +194,10 @@ try {
   const marker = `m4demo${randomUUID().replace(/-/g, '').slice(0, 8)}`;
   const drained = async () => {
     const rows = await outbox.pending(database.db, 100);
+    const consumers = await Promise.all(['a', 'b'].map(alias =>
+      appContext.get(SEARCH_BROKER).consumerInfo(state.get(alias).durable)));
     return rows.length === 0
+      && consumers.every(info => info.num_pending === 0 && info.num_ack_pending === 0)
       && ['a', 'b'].every(alias => state.get(alias).inFlightEventId === null);
   };
   const searchIds = async (q, extra = {}) => {
@@ -306,16 +313,24 @@ try {
   expect(detailStatus === 404, `the withdrawn detail answered ${detailStatus}, expected 404`);
   note('stale_hit_filtered', { detailStatus });
 
-  /* 7. both instances restored, same end state */
+  /* 7. Remove the injected stale fixture, then verify every fixture against DB state. */
+  const cleanupTask = await registry.adapter('b').submitDelete(published.id);
+  const cleanupResult = await registry.adapter('b').awaitTask(cleanupTask);
+  expect(cleanupResult.status === 'succeeded', 'stale fixture cleanup did not succeed');
   await waitFor('both durables to drain again', drained);
-  const endA = await meiliDocument(realA.url, realA.key, indexUid, secondPublished.id);
-  const endB = await meiliDocument(realB.url, realB.key, indexUid, secondPublished.id);
-  expect(endA !== null && endB !== null, 'the surviving content is missing from an index');
-  expect(
-    JSON.stringify(endA) === JSON.stringify(endB),
-    'the two indexes disagree about the surviving content',
-  );
-  note('end_state_identical', { id: secondPublished.id, aggregateVersion: endA.aggregateVersion });
+  const expected = [null, {
+    id: secondPublished.id,
+    title: secondPublished.title,
+    summary: secondPublished.summary,
+    category: secondPublished.category,
+    tags: secondPublished.tags,
+    aggregateVersion: secondPublished.version,
+  }];
+  const fixtureIds = [published.id, secondPublished.id];
+  const endA = await Promise.all(fixtureIds.map(id => meiliDocument(realA.url, realA.key, indexUid, id)));
+  const endB = await Promise.all(fixtureIds.map(id => meiliDocument(realB.url, realB.key, indexUid, id)));
+  assertFixtureState(expected, endA, endB);
+  note('end_state_identical', { fixtureIds, withdrawnAbsent: true, aggregateVersion: secondPublished.version });
 
   note('demo_complete', {
     identity: 'M2 L2 pending: the search path is proved without a real Authentik access token',

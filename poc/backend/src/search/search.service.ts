@@ -86,6 +86,7 @@ export class SearchService {
       this.log.warn({ event: 'search_fallback', from: 'a', to: 'b', kind: 'not_routable' });
     }
 
+    if (!this.routable('b')) throw searchUnavailable();
     try {
       return await this.queryInstance('b', query);
     } catch (error) {
@@ -105,8 +106,9 @@ export class SearchService {
    * the other instance is tried directly.
    */
   private routable(alias: SearchIndexAlias): boolean {
-    const state = this.state.get(alias).state;
-    return state === 'idle' || state === 'processing' || state === 'retrying';
+    const index = this.state.get(alias);
+    return index.bootstrapped
+      && (index.state === 'idle' || index.state === 'processing' || index.state === 'retrying');
   }
 
   private async queryInstance(alias: SearchIndexAlias, query: CatalogSearchQuery): Promise<MeiliSearchHits> {

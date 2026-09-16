@@ -41,7 +41,7 @@ const schema = z.object({
   SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().default(1000),
   MEILI_TASK_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   MEILI_TASK_POLL_MS: z.coerce.number().int().positive().default(100),
-  SEARCH_CONSUMER_WORKING_MS: z.coerce.number().int().positive().default(10_000),
+  SEARCH_CONSUMER_WORKING_MS: z.coerce.number().int().positive().max(10_000).default(10_000),
   ANTMEDIA_BASE_URL: optional,
   ANTMEDIA_TOKEN: optional,
 });
@@ -74,7 +74,7 @@ function isAbsoluteHttpUrl(value: string): boolean {
 const REQUIRED_KEYS = {
   FEATURE_IDENTITY: ['OIDC_ISSUER_URL', 'OIDC_AUDIENCE'],
   FEATURE_OUTBOX_RELAY: ['NATS_URL'],
-  FEATURE_SEARCH: ['MEILI_A_URL', 'MEILI_A_KEY', 'MEILI_B_URL', 'MEILI_B_KEY'],
+  FEATURE_SEARCH: ['MEILI_A_URL', 'MEILI_A_KEY', 'MEILI_B_URL', 'MEILI_B_KEY', 'NATS_URL'],
   FEATURE_MEDIA: ['ANTMEDIA_BASE_URL', 'ANTMEDIA_TOKEN'],
 } as const satisfies Record<string, readonly (keyof AppConfigShape)[]>;
 

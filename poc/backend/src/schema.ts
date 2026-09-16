@@ -7,7 +7,7 @@
  * broken application path cannot persist an invalid row.
  */
 import { sql } from 'drizzle-orm';
-import { check, index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const CONTENT_STATUSES = ['draft', 'published', 'withdrawn'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
@@ -20,6 +20,22 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const EVENT_TYPES = ['content.published', 'content.withdrawn'] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
+
+/**
+ * M5 – durable reindex lifecycle. The values live here, beside the other
+ * database-enforced vocabularies, so the CHECK constraint and the TypeScript
+ * union are generated from one list.
+ */
+export const REINDEX_PHASES = [
+  'ready', 'draining', 'importing', 'swapping', 'catching_up', 'verifying', 'failed',
+] as const;
+export type ReindexPhase = (typeof REINDEX_PHASES)[number];
+
+export const WORKER_DESIRED_STATES = ['running', 'paused'] as const;
+export type WorkerDesiredState = (typeof WORKER_DESIRED_STATES)[number];
+
+/** The two logical index aliases, as persisted operational rows. */
+export const SEARCH_INDEX_CONTROL_ALIASES = ['a', 'b'] as const;
 
 /** Limits shared by the application validator and the database constraints. */
 export const LIMITS = {
@@ -39,7 +55,16 @@ export const CONSTRAINTS = {
   contentSlugUnique: 'content_slug_unique',
   auditVersionUnique: 'content_audit_content_version_unique',
   outboxAggregateVersionUnique: 'outbox_event_aggregate_version_unique',
+  outboxSequenceUnique: 'outbox_event_outbox_sequence_unique',
 } as const;
+
+/**
+ * The PostgreSQL sequence behind `outbox_event.outbox_sequence` (M5 §3.2). It
+ * is a *monotonic allocation order*, not an event version and not a JetStream
+ * sequence: a rolled-back transaction leaves a permanent gap, so nothing may
+ * assume the values are contiguous.
+ */
+export const OUTBOX_SEQUENCE_NAME = 'outbox_event_outbox_sequence_seq';
 
 
 const inList = (column: string, values: readonly string[]) =>
@@ -141,9 +166,24 @@ export const outboxEvent = pgTable(
     correlationId: text('correlation_id').notNull(),
     payload: jsonb('payload').notNull(),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    /**
+     * M5 §3.2 – monotonic allocation order used to pin a reproducible outbox
+     * high-water mark for a reindex snapshot. Assigned by a database sequence
+     * so two concurrent transactions cannot receive the same value.
+     */
+    outboxSequence: bigint('outbox_sequence', { mode: 'number' })
+      .notNull()
+      .default(sql`nextval('${sql.raw(OUTBOX_SEQUENCE_NAME)}')`),
+    /**
+     * M5 §3.2 – the JetStream sequence the relay's PubAck reported. Written in
+     * the same statement as `delivered_at`, so a delivered row always carries
+     * the position its message occupies in the stream.
+     */
+    streamSequence: bigint('stream_sequence', { mode: 'number' }),
   },
   table => [
     unique(CONSTRAINTS.outboxAggregateVersionUnique).on(table.aggregateId, table.aggregateVersion),
+    unique(CONSTRAINTS.outboxSequenceUnique).on(table.outboxSequence),
     index('outbox_event_pending_idx')
       .on(table.occurredAt, table.eventId)
       .where(sql`${table.deliveredAt} is null`),
@@ -151,6 +191,13 @@ export const outboxEvent = pgTable(
     check('outbox_event_type_allowed', inList('event_type', EVENT_TYPES)),
     check('outbox_event_version_positive', sql`${table.aggregateVersion} >= 1`),
     check('outbox_event_correlation_shape', sql`${table.correlationId} ~ '^[A-Za-z0-9._-]{1,128}$'`),
+    check('outbox_event_outbox_sequence_positive', sql`${table.outboxSequence} >= 1`),
+    // A stream sequence exists only for a row the relay has proved delivered.
+    check(
+      'outbox_event_stream_sequence_pair',
+      sql`(${table.streamSequence} is null and ${table.deliveredAt} is null) or (${table.streamSequence} >= 1 and ${table.deliveredAt} is not null)`,
+    ),
+    index('outbox_event_outbox_sequence_idx').on(table.outboxSequence),
     // The envelope type and the payload status are one decision, stored once.
     check(
       'outbox_event_payload_pair',
@@ -159,6 +206,67 @@ export const outboxEvent = pgTable(
   ],
 );
 
+/**
+ * M5 §3.1 – durable reindex state, one row per logical index alias.
+ *
+ * This table is the *single* source of truth for two questions that must never
+ * be answered from process memory: may this index answer a search, and should
+ * its projection worker be asking for messages. A crashed coordinator leaves
+ * the row behind exactly as it was, which is what keeps a half-imported index
+ * out of the read path after a restart.
+ *
+ * Every column is operational. No title, summary, tag or actor ever lands here.
+ */
+export const searchIndexControl = pgTable(
+  'search_index_control',
+  {
+    indexAlias: text('index_alias').primaryKey(),
+    phase: text('phase').notNull(),
+    desiredWorkerState: text('desired_worker_state').notNull(),
+    /** The current or last full reindex run. Null before the first run. */
+    runId: uuid('run_id'),
+    /** Random, non-secret CLI instance id. Diagnostics only — never the lock. */
+    ownerId: text('owner_id'),
+    ownerHeartbeatAt: timestamp('owner_heartbeat_at', { withTimezone: true }),
+    /** Liveness of the process that owns the worker, written by the watcher. */
+    workerHeartbeatAt: timestamp('worker_heartbeat_at', { withTimezone: true }),
+    /** The worker's own acknowledgement that it stopped requesting messages. */
+    workerPausedAt: timestamp('worker_paused_at', { withTimezone: true }),
+    /** Non-null while the worker holds a message; part of the drain check. */
+    workerInFlightEventId: uuid('worker_in_flight_event_id'),
+    /** `S0`: stream last_seq recorded before the snapshot's first read. */
+    snapshotStreamSequence: bigint('snapshot_stream_sequence', { mode: 'number' }),
+    /** `H`: the largest outbox_sequence visible inside the snapshot. */
+    outboxHighWater: bigint('outbox_high_water', { mode: 'number' }),
+    /** `S1`, later `S2`: the boundary the durable must reach before ready. */
+    catchUpStreamSequence: bigint('catch_up_stream_sequence', { mode: 'number' }),
+    importedDocuments: integer('imported_documents').notNull().default(0),
+    expectedDocuments: integer('expected_documents'),
+    lastErrorCode: text('last_error_code'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  table => [
+    check('search_index_control_alias_allowed', inList('index_alias', SEARCH_INDEX_CONTROL_ALIASES)),
+    check('search_index_control_phase_allowed', inList('phase', REINDEX_PHASES)),
+    check('search_index_control_desired_state_allowed', inList('desired_worker_state', WORKER_DESIRED_STATES)),
+    check('search_index_control_imported_documents', sql`${table.importedDocuments} >= 0`),
+    check(
+      'search_index_control_expected_documents',
+      sql`${table.expectedDocuments} is null or ${table.expectedDocuments} >= 0`,
+    ),
+    // A `ready` index has finished a run and wants its worker consuming. The
+    // database refuses the combination that would let a paused worker look
+    // routable, so no application bug can produce it.
+    check(
+      'search_index_control_ready_shape',
+      sql`${table.phase} <> 'ready' or (${table.desiredWorkerState} = 'running' and ${table.completedAt} is not null and ${table.ownerId} is null)`,
+    ),
+  ],
+);
+
 export type ContentRow = typeof content.$inferSelect;
 export type ContentAuditRow = typeof contentAudit.$inferSelect;
 export type OutboxEventRow = typeof outboxEvent.$inferSelect;
+export type SearchIndexControlRow = typeof searchIndexControl.$inferSelect;

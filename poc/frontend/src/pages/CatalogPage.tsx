@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router';
 import { fetchPublishedContent } from '../api/catalog';
 import { isApiProblemError } from '../api/types';
 import { useActiveContent } from '../content/activeContentContext';
@@ -7,7 +8,9 @@ import { JsonBlock } from '../components/JsonBlock';
 import { ProblemPanel } from '../components/ProblemPanel';
 
 export function CatalogPage() {
-  const { contentId } = useActiveContent();
+  const { id } = useParams();
+  const { contentId: activeContentId } = useActiveContent();
+  const contentId = id ?? activeContentId;
 
   const query = useQuery({
     queryKey: ['catalog-content', contentId],
@@ -29,7 +32,7 @@ export function CatalogPage() {
           <code className="mono">GET /catalog/contents/:id</code> — csak published; egyébként 404.
           Login nem kell. Visszavonás után ez a demó punchline.
         </p>
-        <ContentIdBar />
+        {!id ? <ContentIdBar /> : null}
         {!contentId ? <p className="muted">Állíts be egy content UUID-t fent.</p> : null}
         {query.isFetching ? <p className="muted">Betöltés…</p> : null}
       </section>

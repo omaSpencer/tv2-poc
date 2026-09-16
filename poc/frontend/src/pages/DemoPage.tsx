@@ -10,7 +10,7 @@ import {
 } from '../api/admin';
 import { fetchPublishedContent } from '../api/catalog';
 import { isApiProblemError, type AdminContentView, type ProblemDocument } from '../api/types';
-import { useAuthSession } from '../auth/sessionContext';
+import { useAuth } from '../auth/authContext';
 import { useActiveContent } from '../content/activeContentContext';
 import {
   DEMO_CONTENT,
@@ -84,7 +84,7 @@ function expectProblem(error: unknown, expected: ExpectedProblem): ProblemDocume
 
 export function DemoPage() {
   const queryClient = useQueryClient();
-  const { accessToken } = useAuthSession();
+  const { isAuthenticated } = useAuth();
   const { contentId, setContentId } = useActiveContent();
   const [done, setDone] = useState<Partial<Record<StepId, boolean>>>({});
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -110,15 +110,15 @@ export function DemoPage() {
 
   const runStep = useMutation({
     mutationFn: async (stepId: StepId) => {
-      if (!accessToken && stepId !== 'catalog-ok' && stepId !== 'catalog-404' && stepId !== 'catalog-ok-2') {
-        throw new Error('Admin lépésekhez Bearer token kell (Auth).');
+      if (!isAuthenticated && stepId !== 'catalog-ok' && stepId !== 'catalog-404' && stepId !== 'catalog-ok-2') {
+        throw new Error('Admin lépésekhez érvényes munkamenet kell.');
       }
 
       let current = adminSnapshot;
       let id = contentId || current?.id || '';
 
       if (stepId === 'create') {
-        const res = await createContent({ ...DEMO_CONTENT }, accessToken!);
+        const res = await createContent({ ...DEMO_CONTENT });
         setContentId(res.data.id);
         setAdminSnapshot(res.data);
         return { stepId, res };
@@ -128,36 +128,34 @@ export function DemoPage() {
       if (!id) throw new Error('Nincs content id – futtasd a create lépést.');
 
       if (stepId === 'edit') {
-        const version = current?.version ?? (await getAdminContent(id, accessToken!)).data.version;
+        const version = current?.version ?? (await getAdminContent(id)).data.version;
         const res = await patchContent(
           id,
           { expectedVersion: version, summary: DEMO_EDIT.summary, tags: [...DEMO_EDIT.tags] },
-          accessToken!,
         );
         setAdminSnapshot(res.data);
         return { stepId, res };
       }
 
       if (stepId === 'publish' || stepId === 'republish') {
-        const version = current?.version ?? (await getAdminContent(id, accessToken!)).data.version;
-        const res = await publishContent(id, { expectedVersion: version }, accessToken!);
+        const version = current?.version ?? (await getAdminContent(id)).data.version;
+        const res = await publishContent(id, { expectedVersion: version });
         setAdminSnapshot(res.data);
         return { stepId, res };
       }
 
       if (stepId === 'withdraw') {
-        const version = current?.version ?? (await getAdminContent(id, accessToken!)).data.version;
-        const res = await withdrawContent(id, { expectedVersion: version }, accessToken!);
+        const version = current?.version ?? (await getAdminContent(id)).data.version;
+        const res = await withdrawContent(id, { expectedVersion: version });
         setAdminSnapshot(res.data);
         return { stepId, res };
       }
 
       if (stepId === 'edit-withdrawn') {
-        const version = current?.version ?? (await getAdminContent(id, accessToken!)).data.version;
+        const version = current?.version ?? (await getAdminContent(id)).data.version;
         const res = await patchContent(
           id,
           { expectedVersion: version, title: DEMO_WITHDRAWN_EDIT.title },
-          accessToken!,
         );
         setAdminSnapshot(res.data);
         return { stepId, res };
@@ -215,8 +213,8 @@ export function DemoPage() {
 
   const negCreate = useMutation({
     mutationFn: async () => {
-      if (!accessToken) throw new Error('Token kell.');
-      return createContent({ ...NEGATIVE_CASES.missingMediaAsset }, accessToken);
+      if (!isAuthenticated) throw new Error('Érvényes munkamenet kell.');
+      return createContent({ ...NEGATIVE_CASES.missingMediaAsset });
     },
     onSuccess: async (res) => {
       setLastError(null);
@@ -238,10 +236,10 @@ export function DemoPage() {
 
   const negPublish = useMutation({
     mutationFn: async () => {
-      if (!accessToken || !contentId) throw new Error('Token + content id.');
-      const row = adminSnapshot ?? (await getAdminContent(contentId, accessToken)).data;
+      if (!isAuthenticated || !contentId) throw new Error('Munkamenet + content id.');
+      const row = adminSnapshot ?? (await getAdminContent(contentId)).data;
       try {
-        const res = await publishContent(contentId, { expectedVersion: row.version }, accessToken);
+        const res = await publishContent(contentId, { expectedVersion: row.version });
         throw new Error(`Várt 422 validation_failed, de HTTP ${res.status} érkezett.`);
       } catch (error) {
         return expectProblem(error, {
@@ -272,7 +270,7 @@ export function DemoPage() {
 
   const negStale = useMutation({
     mutationFn: async () => {
-      if (!accessToken || !contentId) throw new Error('Token + content id.');
+      if (!isAuthenticated || !contentId) throw new Error('Munkamenet + content id.');
       try {
         const res = await patchContent(
           contentId,
@@ -280,7 +278,6 @@ export function DemoPage() {
             expectedVersion: NEGATIVE_CASES.conflictingExpectedVersion,
             summary: 'stale version probe',
           },
-          accessToken,
         );
         throw new Error(`Várt 409 version_conflict, de HTTP ${res.status} érkezett.`);
       } catch (error) {
@@ -315,11 +312,11 @@ export function DemoPage() {
           <Link to="/auth">Auth</Link> · <Link to="/editorial">Editorial</Link> ·{' '}
           <Link to="/catalog">Catalog</Link>
         </p>
-        {!accessToken ? (
+        {!isAuthenticated ? (
           <MilestoneGate
             milestone="M2"
             feature="Tokenes admin demó"
-            detail="Katalógus lépések token nélkül is futtathatók; a többihez Bearer kell."
+            detail="Katalógus lépések anonim módon is futtathatók; a többihez bejelentkezés kell."
           />
         ) : null}
 
@@ -371,7 +368,7 @@ export function DemoPage() {
           <button
             type="button"
             className="btn-secondary"
-            disabled={!accessToken || negCreate.isPending}
+            disabled={!isAuthenticated || negCreate.isPending}
             onClick={() => negCreate.mutate()}
           >
             Create media nélkül
@@ -379,7 +376,7 @@ export function DemoPage() {
           <button
             type="button"
             className="btn-secondary"
-            disabled={!accessToken || !contentId || negPublish.isPending}
+            disabled={!isAuthenticated || !contentId || negPublish.isPending}
             onClick={() => negPublish.mutate()}
           >
             Publish (várható 422)
@@ -387,7 +384,7 @@ export function DemoPage() {
           <button
             type="button"
             className="btn-secondary"
-            disabled={!accessToken || !contentId || negStale.isPending}
+            disabled={!isAuthenticated || !contentId || negStale.isPending}
             onClick={() => negStale.mutate()}
           >
             Stale version patch

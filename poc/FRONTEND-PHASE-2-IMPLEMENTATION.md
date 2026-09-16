@@ -2,6 +2,11 @@
 
 2026-09-16 · Ticket-szintű frontend + backend implementációs specifikáció.
 
+**Implementációs állapot (2026-09-16):** P2-BE-01–06 és P2-FE-01–11
+elkészült, a helyi contract/build/lint/unit/component és valódi PostgreSQL
+integrációs kapuk zöldek. A valódi editor/publisher Authentik böngészős E2E a
+P1-12-höz hasonlóan külső L2 függőségen vár.
+
 Kapcsolódó döntések:
 [FRONTEND-IDENTITY-AND-API-DECISIONS.md](FRONTEND-IDENTITY-AND-API-DECISIONS.md).
 
@@ -291,14 +296,34 @@ generált, tényleges OpenAPI contract után jelölhető.
 
 ## 7. Definition of Done
 
-- [ ] Admin lista és audit OpenAPI-contracttal elérhető.
-- [ ] UUID másolása nélkül bejárható a workspace.
-- [ ] Editor/publisher permission- és státuszmátrixa helyes.
-- [ ] Create/edit/publish/withdraw/republish teljes flow működik.
-- [ ] Published tartalom nem szerkeszthető.
-- [ ] No-op nem jelez hamis verziónövekedést.
-- [ ] Version conflict adatvesztés és automatikus overwrite nélkül feloldható.
-- [ ] Audit minden verziót helyesen mutat.
-- [ ] Loading/empty/error/permission állapotok készek.
-- [ ] Backend és frontend tesztek, build, lint, contract gate zöld.
+- [x] Admin lista és audit OpenAPI-contracttal elérhető.
+- [x] UUID másolása nélkül bejárható a workspace.
+- [x] Editor/publisher permission- és státuszmátrixa helyes a komponens- és
+  backend integrációs tesztekben.
+- [~] Create/edit/publish/withdraw/republish teljes flow működik — backend
+  PostgreSQL integrációval igazolt; valódi Authentik böngészős E2E pending.
+- [x] Published tartalom nem szerkeszthető.
+- [x] No-op nem jelez hamis verziónövekedést.
+- [x] Version conflict adatvesztés és automatikus overwrite nélkül feloldható.
+- [x] Audit minden verziót helyesen mutat.
+- [x] Loading/empty/error/permission állapotok készek.
+- [x] Backend és frontend tesztek, build, lint, migration és contract gate zöld.
 
+## 8. Helyi ellenőrzési eredmény
+
+2026-09-16:
+
+- backend contract unit: 15/15 sikeres;
+- friss, eldobható PostgreSQL 17 adatbázison az új admin read-model és a teljes
+  M1 regresszió együtt: 52/52 sikeres;
+- backend build, OpenAPI drift check és lint: sikeres, 0 warning/error;
+- frontend contract check, production build, lint és 37/37 unit/component
+  teszt: sikeres;
+- 5000 soros `EXPLAIN (ANALYZE, BUFFERS)` az index előtt teljes sortot mutatott;
+  az `0003_steady_leader.sql` után `Index Scan Backward using
+  content_admin_updated_id_idx` szolgálta ki a lapot;
+- a teszthez létrehozott `indaplay-phase2-test-postgres` konténer a futás után
+  eltávolítva; kizárólag szintetikus adata volt;
+- a viewer/editor/publisher valódi böngészős E2E az Authentik L2 hiánya miatt
+  pending, ezért a teljes fázis külső validáció nélkül nem kap végleges „kész”
+  státuszt.

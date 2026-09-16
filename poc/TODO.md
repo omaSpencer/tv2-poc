@@ -12,14 +12,15 @@
 - A részletes üzleti/API döntések forrása mindig a belinkelt fázisterv; ez a fájl
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 már elkészült.
+- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–2 helyi
+  implementációja elkészült, a közös Authentik L2 E2E kapu pending.
 
 ## Végrehajtási sorrend
 
 1. Fázis 0 – Stabilizálás és szerződéshelyreállítás — **kész**
 2. Identity- és UI-glue API-döntési kapu — **contract kész, Authentik L2 nyitott**
-3. Fázis 1 – Alkalmazásváz és valódi identity
-4. Fázis 2 – Szerkesztői tartalomkezelés
+3. Fázis 1 – Alkalmazásváz és valódi identity — **implementáció kész, L2 validációra vár**
+4. Fázis 2 – Szerkesztői tartalomkezelés — **implementáció kész, L2 E2E-re vár**
 5. Fázis 3 – Publikus katalógus és keresés
 6. Fázis 4 – Operációs megfigyelő dashboard
 7. Fázis 5 – M5 operátori beavatkozások
@@ -86,81 +87,91 @@
 
 ## Fázis 1 – Alkalmazásváz és valódi identity
 
-**Állapot:** nyitott  
+**Állapot:** folyamatban — P1-01–P1-11 kész; P1-12 külső Authentik L2-re vár
+
 **Becslés:** 4–5,5 mérnöknap  
 **Függőség:** Fázis 0; a végső lezáráshoz valódi Authentik L2  
 **Részletes terv:** [FRONTEND-PHASE-1-IMPLEMENTATION.md](FRONTEND-PHASE-1-IMPLEMENTATION.md)
 
 ### Végrehajtási terv
 
-- [ ] **P1-01:** `oidc-client-ts` dependency, env-normalizálás és validáció.
-- [ ] **P1-02:** Authentik blueprint strict SPA redirecttel, CLI regresszió nélkül.
-- [ ] **P1-03:** OIDC kliensadapter és determinisztikus auth state machine.
-- [ ] **P1-04:** `/login`, `/auth/callback` és logout flow.
-- [ ] **P1-05:** `/me` session bootstrap, cache-életciklus és egyszeri 401 recovery.
-- [ ] **P1-06:** központi API-client auth integráció; komponensek ne adogassanak tokent.
-- [ ] **P1-07:** `RequireAuth`, `RequirePermission` és magyarázott action guard.
-- [ ] **P1-08:** cél route-térkép és role-aware navigáció.
-- [ ] **P1-09:** egységes `ProblemDetails`, notification és correlation ID disclosure.
-- [ ] **P1-10:** manual token kizárólag dev flag mögött.
-- [ ] **P1-11:** auth/session/guard unit és component tesztek.
-- [ ] **P1-12:** valódi Authentik L2 full-stack ellenőrzés mindhárom identitással.
+- [x] **P1-01:** `oidc-client-ts` dependency, env-normalizálás és validáció.
+- [x] **P1-02:** Authentik blueprint strict SPA redirecttel; a meglévő CLI callback
+  változatlan, a futtatott CLI/L2 regresszió P1-12 része.
+- [x] **P1-03:** OIDC kliensadapter és determinisztikus auth state machine.
+- [x] **P1-04:** `/login`, `/auth/callback` és logout flow.
+- [x] **P1-05:** `/me` session bootstrap, cache-életciklus és egyszeri 401 recovery.
+- [x] **P1-06:** központi API-client auth integráció; komponensek ne adogassanak tokent.
+- [x] **P1-07:** `RequireAuth`, `RequirePermission` és magyarázott action guard.
+- [x] **P1-08:** cél route-térkép és role-aware navigáció.
+- [x] **P1-09:** egységes `ProblemDetails`, notification és correlation ID disclosure.
+- [x] **P1-10:** manual token kizárólag dev flag mögött.
+- [x] **P1-11:** auth/session/guard unit és component tesztek.
+- [~] **P1-12:** valódi Authentik L2 full-stack ellenőrzés mindhárom identitással —
+  futó Authentik, issuer és tesztidentitás-hozzáférés hiányzik.
 
 ### Kötelező ellenőrzések
 
 - [ ] Viewer, editor és publisher PKCE belépése sikeres.
-- [ ] Hard reload és access-token refresh után a session helyreáll.
-- [ ] Callback kétszeri mountja idempotens.
-- [ ] Hibás issuer/audience és IdP-kiesés nem okoz login loopot.
-- [ ] 401, 403 és 503 külön UX-et kap.
-- [ ] Logout törli az OIDC usert, tokent és user-függő cache-t.
-- [ ] Normál build DOM-jában nincs manual token mező.
-- [ ] Build, lint és auth tesztek zöldek.
+- [~] Hard reload és access-token refresh után a session helyreáll — komponensszinten
+  tesztelt, valódi providerrel még ellenőrzendő.
+- [x] Callback kétszeri mountja idempotens.
+- [~] Hibás issuer/audience és IdP-kiesés nem okoz login loopot — config-, 401-
+  és 503-ág tesztelt; a valós L2 hibamátrix nyitott.
+- [x] 401, 403 és 503 külön UX-et kap.
+- [x] Logout törli az OIDC usert, tokent és user-függő cache-t.
+- [x] Normál build DOM-jában nincs manual token mező.
+- [x] Contract check, build, lint és 25 auth/session/guard teszt zöld.
 - [ ] M2 L2 evidence valós futással frissítve.
 
 ---
 
 ## Fázis 2 – Szerkesztői tartalomkezelés
 
-**Állapot:** nyitott  
+**Állapot:** folyamatban — backend, UI és helyi PostgreSQL kapuk készek; Authentik L2 E2E pending
+
 **Becslés:** 8–11 mérnöknap frontend + backend együtt  
 **Függőség:** Fázis 1; admin list és audit backend API  
 **Részletes terv:** [FRONTEND-PHASE-2-IMPLEMENTATION.md](FRONTEND-PHASE-2-IMPLEMENTATION.md)
 
 ### Backend végrehajtási terv
 
-- [ ] **P2-BE-01:** strict admin list query- és cursorcontract.
-- [ ] **P2-BE-02:** cursoros admin lista repository/service stabil rendezéssel.
-- [ ] **P2-BE-03:** `GET /admin/contents`, permission, OpenAPI és integrációs teszt.
-- [ ] **P2-BE-04:** cursoros, newest-first audit repository/service.
-- [ ] **P2-BE-05:** `GET /admin/contents/:id/audit`, OpenAPI és adatminimalizálás.
-- [ ] **P2-BE-06:** OpenAPI snapshot, generated frontend type és lifecycle regresszió.
-- [ ] Reális seed mellett listaquery `EXPLAIN`; index csak mért igény alapján.
-- [ ] Read endpointok nem írnak audit- vagy outbox-rekordot.
+- [x] **P2-BE-01:** strict admin list query- és cursorcontract.
+- [x] **P2-BE-02:** cursoros admin lista repository/service stabil rendezéssel.
+- [x] **P2-BE-03:** `GET /admin/contents`, permission, OpenAPI és integrációs teszt.
+- [x] **P2-BE-04:** cursoros, newest-first audit repository/service.
+- [x] **P2-BE-05:** `GET /admin/contents/:id/audit`, OpenAPI és adatminimalizálás.
+- [x] **P2-BE-06:** OpenAPI snapshot, generated frontend type és lifecycle regresszió.
+- [x] Reális, 5000 soros seed mellett listaquery `EXPLAIN`; a mért sort után
+  hozzáadott `(updated_at, id)` index `Index Scan Backward` tervet ad.
+- [x] Read endpointok nem írnak audit- vagy outbox-rekordot.
 
 ### Frontend végrehajtási terv
 
-- [ ] **P2-FE-01:** `features/contents` struktúra és query-key factory.
-- [ ] **P2-FE-02:** `/contents` lista URL filterekkel és cursor historyval.
-- [ ] **P2-FE-03:** közös validált content form a backend limitekkel.
-- [ ] **P2-FE-04:** `/contents/new` draft-létrehozási folyamat.
-- [ ] **P2-FE-05:** detail áttekintő, státusz, verzió és publish readiness.
-- [ ] **P2-FE-06:** draft/withdrawn szerkesztés, dirty-state védelem és no-op kezelés.
-- [ ] **P2-FE-07:** publish/withdraw/republish állapot- és permissionhelyesen.
-- [ ] **P2-FE-08:** version conflict dialog reload/reapply ággal, force overwrite nélkül.
-- [ ] **P2-FE-09:** cursoros audit timeline.
-- [ ] **P2-FE-10:** editor/publisher actionmátrix és magyarázott disabled állapotok.
-- [ ] **P2-FE-11:** responsive és accessibility ellenőrzés.
+- [x] **P2-FE-01:** `features/contents` struktúra és query-key factory.
+- [x] **P2-FE-02:** `/contents` lista URL filterekkel és cursor historyval.
+- [x] **P2-FE-03:** közös validált content form a backend limitekkel.
+- [x] **P2-FE-04:** `/contents/new` draft-létrehozási folyamat.
+- [x] **P2-FE-05:** detail áttekintő, státusz, verzió és publish readiness.
+- [x] **P2-FE-06:** draft/withdrawn szerkesztés, dirty-state védelem és no-op kezelés.
+- [x] **P2-FE-07:** publish/withdraw/republish állapot- és permissionhelyesen.
+- [x] **P2-FE-08:** version conflict dialog reload/reapply ággal, force overwrite nélkül.
+- [x] **P2-FE-09:** cursoros audit timeline.
+- [x] **P2-FE-10:** editor/publisher actionmátrix és magyarázott disabled állapotok.
+- [x] **P2-FE-11:** 360 px kártyanézet, label/error kapcsolatok és fókuszkezelt dialogok.
 
 ### Kötelező ellenőrzések
 
-- [ ] Editor listáz, létrehoz és szerkeszt, de nem publishol/withdrawol.
-- [ ] Publisher UUID másolása nélkül végigjárja a teljes v1 → v6 életciklust.
-- [ ] Published content nem szerkeszthető.
-- [ ] No-op patch nem mutat hamis verziónövekedést.
-- [ ] Két browser context version conflictja adatvesztés nélkül feloldható.
-- [ ] Audit minden sikeres verziót pontosan egyszer, jó sorrendben mutat.
-- [ ] Backend/frontend teszt, build, lint és contract gate zöld.
+- [~] Editor listáz, létrehoz és szerkeszt, de nem publishol/withdrawol —
+  permission/component teszt zöld, valódi Authentik böngészős E2E pending.
+- [~] Publisher UUID másolása nélkül végigjárja a teljes v1 → v6 életciklust —
+  backend integráció és UI-flow kész, valódi Authentik böngészős E2E pending.
+- [x] Published content nem szerkeszthető.
+- [x] No-op patch nem mutat hamis verziónövekedést.
+- [~] Két browser context version conflictja adatvesztés nélkül feloldható —
+  komponensszinten reload/reapply és no-auto-retry igazolt; valódi kétcontextes E2E pending.
+- [x] Audit minden sikeres verziót pontosan egyszer, jó sorrendben mutat.
+- [x] Backend 67/67 és frontend 37/37 célzott teszt, build, lint és contract gate zöld.
 
 ---
 

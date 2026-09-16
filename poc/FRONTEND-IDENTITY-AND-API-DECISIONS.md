@@ -37,18 +37,18 @@ nem jelölhető késznek.
 
 ### 2.1 Authentik blueprint-változás
 
-A meglévő public provider marad. A strict redirect allowlist két eleme:
+A meglévő public provider marad. A strict redirect allowlist három eleme:
 
 ```text
 http://127.0.0.1:8765/callback
 http://127.0.0.1:5173/auth/callback
+http://127.0.0.1:5173/login
 ```
 
-Az első a meglévő CLI bizonyító kliensé, a második a SPA-é. Wildcard, regex,
-`localhost` alias és tetszőleges port nem engedélyezett. A post-logout redirectet
-az Authentik 2025.8 provider által ténylegesen támogatott mező/discovery viselkedés
-alapján kell L2-ben igazolni; ha az IdP nem redirectel, a frontend a helyi sessiont
-akkor is azonnal törli és `/login`-ra navigál.
+Az első a meglévő CLI bizonyító kliensé, a második a SPA callbackje, a harmadik a
+post-logout cél. Wildcard, regex, `localhost` alias és tetszőleges port nem
+engedélyezett. A post-logout viselkedést L2-ben ténylegesen igazolni kell; ha az
+IdP nem redirectel, a frontend a helyi sessiont akkor is azonnal törli.
 
 ### 2.2 Frontend env-szerződés
 
@@ -243,4 +243,3 @@ részletként.
 - [x] Audit query, sorrend, cursor és response rögzített.
 - [x] Permission, hibák és adatminimalizálás rögzített.
 - [ ] Authentik L2 környezet ténylegesen elérhető és blueprint alkalmazva.
-

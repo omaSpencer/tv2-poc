@@ -5,10 +5,16 @@ Demó- és kipróbálófelület, nem termelési CMS. A high-level háttér:
 [../FRONTEND.md](../FRONTEND.md); az aktuális, nyolcfázisú végrehajtási roadmap:
 [../FRONTEND-IMPLEMENTATION-PLAN.md](../FRONTEND-IMPLEMENTATION-PLAN.md).
 
-## Előfeltétel
+## Előfeltétel és identity konfiguráció
 
 Futó backend a `VITE_BACKEND_ORIGIN` címen (alap: `http://127.0.0.1:3000`).
 Lásd [../backend/README.md](../backend/README.md).
+
+Az Authentik Authorization Code + PKCE beállításai a `.env.example` fájlban
+vannak. Fejlesztésben az issuer/client páros együtt kötelező; production buildben
+a callback és post-logout URL-t is explicit meg kell adni. A manuális Bearer mező
+alapból és a normál build DOM-jában sincs jelen; kizárólag
+`VITE_ALLOW_MANUAL_TOKEN=true` mellett használható helyi hibakeresésre.
 
 ## Indítás
 
@@ -19,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Böngésző: [http://localhost:5173](http://localhost:5173).
+Böngésző: [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
 A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix nélkül).
 
@@ -28,14 +34,21 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | Útvonal | Screen | Backend milestone |
 | --- | --- | --- |
 | `/` | Kezdőlap / térkép | — |
-| `/auth` | Bearer token, `/me`, PKCE hely | M2 |
-| `/editorial` | Draft / patch / publish / withdraw | M1+M2 |
-| `/catalog` | Publikus részlet | M1 |
-| `/search` | Katalóguskeresés | M4 |
-| `/processing` | Outbox / processing-status | M3 |
+| `/login` | Authentik belépés, session és `/me` | M2 |
+| `/auth/callback` | OIDC callback feldolgozás | M2 |
+| `/contents` | Cursoros szerkesztői lista URL-szűrőkkel | M1+M2 |
+| `/contents/new` | Validált piszkozat-létrehozás | M1+M2 |
+| `/contents/:id` | Áttekintő, lifecycle akciók és audit-idővonal | M1+M2 |
+| `/contents/:id/edit` | Dirty-state és verziókonfliktus-védett szerkesztés | M1+M2 |
+| `/catalog/search` | Publikus katalóguskeresés | M4 |
+| `/catalog/:id` | Publikus részlet | M1 |
+| `/operations` | Processing dashboard, `ops:read` guarddal | M3 |
 | `/demo` | Életciklus lépésenként + negatív esetek | M2+ |
 
-Az aktív content UUID és a Bearer token `sessionStorage`-ban él a screenek között.
+Az aktív content UUID a demó screenek között megmarad. Az OIDC sessiont az
+`oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a React
+komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen forrása a
+backend `GET /me` válasza.
 
 ## Parancsok
 
@@ -43,12 +56,22 @@ Az aktív content UUID és a Bearer token `sessionStorage`-ban él a screenek k�
 | --- | --- |
 | `npm run dev` | Fejlesztői szerver + proxy |
 | `npm run build` | TypeScript ellenőrzés + production bundle |
+| `npm run compiler:check` | Ellenőrzi, hogy a build tartalmaz React Compiler memoizációt |
 | `npm run preview` | A buildelt bundle helyi előnézete |
 | `npm run lint` | oxlint a `src` fán |
+| `npm run test` | Vitest unit- és component tesztek |
+| `npm run verify` | Contract drift + build + React Compiler + lint + tesztek |
 
 ## Megjegyzés
 
 Amíg `FEATURE_IDENTITY=off`, az `/admin` 503. Nincs actor-header bypass.
+A 401 egyszeri session-megújítást vált ki, és csak idempotens GET kerül egyszer
+újraküldésre; mutáció soha. A 403 megtartja a sessiont, az identity 503 pedig
+helyben újrapróbálható, nem indít login loopot.
+A tartalomlista nem mutat félrevezető összesített találatszámot: stabil
+`updatedAt, id` cursorral lapoz. A szerkesztő csak a dirty mezőket küldi, a 409
+verziókonfliktus pedig explicit szerververzió-betöltést vagy kézi újraalkalmazást
+kér; automatikus overwrite és mutation retry nincs.
 A Search és Processing API M3/M4 óta implementált. Kikapcsolt feature vagy
 elérhetetlen függőség esetén a problem+json / MilestoneGate üzenet jelenik meg.
 
@@ -62,5 +85,7 @@ cd ../backend && npm run openapi:emit
 cd ../frontend && npm run contracts:generate
 ```
 
-A normál frontend build nem igényel futó backendet. A `npm run verify` contract
-driftet, buildet és lintet ellenőriz.
+A normál frontend build nem igényel futó backendet. A React Compiler az
+`@vitejs/plugin-react` hivatalos Babel presetjén keresztül, automatikus
+(`infer`) módban fut. A `npm run verify` a contract drift, a build, a compiler
+kimenet, a lint és a tesztek ellenőrzését is elvégzi.

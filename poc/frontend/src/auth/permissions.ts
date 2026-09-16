@@ -6,3 +6,10 @@ export function can(
 ): boolean {
   return (me?.permissions ?? []).includes(permission);
 }
+
+export function permissionReason(
+  me: MeResponse | null | undefined,
+  permission: AppPermission,
+): string | undefined {
+  return can(me, permission) ? undefined : `A művelethez ${permission} jogosultság szükséges.`;
+}

@@ -17,11 +17,23 @@ export function getLastCorrelationId(): string | null {
 type RequestOptions = {
   method?: string;
   body?: unknown;
-  accessToken?: string | null;
   correlationId?: string;
+  auth?: boolean;
+  retryAuth?: boolean;
   /** Health ready returns Terminus JSON on 503 – not problem+json. */
   acceptNonOkJson?: boolean;
 };
+
+let currentAccessToken: string | null = null;
+let recoverAuthentication: (() => Promise<boolean>) | null = null;
+
+export function setApiAccessToken(token: string | null): void {
+  currentAccessToken = token && token.trim().length > 0 ? token.trim() : null;
+}
+
+export function setAuthRecoveryHandler(handler: (() => Promise<boolean>) | null): void {
+  recoverAuthentication = handler;
+}
 
 function isProblemDocument(value: unknown): value is ProblemDocument {
   if (!value || typeof value !== 'object') return false;
@@ -34,9 +46,19 @@ function isProblemDocument(value: unknown): value is ProblemDocument {
  * Does not invent actor headers – identity arrives only as Bearer after M2.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<ApiSuccess<T>> {
+  return executeRequest(path, options, false);
+}
+
+async function executeRequest<T>(
+  path: string,
+  options: RequestOptions,
+  authRetried: boolean,
+): Promise<ApiSuccess<T>> {
   const headers = new Headers({ Accept: 'application/json' });
   if (options.body !== undefined) headers.set('Content-Type', 'application/json');
-  if (options.accessToken) headers.set('Authorization', `Bearer ${options.accessToken}`);
+  if (options.auth !== false && currentAccessToken) {
+    headers.set('Authorization', `Bearer ${currentAccessToken}`);
+  }
   if (options.correlationId) headers.set('X-Correlation-Id', options.correlationId);
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -68,7 +90,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         ...parsed,
         correlationId: parsed.correlationId || correlationId,
       };
-      throw new ApiProblemError(problem, problem.correlationId);
+      const error = new ApiProblemError(problem, problem.correlationId);
+      if (
+        problem.status === 401 &&
+        options.auth !== false &&
+        options.retryAuth !== false &&
+        !authRetried &&
+        recoverAuthentication
+      ) {
+        const recovered = await recoverAuthentication();
+        if (recovered && (options.method ?? 'GET') === 'GET') {
+          return executeRequest<T>(path, options, true);
+        }
+      }
+      throw error;
     }
     throw new Error(`HTTP ${response.status}${contentType ? ` (${contentType})` : ''}: ${rawText.slice(0, 200)}`);
   }

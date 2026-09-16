@@ -7,11 +7,10 @@ import {
   publishContent,
   withdrawContent,
 } from '../api/admin';
-import { fetchMe } from '../api/me';
 import type { AdminContentView, ContentCategory, CreateContentBody } from '../api/types';
 import { isApiProblemError } from '../api/types';
-import { useAuthSession } from '../auth/sessionContext';
-import { can } from '../auth/permissions';
+import { useAuth } from '../auth/authContext';
+import { can, permissionReason } from '../auth/permissions';
 import { useActiveContent } from '../content/activeContentContext';
 import { CONTENT_CATEGORIES, DEMO_CONTENT, DEMO_EDIT } from '../data/demoFixture';
 import { PermissionHints } from '../components/PermissionHints';
@@ -19,6 +18,7 @@ import { ContentIdBar } from '../components/ContentIdBar';
 import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
 import { ProblemPanel } from '../components/ProblemPanel';
+import { useNotifications } from '../components/notificationContext';
 
 type FormState = {
   title: string;
@@ -60,24 +60,18 @@ function parseTags(raw: string): string[] {
 
 export function EditorialPage() {
   const queryClient = useQueryClient();
-  const { accessToken } = useAuthSession();
+  const { notify } = useNotifications();
+  const { me: meData, isAuthenticated } = useAuth();
   const { contentId, setContentId } = useActiveContent();
   const [formDraft, setFormDraft] = useState<{ key: string; value: FormState } | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [lastMeta, setLastMeta] = useState<{ status: number; correlationId: string } | null>(null);
 
-  const me = useQuery({
-    queryKey: ['me', accessToken],
-    queryFn: () => fetchMe(accessToken!),
-    enabled: Boolean(accessToken),
-    retry: false,
-  });
-
   const admin = useQuery({
-    queryKey: ['admin-content', contentId, accessToken],
-    queryFn: () => getAdminContent(contentId, accessToken!),
-    enabled: Boolean(accessToken && contentId),
+    queryKey: ['admin-content', contentId],
+    queryFn: () => getAdminContent(contentId),
+    enabled: Boolean(isAuthenticated && contentId),
     retry: false,
   });
 
@@ -93,13 +87,11 @@ export function EditorialPage() {
     });
   }
 
-  const meData = me.data?.data ?? null;
   const version = admin.data?.data.version;
-  const canWrite = Boolean(accessToken) && can(meData, 'content:write');
-  const canPublish = Boolean(accessToken) && can(meData, 'content:publish');
-  const canRead = Boolean(accessToken) && can(meData, 'content:read');
-  // Until /me works, still allow attempts so 503/401 surfaces in ProblemPanel.
-  const allowAttempt = Boolean(accessToken);
+  const canWrite = isAuthenticated && can(meData, 'content:write');
+  const canPublish = isAuthenticated && can(meData, 'content:publish');
+  const canRead = isAuthenticated && can(meData, 'content:read');
+  const allowAttempt = isAuthenticated;
 
   function onSuccessResult(status: number, correlationId: string, data: unknown) {
     setLastError(null);
@@ -109,17 +101,19 @@ export function EditorialPage() {
     void queryClient.invalidateQueries({ queryKey: ['catalog-content'] });
     void queryClient.invalidateQueries({ queryKey: ['search'] });
     void queryClient.invalidateQueries({ queryKey: ['processing'] });
+    notify('A művelet sikeresen befejeződött.');
   }
 
   function onFail(error: unknown) {
     setLastResult(null);
     setLastMeta(null);
     setLastError(error);
+    notify('A művelet nem sikerült. A részletek az oldalon láthatók.', 'error');
   }
 
   const createMut = useMutation({
     mutationFn: async () => {
-      if (!accessToken) throw new Error('Nincs access token – Auth oldal.');
+      if (!isAuthenticated) throw new Error('Nincs érvényes munkamenet.');
       const body: CreateContentBody = {
         title: form.title,
         summary: form.summary || null,
@@ -128,7 +122,7 @@ export function EditorialPage() {
         tags: parseTags(form.tags),
       };
       if (form.slug.trim()) body.slug = form.slug.trim();
-      return createContent(body, accessToken);
+      return createContent(body);
     },
     onSuccess: (res) => {
       setContentId(res.data.id);
@@ -139,9 +133,9 @@ export function EditorialPage() {
 
   const loadMut = useMutation({
     mutationFn: async () => {
-      if (!accessToken) throw new Error('Nincs access token.');
+      if (!isAuthenticated) throw new Error('Nincs érvényes munkamenet.');
       if (!contentId) throw new Error('Nincs content id.');
-      return getAdminContent(contentId, accessToken);
+      return getAdminContent(contentId);
     },
     onSuccess: (res) => onSuccessResult(res.status, res.correlationId, res.data),
     onError: onFail,
@@ -149,8 +143,8 @@ export function EditorialPage() {
 
   const patchMut = useMutation({
     mutationFn: async () => {
-      if (!accessToken || !contentId || version === undefined) {
-        throw new Error('Token, content id és betöltött version kell.');
+      if (!isAuthenticated || !contentId || version === undefined) {
+        throw new Error('Munkamenet, content id és betöltött version kell.');
       }
       return patchContent(
         contentId,
@@ -163,7 +157,6 @@ export function EditorialPage() {
           tags: parseTags(form.tags),
           slug: form.slug.trim() ? form.slug.trim() : null,
         },
-        accessToken,
       );
     },
     onSuccess: (res) => onSuccessResult(res.status, res.correlationId, res.data),
@@ -172,10 +165,10 @@ export function EditorialPage() {
 
   const publishMut = useMutation({
     mutationFn: async () => {
-      if (!accessToken || !contentId || version === undefined) {
-        throw new Error('Token, content id és version kell.');
+      if (!isAuthenticated || !contentId || version === undefined) {
+        throw new Error('Munkamenet, content id és version kell.');
       }
-      return publishContent(contentId, { expectedVersion: version }, accessToken);
+      return publishContent(contentId, { expectedVersion: version });
     },
     onSuccess: (res) => onSuccessResult(res.status, res.correlationId, res.data),
     onError: onFail,
@@ -183,10 +176,10 @@ export function EditorialPage() {
 
   const withdrawMut = useMutation({
     mutationFn: async () => {
-      if (!accessToken || !contentId || version === undefined) {
-        throw new Error('Token, content id és version kell.');
+      if (!isAuthenticated || !contentId || version === undefined) {
+        throw new Error('Munkamenet, content id és version kell.');
       }
-      return withdrawContent(contentId, { expectedVersion: version }, accessToken);
+      return withdrawContent(contentId, { expectedVersion: version });
     },
     onSuccess: (res) => onSuccessResult(res.status, res.correlationId, res.data),
     onError: onFail,
@@ -213,11 +206,11 @@ export function EditorialPage() {
           <code className="mono">expectedVersion</code>. Mezők a mintafixture értékeivel.
         </p>
         <ContentIdBar hint="Create után automatikusan kitöltődik." />
-        {!accessToken ? (
+        {!isAuthenticated ? (
           <MilestoneGate
             milestone="M2"
             feature="Admin API"
-            detail="Nincs Bearer token. Auth oldalon ments tokent, vagy várd meg a PKCE-t."
+            detail="Nincs érvényes munkamenet. Jelentkezz be Authentikkal."
           />
         ) : null}
         {identityBlocked ? (
@@ -321,7 +314,7 @@ export function EditorialPage() {
             type="button"
             disabled={busy || !allowAttempt || (meData !== null && !canWrite)}
             onClick={() => createMut.mutate()}
-            title={!canWrite && meData ? 'content:write kell' : undefined}
+            title={permissionReason(meData, 'content:write')}
           >
             Create draft
           </button>
@@ -337,6 +330,7 @@ export function EditorialPage() {
             type="button"
             disabled={busy || !allowAttempt || !contentId || version === undefined || (meData !== null && !canWrite)}
             onClick={() => patchMut.mutate()}
+            title={permissionReason(meData, 'content:write')}
           >
             Patch
           </button>
@@ -346,7 +340,7 @@ export function EditorialPage() {
               busy || !allowAttempt || !contentId || version === undefined || (meData !== null && !canPublish)
             }
             onClick={() => publishMut.mutate()}
-            title={!canPublish && meData ? 'content:publish kell' : undefined}
+            title={permissionReason(meData, 'content:publish')}
           >
             Publish
           </button>
@@ -357,6 +351,7 @@ export function EditorialPage() {
               busy || !allowAttempt || !contentId || version === undefined || (meData !== null && !canPublish)
             }
             onClick={() => withdrawMut.mutate()}
+            title={permissionReason(meData, 'content:publish')}
           >
             Withdraw
           </button>

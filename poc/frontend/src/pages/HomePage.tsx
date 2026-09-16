@@ -12,19 +12,16 @@ export function HomePage() {
       </p>
       <ol className="route-list">
         <li>
-          <Link to="/auth">Auth</Link> – Bearer / későbbi PKCE, <code className="mono">GET /me</code>
+          <Link to="/login">Belépés</Link> – Authentik PKCE és <code className="mono">GET /me</code>
         </li>
         <li>
-          <Link to="/editorial">Editorial</Link> – draft → patch → publish → withdraw
+          <Link to="/contents">Tartalmak</Link> – draft → patch → publish → withdraw
         </li>
         <li>
-          <Link to="/catalog">Catalog</Link> – publikus részlet (login nélkül)
+          <Link to="/catalog/search">Katalógus</Link> – publikus keresés és részlet
         </li>
         <li>
-          <Link to="/search">Search</Link> – M4 katalóguskeresés
-        </li>
-        <li>
-          <Link to="/processing">Processing</Link> – M3 outbox / lag
+          <Link to="/operations">Operations</Link> – M3–M5 outbox / lag / indexállapot
         </li>
         <li>
           <Link to="/demo">Demo</Link> – mintafolyamat lépésenként

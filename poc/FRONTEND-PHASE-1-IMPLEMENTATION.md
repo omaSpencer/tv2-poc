@@ -2,6 +2,10 @@
 
 2026-09-16 · Ticket-szintű implementációs specifikáció.
 
+**Implementációs állapot (2026-09-16):** P1-01–P1-11 elkészült és a helyi
+quality gate zöld. P1-12 a hiányzó futó Authentik L2 környezet, issuer és három
+tesztidentitás miatt külső függőségen vár; mock teszt alapján nincs lezárva.
+
 Kapcsolódó döntések:
 [FRONTEND-IDENTITY-AND-API-DECISIONS.md](FRONTEND-IDENTITY-AND-API-DECISIONS.md).
 
@@ -69,13 +73,14 @@ Az adapter publikus felülete:
 ```ts
 type AuthState =
   | { kind: 'bootstrapping' }
+  | { kind: 'unconfigured'; message: string }
   | { kind: 'anonymous' }
   | { kind: 'authenticating' }
   | { kind: 'loading_me' }
-  | { kind: 'authenticated'; accessToken: string; me: MeView }
+  | { kind: 'authenticated'; me: MeView }
   | { kind: 'renewing'; me: MeView | null }
   | { kind: 'expired' }
-  | { kind: 'identity_unavailable'; error: unknown };
+  | { kind: 'identity_unavailable'; message: string; me: MeView | null };
 ```
 
 Műveletek: `login(returnTo?)`, `completeCallback()`, `logout()`, `retry()`, és
@@ -86,7 +91,8 @@ Szabályok:
 - a provider komponens nem exportál raw tokent megjelenítésre;
 - az API kliens token provider callbackből kap tokent;
 - OIDC library eventek (`userLoaded`, `userUnloaded`, `accessTokenExpiring`,
-  `silentRenewError`) egy determinisztikus reducerbe futnak;
+  `accessTokenExpired`, `silentRenewError`) determinisztikus állapotátmenetekbe
+  futnak;
 - callback kétszeri feldolgozása Strict Mode-ban idempotens;
 - `returnTo` csak belső, `/`-rel kezdődő route lehet.
 
@@ -254,14 +260,31 @@ Authentik-függő csomag.
 
 ## 5. Definition of Done
 
-- [ ] Valódi PKCE login működik mindhárom tesztidentitással.
-- [ ] A session refresh és hard reload után helyreáll.
-- [ ] `/me` az egyetlen permission-forrás.
-- [ ] Nincs route flash és login loop.
-- [ ] Logout törli az OIDC usert, tokent és user-cache-t.
-- [ ] Manual token normál buildben nincs jelen.
-- [ ] 401/403/503 külön UX.
-- [ ] Route és action guard tesztelt.
-- [ ] Frontend build, lint, unit/component suite zöld.
+- [~] Valódi PKCE login működik mindhárom tesztidentitással — az implementáció
+  kész, valós L2 futtatás hiányzik.
+- [~] A session refresh és hard reload után helyreáll — unit/component szinten
+  igazolt, valós providerrel még mérendő.
+- [x] `/me` az egyetlen permission-forrás.
+- [x] Nincs route flash és login loop a tesztelt állapotokban.
+- [x] Logout törli az OIDC usert, tokent és user-cache-t.
+- [x] Manual token normál buildben nincs jelen.
+- [x] 401/403/503 külön UX.
+- [x] Route és action guard tesztelt.
+- [x] Frontend contract check, build, lint és 25 unit/component teszt zöld.
 - [ ] Authentik L2 evidence frissült valós futással.
 
+## 6. Helyi ellenőrzési eredmény
+
+2026-09-16:
+
+- frontend `npm run verify`: sikeres; contract drift, production build, lint és
+  25/25 Vitest teszt zöld;
+- böngészős smoke: az OIDC nélküli `/login` biztonságos `not configured`
+  állapotot mutat manual tokenmező nélkül; a közvetlen `/operations` megnyitás
+  `/login?returnTo=%2Foperations` címre visz, védett tartalom felvillanása nélkül;
+- backend lint: sikeres, 0 warning és 0 error;
+- backend M2 L1 integrációs futtatás: nem indítható a jelen környezetben, mert
+  nincs `TEST_DATABASE_URL`, `DATABASE_URL`, `PORT` és `LOG_LEVEL` konfiguráció;
+- Authentik L2/Compose: nem indítható, mert a szükséges Authentik env secret-ek
+  és a Docker daemon hozzáférése hiányzik. Emiatt P1-12 és az M2 L2 evidence
+  szándékosan pending marad.

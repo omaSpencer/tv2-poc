@@ -7,6 +7,10 @@ Az aktuális, backend-auditon alapuló végrehajtási roadmap:
 implementációja és a Fázis 1–7 részletes végrehajtási dokumentumai onnan érhetők
 el; ez a fájl a playground eredeti high-level kontextusát őrzi.
 
+> Státuszfrissítés (2026-09-16): a Fázis 0, a Fázis 1 helyi implementációja és a
+> Fázis 2 szerkesztői workspace elkészült. A valódi Authentik L2 böngészős E2E
+> továbbra is külső függőség; az aktuális állapot forrása a `TODO.md`.
+
 Ez a fájl a backend mellé készülő **fejlesztői playground** célját, határait és a későbbi megvalósítás irányát rögzíti. Nem implementációs backlog, nem UI-wireframe, és nem termelési frontend-terv.
 
 Kiindulópont: [README](README.md), [milestone-terv](MILESTONES.md), [fázisterv](PHASES.md), [döntésnapló](DECISIONS.md), [backend README](backend/README.md).
@@ -93,11 +97,13 @@ A route-mátrix forrása: `backend/src/contracts/permissions.ts`.
 | Végpont | Jog | Playground szerep |
 | --- | --- | --- |
 | `GET /me` | authenticated | Ki vagyok, milyen role/permission látszik |
+| `GET /admin/contents` | `content:read` | Cursoros lista, keresés és státusz/kategória szűrés |
 | `POST /admin/contents` | `content:write` | Draft létrehozás |
 | `PATCH /admin/contents/:id` | `content:write` | Draft/withdrawn szerkesztés + `expectedVersion` |
 | `POST /admin/contents/:id/publish` | `content:publish` | Publikálás |
 | `POST /admin/contents/:id/withdraw` | `content:publish` | Visszavonás |
 | `GET /admin/contents/:id` | `content:read` | Szerkesztői nézet (mediaAssetId is) |
+| `GET /admin/contents/:id/audit` | `content:read` | Cursoros, newest-first audit-idővonal |
 
 ### 5.3 Későbbi milestone-ok
 
@@ -116,26 +122,31 @@ A route-mátrix forrása: `backend/src/contracts/permissions.ts`.
 
 ## 6. Screen-térkép (implementálva)
 
-React Router navigáció. Egy aktív content id és Bearer token a `sessionStorage`-ban.
+React Router data-router navigáció. Az OIDC sessiont az auth adapter kezeli; a
+nyers token nem kerül page-propba vagy query key-be.
 
 | Route | Screen | Mit demóz |
 | --- | --- | --- |
 | `/` | Kezdőlap | Útvonal-térkép |
-| `/auth` | Auth | Bearer mentés, `GET /me`, PKCE placeholder, jogosultsági mátrix |
-| `/editorial` | Szerkesztői munkalap | Create / Load / Patch / Publish / Withdraw + `expectedVersion` |
-| `/catalog` | Katalógus | Publikus GET; 404 punchline visszavonás után |
-| `/search` | Keresés | `q` → találatok → Catalog; stale/503 magyarázat (M4) |
-| `/processing` | Processing | Outbox pending / oldest-age (M3); published ≠ kereshető |
+| `/login`, `/auth/callback` | Identity | PKCE login/callback/refresh/logout, `GET /me` |
+| `/contents` | Tartalomlista | URL-szűrők, stabil cursor, responsive lista |
+| `/contents/new` | Új piszkozat | Validáció, dirty-state védelem, célzott szerverhibák |
+| `/contents/:id` | Áttekintő | Lifecycle, readiness és cursoros audit |
+| `/contents/:id/edit` | Szerkesztő | Dirty PATCH, no-op és adatvesztésmentes 409 feloldás |
+| `/catalog/search`, `/catalog/:id` | Katalógus | Publikus keresés/részlet; stale/503 magyarázat |
+| `/operations` | Processing | Outbox pending / oldest-age (M3); published ≠ kereshető |
 | `/demo` | Forgatókönyv | M1 életciklus lépésenként + negatív esetek + M5 narratíva |
 
-Közös elemek: `StatusBar`, `AppNav`, `ContentIdBar`, `ProblemPanel`, `JsonBlock`, `MilestoneGate`, `PermissionHints`.
+Közös elemek: `StatusBar`, `AppNav`, auth/permission guardok, `ProblemPanel`,
+notification live region és permission hint.
 
 ```text
 frontend/src/
-  pages/           Home, Auth, Editorial, Catalog, Search, Processing, Demo
+  features/contents/  lista, form, detail/edit/create, audit és konfliktuskezelés
+  pages/           Home, Auth, Catalog, Search, Processing, Demo
   components/      Shell, Nav, StatusBar, gates, panels
   api/             client, health, catalog, admin, me, search, processing
-  auth/session.tsx
+  auth/            OIDC adapter, provider és route guardok
   content/activeContent.tsx
   data/demoFixture.ts
 ```

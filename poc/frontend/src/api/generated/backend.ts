@@ -62,7 +62,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List editorial content with stable cursor pagination */
+        get: operations["AdminContentController_list"];
         put?: never;
         /** Create a draft content */
         post: operations["AdminContentController_create"];
@@ -118,6 +119,23 @@ export interface paths {
         put?: never;
         /** Withdraw a published content */
         post: operations["AdminContentController_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/contents/{id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the append-only content audit trail, newest first */
+        get: operations["AdminContentController_audit"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -235,6 +253,90 @@ export interface components {
             withdrawnAt: string | null;
             createdBy: string;
             updatedBy: string;
+        };
+        AdminContentListItem: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            slug: string | null;
+            /** @enum {string|null} */
+            category: "film" | "sorozat" | "hir" | "sport" | "szorakozas" | "egyeb" | null;
+            /** @enum {string} */
+            status: "draft" | "published" | "withdrawn";
+            version: number;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            updatedAt: string;
+            updatedBy: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            publishedAt: string | null;
+        };
+        AdminContentListView: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                slug: string | null;
+                /** @enum {string|null} */
+                category: "film" | "sorozat" | "hir" | "sport" | "szorakozas" | "egyeb" | null;
+                /** @enum {string} */
+                status: "draft" | "published" | "withdrawn";
+                version: number;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                updatedAt: string;
+                updatedBy: string;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                publishedAt: string | null;
+            }[];
+            /** @description Opaque cursor for the next page. */
+            nextCursor: string | null;
+        };
+        ContentAuditView: {
+            /** Format: uuid */
+            id: string;
+            contentVersion: number;
+            /** @enum {string} */
+            action: "created" | "updated" | "published" | "withdrawn";
+            actorSub: string;
+            actorRoles: ("viewer" | "editor" | "publisher")[];
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            occurredAt: string;
+            correlationId: string;
+            changedFields: ("title" | "slug" | "summary" | "category" | "mediaAssetId" | "tags" | "status")[];
+        };
+        ContentAuditListView: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                contentVersion: number;
+                /** @enum {string} */
+                action: "created" | "updated" | "published" | "withdrawn";
+                actorSub: string;
+                actorRoles: ("viewer" | "editor" | "publisher")[];
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                occurredAt: string;
+                correlationId: string;
+                changedFields: ("title" | "slug" | "summary" | "category" | "mediaAssetId" | "tags" | "status")[];
+            }[];
+            /** @description Opaque cursor for older audit entries. */
+            nextCursor: string | null;
         };
         PublicContentView: {
             /** Format: uuid */
@@ -617,6 +719,68 @@ export interface operations {
             };
         };
     };
+    AdminContentController_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                category?: "film" | "sorozat" | "hir" | "sport" | "szorakozas" | "egyeb";
+                status?: "draft" | "published" | "withdrawn";
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Editorial list without full content payloads */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentListView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; content:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed for invalid, unknown or repeated query fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
     AdminContentController_create: {
         parameters: {
             query?: never;
@@ -966,6 +1130,76 @@ export interface operations {
             };
             /** @description validation_failed with the offending field names */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    AdminContentController_audit: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit metadata without request bodies or field values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentAuditListView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; content:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description content_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed for id, cursor or query fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

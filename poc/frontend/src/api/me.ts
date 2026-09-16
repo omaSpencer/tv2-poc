@@ -1,6 +1,6 @@
 import { apiRequest } from './client';
 import type { MeResponse } from './types';
 
-export function fetchMe(accessToken: string) {
-  return apiRequest<MeResponse>('/me', { accessToken });
+export function fetchMe() {
+  return apiRequest<MeResponse>('/me', { retryAuth: false });
 }

@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchMe } from '../api/me';
 import { fetchProcessingStatus } from '../api/processing';
 import { isApiProblemError } from '../api/types';
-import { useAuthSession } from '../auth/sessionContext';
+import { useAuth } from '../auth/authContext';
 import { can } from '../auth/permissions';
 import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
@@ -16,24 +15,16 @@ function formatAge(milliseconds: number | null): string {
 }
 
 export function ProcessingPage() {
-  const { accessToken } = useAuthSession();
-
-  const me = useQuery({
-    queryKey: ['me', accessToken],
-    queryFn: () => fetchMe(accessToken!),
-    enabled: Boolean(accessToken),
-    retry: false,
-  });
+  const { me: meData, isAuthenticated } = useAuth();
 
   const status = useQuery({
-    queryKey: ['processing', accessToken],
-    queryFn: () => fetchProcessingStatus(accessToken!),
-    enabled: Boolean(accessToken),
+    queryKey: ['processing'],
+    queryFn: fetchProcessingStatus,
+    enabled: isAuthenticated,
     retry: false,
     refetchInterval: 5_000,
   });
 
-  const meData = me.data?.data ?? null;
   const needsOps = meData !== null && !can(meData, 'ops:read');
 
   const blocked =
@@ -63,8 +54,8 @@ export function ProcessingPage() {
           (aszinkron outbox → JetStream → index).
         </p>
 
-        {!accessToken ? (
-          <p className="muted">Bearer token kell (Auth oldal). Publisher szerep ajánlott.</p>
+        {!isAuthenticated ? (
+          <p className="muted">Bejelentkezés szükséges. Publisher szerep ajánlott.</p>
         ) : null}
         {needsOps ? (
           <p className="field-error">
@@ -75,7 +66,7 @@ export function ProcessingPage() {
         <button
           type="button"
           className="btn-secondary"
-          disabled={!accessToken || status.isFetching}
+          disabled={!isAuthenticated || status.isFetching}
           onClick={() => void status.refetch()}
         >
           Frissítés

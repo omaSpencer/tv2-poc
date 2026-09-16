@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { searchCatalog } from '../api/search';
-import { isApiProblemError } from '../api/types';
-import { useActiveContent } from '../content/activeContent';
-import { DEMO_CONTENT } from '../data/demoFixture';
+import { isApiProblemError, type ContentCategory } from '../api/types';
+import { useActiveContent } from '../content/activeContentContext';
+import { CONTENT_CATEGORIES, DEMO_CONTENT } from '../data/demoFixture';
 import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
 import { ProblemPanel } from '../components/ProblemPanel';
@@ -13,11 +13,15 @@ export function SearchPage() {
   const inputId = useId();
   const { setContentId } = useActiveContent();
   const [draft, setDraft] = useState(DEMO_CONTENT.title.slice(0, 24));
+  const [draftCategory, setDraftCategory] = useState<ContentCategory | ''>('');
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<ContentCategory | null>(null);
+  const [limit, setLimit] = useState(20);
+  const [offset, setOffset] = useState(0);
 
   const search = useQuery({
-    queryKey: ['search', query],
-    queryFn: () => searchCatalog(query),
+    queryKey: ['search', query, category, limit, offset],
+    queryFn: () => searchCatalog(query, { category, limit, offset }),
     enabled: query.trim().length > 0,
     retry: false,
   });
@@ -25,6 +29,8 @@ export function SearchPage() {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setQuery(draft.trim());
+    setCategory(draftCategory || null);
+    setOffset(0);
   }
 
   const unavailable =
@@ -36,10 +42,12 @@ export function SearchPage() {
       search.error.problem.status === 503);
 
   const items = search.data?.data.items ?? [];
-  const total = search.data?.data.total;
-  const truncated =
-    search.data?.data.truncatedByDbFilter === true ||
-    (typeof total === 'number' && items.length < total);
+  const returned = search.data?.data.returned ?? 0;
+  const estimatedTotalHits = search.data?.data.estimatedTotalHits ?? 0;
+  const expectedOnPage = Math.max(0, Math.min(limit, estimatedTotalHits - offset));
+  const truncated = search.isSuccess && returned < expectedOnPage;
+  const hasPrevious = offset > 0;
+  const hasNext = search.isSuccess && offset + limit < estimatedTotalHits;
 
   return (
     <div className="stack-pages">
@@ -53,12 +61,6 @@ export function SearchPage() {
           DB-ben published ≠ azonnal kereshető (aszinkron indexelés).
         </p>
 
-        <MilestoneGate
-          milestone="M4"
-          feature="Meilisearch + /catalog/search"
-          detail="Amíg a kereső nincs bekötve, a hívás 404/503/problem+json lesz."
-        />
-
         <form className="row" onSubmit={onSubmit}>
           <label className="grow" htmlFor={inputId}>
             Query
@@ -70,6 +72,34 @@ export function SearchPage() {
               minLength={1}
               maxLength={200}
             />
+          </label>
+          <label className="compact-field">
+            Kategória
+            <select
+              value={draftCategory}
+              onChange={(e) => setDraftCategory(e.target.value as ContentCategory | '')}
+            >
+              <option value="">Mind</option>
+              {CONTENT_CATEGORIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="compact-field">
+            Találat / oldal
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setOffset(0);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
           </label>
           <button type="submit">Keresés</button>
         </form>
@@ -88,8 +118,8 @@ export function SearchPage() {
       {search.isSuccess ? (
         <section className="panel">
           <p className="muted">
-            HTTP {search.data.status} · {items.length} találat
-            {typeof total === 'number' ? ` / total ${total}` : ''} · correlationId{' '}
+            HTTP {search.data.status} · {returned} visszaadott találat · becsült összes{' '}
+            {estimatedTotalHits} · offset {search.data.data.offset} · correlationId{' '}
             <span className="mono">{search.data.correlationId || '—'}</span>
           </p>
           {truncated ? (
@@ -118,6 +148,24 @@ export function SearchPage() {
               ))}
             </ul>
           )}
+          <div className="row wrap-gap">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={!hasPrevious || search.isFetching}
+              onClick={() => setOffset((current) => Math.max(0, current - limit))}
+            >
+              Előző oldal
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={!hasNext || search.isFetching}
+              onClick={() => setOffset((current) => current + limit)}
+            >
+              Következő oldal
+            </button>
+          </div>
           <JsonBlock value={search.data.data} label="Nyers válasz" />
         </section>
       ) : null}

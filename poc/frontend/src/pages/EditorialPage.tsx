@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   createContent,
   getAdminContent,
@@ -8,12 +8,13 @@ import {
   withdrawContent,
 } from '../api/admin';
 import { fetchMe } from '../api/me';
-import type { ContentCategory, CreateContentBody } from '../api/types';
+import type { AdminContentView, ContentCategory, CreateContentBody } from '../api/types';
 import { isApiProblemError } from '../api/types';
-import { useAuthSession } from '../auth/session';
-import { useActiveContent } from '../content/activeContent';
+import { useAuthSession } from '../auth/sessionContext';
+import { can } from '../auth/permissions';
+import { useActiveContent } from '../content/activeContentContext';
 import { CONTENT_CATEGORIES, DEMO_CONTENT, DEMO_EDIT } from '../data/demoFixture';
-import { can, PermissionHints } from '../components/PermissionHints';
+import { PermissionHints } from '../components/PermissionHints';
 import { ContentIdBar } from '../components/ContentIdBar';
 import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
@@ -39,6 +40,17 @@ function emptyForm(): FormState {
   };
 }
 
+function formFromContent(row: AdminContentView): FormState {
+  return {
+    title: row.title,
+    summary: row.summary ?? '',
+    category: row.category ?? '',
+    mediaAssetId: row.mediaAssetId ?? '',
+    tags: row.tags.join(', '),
+    slug: row.slug ?? '',
+  };
+}
+
 function parseTags(raw: string): string[] {
   return raw
     .split(',')
@@ -50,7 +62,7 @@ export function EditorialPage() {
   const queryClient = useQueryClient();
   const { accessToken } = useAuthSession();
   const { contentId, setContentId } = useActiveContent();
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [formDraft, setFormDraft] = useState<{ key: string; value: FormState } | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [lastMeta, setLastMeta] = useState<{ status: number; correlationId: string } | null>(null);
@@ -69,18 +81,17 @@ export function EditorialPage() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (!admin.data) return;
-    const row = admin.data.data;
-    setForm({
-      title: row.title,
-      summary: row.summary ?? '',
-      category: row.category ?? '',
-      mediaAssetId: row.mediaAssetId ?? '',
-      tags: row.tags.join(', '),
-      slug: row.slug ?? '',
+  const loadedContent = admin.data?.data;
+  const formKey = loadedContent ? `${loadedContent.id}:${loadedContent.version}` : `new:${contentId}`;
+  const defaultForm = loadedContent ? formFromContent(loadedContent) : emptyForm();
+  const form = formDraft?.key === formKey ? formDraft.value : defaultForm;
+
+  function setForm(next: FormState | ((current: FormState) => FormState)) {
+    setFormDraft({
+      key: formKey,
+      value: typeof next === 'function' ? next(form) : next,
     });
-  }, [admin.data]);
+  }
 
   const meData = me.data?.data ?? null;
   const version = admin.data?.data.version;

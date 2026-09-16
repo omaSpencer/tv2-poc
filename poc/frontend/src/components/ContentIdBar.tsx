@@ -1,5 +1,5 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
-import { useActiveContent } from '../content/activeContent';
+import { useId, useState, type FormEvent } from 'react';
+import { useActiveContent } from '../content/activeContentContext';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -9,14 +9,25 @@ type Props = {
 };
 
 export function ContentIdBar({ hint }: Props) {
+  const activeContent = useActiveContent();
+  return (
+    <ContentIdBarForm
+      key={activeContent.contentId}
+      contentId={activeContent.contentId}
+      setContentId={activeContent.setContentId}
+      hint={hint}
+    />
+  );
+}
+
+function ContentIdBarForm({
+  contentId,
+  setContentId,
+  hint,
+}: Props & { contentId: string; setContentId: (id: string) => void }) {
   const inputId = useId();
-  const { contentId, setContentId } = useActiveContent();
   const [draft, setDraft] = useState(contentId);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraft(contentId);
-  }, [contentId]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();

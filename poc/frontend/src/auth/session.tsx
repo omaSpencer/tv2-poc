@@ -1,14 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { AuthSessionContext } from './sessionContext';
 
 const TOKEN_KEY = 'indaplay.poc.accessToken';
-
-type AuthSessionValue = {
-  accessToken: string | null;
-  setAccessToken: (token: string | null) => void;
-  clearSession: () => void;
-};
-
-const AuthSessionContext = createContext<AuthSessionValue | null>(null);
 
 function readStoredToken(): string | null {
   try {
@@ -41,10 +34,4 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
-}
-
-export function useAuthSession(): AuthSessionValue {
-  const ctx = useContext(AuthSessionContext);
-  if (!ctx) throw new Error('useAuthSession requires AuthSessionProvider');
-  return ctx;
 }

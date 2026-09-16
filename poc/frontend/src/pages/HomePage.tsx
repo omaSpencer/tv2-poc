@@ -6,8 +6,9 @@ export function HomePage() {
       <h2>Demo playground</h2>
       <p>
         Böngészős kliens a NestJS PoC API kipróbálásához. A screenek a{' '}
-        <code className="mono">MILESTONES.md</code> demóútvonalát követik; a backend M2–M4 előtt a
-        hiányzó végpontok problem+json / 503 választ adnak – a UI ezt kezeli.
+        <code className="mono">MILESTONES.md</code> demóútvonalát követik. A backend M0–M5
+        képességeihez kapcsolódó HTTP-válaszokat és a kikapcsolt függőségek problem+json / 503
+        állapotát a UI külön kezeli.
       </p>
       <ol className="route-list">
         <li>

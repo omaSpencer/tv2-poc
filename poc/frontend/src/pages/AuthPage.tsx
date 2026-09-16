@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { fetchMe } from '../api/me';
 import { isApiProblemError } from '../api/types';
-import { useAuthSession } from '../auth/session';
+import { useAuthSession } from '../auth/sessionContext';
 import { JsonBlock } from '../components/JsonBlock';
 import { MilestoneGate } from '../components/MilestoneGate';
 import { PermissionHints } from '../components/PermissionHints';

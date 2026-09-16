@@ -21,6 +21,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:reset": "node scripts/db-reset.mjs",
     "contracts:emit": "npm run build && node scripts/emit-contracts.mjs",
+    "openapi:emit": "npm run build && node scripts/emit-openapi.mjs",
+    "openapi:check": "npm run build && node scripts/emit-openapi.mjs --check",
     "demo:m1": "npm run build && node scripts/demo-m1.mjs",
     "demo:m2": "npm run build && node scripts/demo-m2.mjs",
     "demo:m3": "npm run build && node scripts/demo-m3.mjs",

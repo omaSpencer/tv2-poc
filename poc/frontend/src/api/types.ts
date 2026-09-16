@@ -1,122 +1,37 @@
-/** Shared API types aligned with backend contracts (read-only mirror for the playground). */
+import type { components } from './generated/backend';
 
-export type ProblemDocument = {
-  type: string;
-  title: string;
-  status: number;
-  code: string;
-  detail: string;
-  instance: string;
-  correlationId: string;
-  fields?: string[];
-  expectedVersion?: number;
-  actualVersion?: number;
-};
+/**
+ * Backend request/response shapes come from the committed OpenAPI snapshot.
+ * Keep only frontend-specific helpers and narrowed convenience aliases here.
+ */
+type Schemas = components['schemas'];
 
-export type HealthBody = {
-  status: string;
-  info: Record<string, unknown>;
-  error: Record<string, unknown>;
-  details: Record<string, unknown>;
-};
+export type ProblemDocument = Schemas['ProblemDocument'];
+export type HealthBody = Schemas['HealthView'];
+export type PublicContentView = Schemas['PublicContentView'];
+export type AdminContentView = Schemas['AdminContentView'];
+export type MeResponse = Schemas['MeView'];
+export type VersionedBody = Schemas['VersionedCommandBody'];
+export type SearchResponse = Schemas['CatalogSearchView'];
+export type ProcessingStatus = Schemas['ProcessingStatusView'];
+export type SearchIndexStatus = Schemas['SearchIndexStatus'];
 
-export type ContentCategory = 'film' | 'sorozat' | 'hir' | 'sport' | 'szorakozas' | 'egyeb';
-export type ContentStatus = 'draft' | 'published' | 'withdrawn';
-export type AppPermission = 'content:read' | 'content:write' | 'content:publish' | 'ops:read';
-export type AppRole = 'viewer' | 'editor' | 'publisher';
+export type ContentCategory = NonNullable<AdminContentView['category']>;
+export type ContentStatus = AdminContentView['status'];
+export type AppPermission = MeResponse['permissions'][number];
+export type AppRole = MeResponse['roles'][number];
 
-/** D-M0-04b public catalog view – no actor, mediaAssetId, audit. */
-export type PublicContentView = {
-  id: string;
-  title: string;
-  slug: string | null;
-  summary: string | null;
-  category: ContentCategory | null;
-  tags: string[];
-  publishedAt: string | null;
-};
-
-/** Editorial view including mediaAssetId and version (M1). */
-export type AdminContentView = {
-  id: string;
-  title: string;
-  slug: string | null;
-  summary: string | null;
-  category: ContentCategory | null;
-  mediaAssetId: string | null;
-  tags: string[];
-  status: ContentStatus;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  withdrawnAt: string | null;
-  createdBy: string;
-  updatedBy: string;
-};
-
-/** M2 `GET /me` – no email, groups, or raw token. */
-export type MeResponse = {
-  sub: string;
-  roles: AppRole[];
-  permissions: AppPermission[];
-  expiresAt: string;
-};
-
-export type CreateContentBody = {
-  title: string;
-  slug?: string | null;
-  summary?: string | null;
+// The backend accepts category as a string at the JSON-schema boundary and
+// applies the enum in its normalisation path. Narrow it for frontend forms.
+export type CreateContentBody = Omit<Schemas['CreateContentBody'], 'category'> & {
   category?: ContentCategory | null;
-  mediaAssetId?: string | null;
-  tags?: string[];
 };
 
-export type PatchContentBody = {
-  expectedVersion: number;
-  title?: string | null;
-  slug?: string | null;
-  summary?: string | null;
+export type PatchContentBody = Omit<Schemas['PatchContentBody'], 'category'> & {
   category?: ContentCategory | null;
-  mediaAssetId?: string | null;
-  tags?: string[];
 };
 
-export type VersionedBody = { expectedVersion: number };
-
-/** M4 search – fields stay loose until the backend contract is final. */
-export type SearchHit = PublicContentView & {
-  aggregateVersion?: number;
-};
-
-export type SearchResponse = {
-  items: SearchHit[];
-  total?: number;
-  limit?: number;
-  offset?: number;
-  source?: string;
-  truncatedByDbFilter?: boolean;
-};
-
-/** M3 processing-status – optional fields until the endpoint ships. */
-export type ProcessingStatus = {
-  outbox?: {
-    pending?: number;
-    oldestAgeSeconds?: number | null;
-  };
-  relay?: {
-    status?: string;
-  };
-  indexes?: Record<
-    string,
-    {
-      lag?: number | null;
-      status?: string;
-      rebuilding?: boolean;
-    }
-  >;
-  [key: string]: unknown;
-};
+export type SearchHit = PublicContentView;
 
 export class ApiProblemError extends Error {
   readonly name = 'ApiProblemError';

@@ -172,7 +172,17 @@ code.mono,
   color: var(--muted);
 }
 
-input {
+.compact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 8rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+input,
+select {
   width: 100%;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--line);
@@ -368,6 +378,36 @@ fieldset .stack {
   margin: 0.5rem 0;
 }
 
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.subpanel {
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.subpanel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.subpanel th,
+.subpanel td {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
 .permission-hints th,
 .permission-hints td {
   border: 1px solid var(--line);
@@ -449,4 +489,3 @@ button.linkish {
   padding-left: 1.2rem;
   color: var(--muted);
 }
-

@@ -1,7 +1,9 @@
 # IndaPlay / TV2 PoC – API playground
 
 Vite + React + TanStack Query + React Router kliens a NestJS backend mellé.
-Demó- és kipróbálófelület, nem termelési CMS. A terv: [../FRONTEND.md](../FRONTEND.md).
+Demó- és kipróbálófelület, nem termelési CMS. A high-level háttér:
+[../FRONTEND.md](../FRONTEND.md); az aktuális, nyolcfázisú végrehajtási roadmap:
+[../FRONTEND-IMPLEMENTATION-PLAN.md](../FRONTEND-IMPLEMENTATION-PLAN.md).
 
 ## Előfeltétel
 
@@ -47,5 +49,18 @@ Az aktív content UUID és a Bearer token `sessionStorage`-ban él a screenek k�
 ## Megjegyzés
 
 Amíg `FEATURE_IDENTITY=off`, az `/admin` 503. Nincs actor-header bypass.
-A Search/Processing UI a M3/M4 bekötés előtt is megnyitható; a hiányzó API
-problem+json / MilestoneGate üzenettel jelenik meg.
+A Search és Processing API M3/M4 óta implementált. Kikapcsolt feature vagy
+elérhetetlen függőség esetén a problem+json / MilestoneGate üzenet jelenik meg.
+
+## API-szerződés
+
+A commitolt `../contracts/backend.openapi.json` snapshotból generált TypeScript
+típusok a `src/api/generated/backend.ts` fájlban élnek. Frissítés:
+
+```bash
+cd ../backend && npm run openapi:emit
+cd ../frontend && npm run contracts:generate
+```
+
+A normál frontend build nem igényel futó backendet. A `npm run verify` contract
+driftet, buildet és lintet ellenőriz.

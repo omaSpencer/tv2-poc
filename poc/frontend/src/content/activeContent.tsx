@@ -1,13 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ActiveContentContext } from './activeContentContext';
 
 const CONTENT_ID_KEY = 'indaplay.poc.activeContentId';
-
-type ActiveContentValue = {
-  contentId: string;
-  setContentId: (id: string) => void;
-};
-
-const ActiveContentContext = createContext<ActiveContentValue | null>(null);
 
 function readStoredId(): string {
   try {
@@ -34,10 +28,4 @@ export function ActiveContentProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ contentId, setContentId }), [contentId, setContentId]);
 
   return <ActiveContentContext.Provider value={value}>{children}</ActiveContentContext.Provider>;
-}
-
-export function useActiveContent(): ActiveContentValue {
-  const ctx = useContext(ActiveContentContext);
-  if (!ctx) throw new Error('useActiveContent requires ActiveContentProvider');
-  return ctx;
 }

@@ -9,9 +9,9 @@ import {
   withdrawContent,
 } from '../api/admin';
 import { fetchPublishedContent } from '../api/catalog';
-import type { AdminContentView } from '../api/types';
-import { useAuthSession } from '../auth/session';
-import { useActiveContent } from '../content/activeContent';
+import { isApiProblemError, type AdminContentView, type ProblemDocument } from '../api/types';
+import { useAuthSession } from '../auth/sessionContext';
+import { useActiveContent } from '../content/activeContentContext';
 import {
   DEMO_CONTENT,
   DEMO_EDIT,
@@ -52,6 +52,35 @@ const LIFECYCLE: StepDef[] = [
 ];
 
 type LogEntry = { step: string; ok: boolean; message: string; payload?: unknown };
+
+type ExpectedProblem = {
+  status: number;
+  code: ProblemDocument['code'];
+  fields?: string[];
+};
+
+function expectProblem(error: unknown, expected: ExpectedProblem): ProblemDocument {
+  if (!isApiProblemError(error)) {
+    throw new Error(
+      `Várt HTTP ${expected.status} ${expected.code}, de nem problem+json hiba érkezett: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const { problem } = error;
+  if (problem.status !== expected.status || problem.code !== expected.code) {
+    throw new Error(
+      `Várt HTTP ${expected.status} ${expected.code}, kapott HTTP ${problem.status} ${problem.code}.`,
+    );
+  }
+  const missingFields = (expected.fields ?? []).filter(
+    (field) => !(problem.fields ?? []).includes(field),
+  );
+  if (missingFields.length > 0) {
+    throw new Error(`A várt problem fields hiányzik: ${missingFields.join(', ')}.`);
+  }
+  return problem;
+}
 
 export function DemoPage() {
   const queryClient = useQueryClient();
@@ -144,7 +173,8 @@ export function DemoPage() {
           await fetchPublishedContent(id);
           throw new Error('Várt 404 helyett siker – a tartalom még published?');
         } catch (error) {
-          return { stepId, res: null, expectedError: error };
+          const problem = expectProblem(error, { status: 404, code: 'content_not_found' });
+          return { stepId, res: null, expectedError: problem };
         }
       }
 
@@ -158,8 +188,8 @@ export function DemoPage() {
         pushLog({
           step: stepId,
           ok: true,
-          message: '404 / problem+json a várakozás szerint',
-          payload: result.expectedError instanceof Error ? result.expectedError.message : result.expectedError,
+          message: 'HTTP 404 content_not_found a várakozás szerint',
+          payload: result.expectedError,
         });
       } else if (result.res) {
         mark(stepId, true);
@@ -210,23 +240,32 @@ export function DemoPage() {
     mutationFn: async () => {
       if (!accessToken || !contentId) throw new Error('Token + content id.');
       const row = adminSnapshot ?? (await getAdminContent(contentId, accessToken)).data;
-      return publishContent(contentId, { expectedVersion: row.version }, accessToken);
+      try {
+        const res = await publishContent(contentId, { expectedVersion: row.version }, accessToken);
+        throw new Error(`Várt 422 validation_failed, de HTTP ${res.status} érkezett.`);
+      } catch (error) {
+        return expectProblem(error, {
+          status: 422,
+          code: 'validation_failed',
+          fields: ['mediaAssetId'],
+        });
+      }
     },
-    onSuccess: (res) => {
+    onSuccess: (problem) => {
+      setLastError(null);
       pushLog({
-        step: 'neg-publish',
-        ok: false,
-        message: `Várt hibát, de HTTP ${res.status} jött`,
-        payload: res.data,
+        step: 'neg-publish-incomplete',
+        ok: true,
+        message: 'HTTP 422 validation_failed, mediaAssetId mezővel',
+        payload: problem,
       });
     },
     onError: (error) => {
       setLastError(error);
       pushLog({
         step: 'neg-publish-incomplete',
-        ok: true,
-        message: 'Publish elutasítva (várható 422)',
-        payload: error instanceof Error ? error.message : error,
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
       });
     },
   });
@@ -234,30 +273,35 @@ export function DemoPage() {
   const negStale = useMutation({
     mutationFn: async () => {
       if (!accessToken || !contentId) throw new Error('Token + content id.');
-      return patchContent(
-        contentId,
-        {
-          expectedVersion: NEGATIVE_CASES.conflictingExpectedVersion,
-          summary: 'stale version probe',
-        },
-        accessToken,
-      );
+      try {
+        const res = await patchContent(
+          contentId,
+          {
+            expectedVersion: NEGATIVE_CASES.conflictingExpectedVersion,
+            summary: 'stale version probe',
+          },
+          accessToken,
+        );
+        throw new Error(`Várt 409 version_conflict, de HTTP ${res.status} érkezett.`);
+      } catch (error) {
+        return expectProblem(error, { status: 409, code: 'version_conflict' });
+      }
     },
-    onSuccess: (res) => {
+    onSuccess: (problem) => {
+      setLastError(null);
       pushLog({
         step: 'neg-stale-version',
-        ok: false,
-        message: `Várt 409, de HTTP ${res.status}`,
-        payload: res.data,
+        ok: true,
+        message: 'HTTP 409 version_conflict a várakozás szerint',
+        payload: problem,
       });
     },
     onError: (error) => {
       setLastError(error);
       pushLog({
         step: 'neg-stale-version',
-        ok: true,
-        message: 'version_conflict (várható)',
-        payload: error instanceof Error ? error.message : error,
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
       });
     },
   });

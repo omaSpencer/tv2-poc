@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchPublishedContent } from '../api/catalog';
 import { isApiProblemError } from '../api/types';
-import { useActiveContent } from '../content/activeContent';
+import { useActiveContent } from '../content/activeContentContext';
 import { ContentIdBar } from '../components/ContentIdBar';
 import { JsonBlock } from '../components/JsonBlock';
 import { ProblemPanel } from '../components/ProblemPanel';

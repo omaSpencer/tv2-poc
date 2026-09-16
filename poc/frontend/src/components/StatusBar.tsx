@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { apiBaseLabel, backendDocsUrl, getLastCorrelationId } from '../api/client';
 import { fetchLive, fetchReady } from '../api/health';
 import { fetchMe } from '../api/me';
-import { useAuthSession } from '../auth/session';
+import { useAuthSession } from '../auth/sessionContext';
 
 function pillClass(ok: boolean | null): string {
   if (ok === null) return 'pill pill-unknown';

@@ -9,7 +9,7 @@ import { ApiError } from '../contracts/errors.js';
 
 const discoverySchema = z.object({
   issuer: z.string().min(1),
-  jwks_uri: z.string().url(),
+  jwks_uri: z.url(),
 });
 
 export type DiscoveryDocument = z.infer<typeof discoverySchema>;

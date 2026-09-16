@@ -14,11 +14,11 @@
  * contract tests that compare a real response against these schemas.
  */
 import { z } from 'zod';
-import { CONTENT_CATEGORIES, CONTENT_STATUSES, REINDEX_PHASES, WORKER_DESIRED_STATES } from '../schema.js';
+import { AUDIT_ACTIONS, CONTENT_CATEGORIES, CONTENT_STATUSES, REINDEX_PHASES, WORKER_DESIRED_STATES } from '../schema.js';
 import { ERROR_CODES } from './errors.js';
 import { PERMISSIONS, ROLES } from './permissions.js';
 import {
-  createContentBodySchema, patchContentBodySchema, versionedBodySchema,
+  CHANGED_FIELD_ORDER, createContentBodySchema, patchContentBodySchema, versionedBodySchema,
 } from './http.js';
 import { SEARCH_QUERY_LIMITS, searchQuarantineV1Schema } from './search.js';
 
@@ -44,6 +44,39 @@ export const adminContentViewSchema = z.strictObject({
   withdrawnAt: isoDateTime.nullable(),
   createdBy: z.string(),
   updatedBy: z.string(),
+});
+
+export const adminContentListItemSchema = z.strictObject({
+  id: z.uuid(),
+  title: z.string(),
+  slug: z.string().nullable(),
+  category: category.nullable(),
+  status: z.enum(CONTENT_STATUSES),
+  version: z.number().int().positive(),
+  updatedAt: isoDateTime,
+  updatedBy: z.string(),
+  publishedAt: isoDateTime.nullable(),
+});
+
+export const adminContentListViewSchema = z.strictObject({
+  items: z.array(adminContentListItemSchema),
+  nextCursor: z.string().nullable().describe('Opaque cursor for the next page.'),
+});
+
+export const contentAuditViewSchema = z.strictObject({
+  id: z.uuid(),
+  contentVersion: z.number().int().positive(),
+  action: z.enum(AUDIT_ACTIONS),
+  actorSub: z.string(),
+  actorRoles: z.array(z.enum(ROLES)),
+  occurredAt: isoDateTime,
+  correlationId: z.string(),
+  changedFields: z.array(z.enum(CHANGED_FIELD_ORDER)),
+});
+
+export const contentAuditListViewSchema = z.strictObject({
+  items: z.array(contentAuditViewSchema),
+  nextCursor: z.string().nullable().describe('Opaque cursor for older audit entries.'),
 });
 
 /** D-M0-04b: no actor, no media asset id, no audit or outbox data. */
@@ -173,6 +206,10 @@ export const OPENAPI_SCHEMAS: Readonly<Record<string, JsonSchema>> = {
   PatchContentBody: toOpenApi(patchContentBodySchema, 'input'),
   VersionedCommandBody: toOpenApi(versionedBodySchema, 'input'),
   AdminContentView: toOpenApi(adminContentViewSchema, 'output'),
+  AdminContentListItem: toOpenApi(adminContentListItemSchema, 'output'),
+  AdminContentListView: toOpenApi(adminContentListViewSchema, 'output'),
+  ContentAuditView: toOpenApi(contentAuditViewSchema, 'output'),
+  ContentAuditListView: toOpenApi(contentAuditListViewSchema, 'output'),
   PublicContentView: toOpenApi(publicContentViewSchema, 'output'),
   MeView: toOpenApi(meViewSchema, 'output'),
   ProblemDocument: toOpenApi(problemDocumentSchema, 'output'),

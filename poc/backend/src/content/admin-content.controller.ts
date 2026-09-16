@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import {
   normalizeCreateCommand, normalizePatchCommand, normalizeVersionedCommand, parseContentId, toAdminView,
   type AdminContentView,
@@ -9,6 +9,14 @@ import { jsonResponse, problemResponse, schemaRef } from '../contracts/openapi.j
 import { operationContext } from '../identity/actor.js';
 import { ContentService } from './content.service.js';
 import { PermissionGuard, RequirePermission } from './permission.guard.js';
+import {
+  ADMIN_CONTENT_LIST_LIMITS,
+  CONTENT_AUDIT_LIMITS,
+  parseAdminContentListQuery,
+  parseContentAuditQuery,
+  type AdminContentListView,
+  type ContentAuditListView,
+} from '../contracts/admin-content-list.js';
 
 const CONFLICTS = '409 version_conflict, state conflict or slug_conflict';
 
@@ -109,6 +117,41 @@ export class AdminContentController {
   ): Promise<AdminContentView> {
     const contentId = parseContentId(id);
     return toAdminView(await this.service.withdraw(contentId, normalizeVersionedCommand(body), operationContext(res)));
+  }
+
+  @Get()
+  @RequirePermission('content:read')
+  @ApiOperation({ summary: 'List editorial content with stable cursor pagination' })
+  @ApiQuery({ name: 'q', required: false, schema: { type: 'string', minLength: 1, maxLength: ADMIN_CONTENT_LIST_LIMITS.queryMax } })
+  @ApiQuery({ name: 'status', required: false, schema: { type: 'string', enum: ['draft', 'published', 'withdrawn'] } })
+  @ApiQuery({ name: 'category', required: false, schema: { type: 'string', enum: ['film', 'sorozat', 'hir', 'sport', 'szorakozas', 'egyeb'] } })
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: ADMIN_CONTENT_LIST_LIMITS.min, maximum: ADMIN_CONTENT_LIST_LIMITS.max, default: ADMIN_CONTENT_LIST_LIMITS.default } })
+  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string', description: 'Opaque base64url cursor.' } })
+  @ApiResponse({ status: 200, ...jsonResponse('AdminContentListView', 'Editorial list without full content payloads') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:read is required') })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed for invalid, unknown or repeated query fields') })
+  @ApiResponse({ status: 503, ...problemResponse('dependency_unavailable') })
+  async list(@Req() req: Request): Promise<AdminContentListView> {
+    const params = new URL(req.originalUrl, 'http://internal.invalid').searchParams;
+    return this.service.listForAdmin(parseAdminContentListQuery(params));
+  }
+
+  @Get(':id/audit')
+  @RequirePermission('content:read')
+  @ApiOperation({ summary: 'List the append-only content audit trail, newest first' })
+  @ApiParam(ID_PARAM)
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: CONTENT_AUDIT_LIMITS.min, maximum: CONTENT_AUDIT_LIMITS.max, default: CONTENT_AUDIT_LIMITS.default } })
+  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string', description: 'Opaque base64url cursor.' } })
+  @ApiResponse({ status: 200, ...jsonResponse('ContentAuditListView', 'Audit metadata without request bodies or field values') })
+  @ApiResponse({ status: 401, ...problemResponse('unauthenticated') })
+  @ApiResponse({ status: 403, ...problemResponse('forbidden; content:read is required') })
+  @ApiResponse({ status: 404, ...problemResponse('content_not_found') })
+  @ApiResponse({ status: 422, ...problemResponse('validation_failed for id, cursor or query fields') })
+  @ApiResponse({ status: 503, ...problemResponse('dependency_unavailable') })
+  async audit(@Param('id') id: string, @Req() req: Request): Promise<ContentAuditListView> {
+    const params = new URL(req.originalUrl, 'http://internal.invalid').searchParams;
+    return this.service.listAuditForAdmin(parseContentId(id), parseContentAuditQuery(params));
   }
 
   @Get(':id')

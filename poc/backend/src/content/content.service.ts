@@ -24,6 +24,14 @@ import { OutboxRepository } from '../outbox/outbox.repository.js';
 import { OutboxWake } from '../outbox/outbox.wake.js';
 import { slugCandidates } from './slug.js';
 import { ADVISORY_LOCK_CLASS, ADVISORY_LOCK_OBJECT } from '../contracts/reindex.js';
+import {
+  toAdminContentListView,
+  toContentAuditListView,
+  type AdminContentListQuery,
+  type AdminContentListView,
+  type ContentAuditListView,
+  type ContentAuditQuery,
+} from '../contracts/admin-content-list.js';
 
 const orderChangedFields = (fields: Iterable<ChangedField>): ChangedField[] => {
   const present = new Set(fields);
@@ -199,6 +207,20 @@ export class ContentService {
     const row = await this.read(() => this.repository.findById(this.database.db, id));
     if (!row) throw contentNotFound();
     return row;
+  }
+
+  async listForAdmin(query: AdminContentListQuery): Promise<AdminContentListView> {
+    const rows = await this.read(() => this.repository.listForAdmin(this.database.db, query));
+    return toAdminContentListView(rows, query.limit);
+  }
+
+  async listAuditForAdmin(id: string, query: ContentAuditQuery): Promise<ContentAuditListView> {
+    return this.read(async () => {
+      const existing = await this.repository.findById(this.database.db, id);
+      if (!existing) throw contentNotFound();
+      const rows = await this.repository.listAudit(this.database.db, id, query);
+      return toContentAuditListView(rows, query.limit);
+    });
   }
 
   /** The public read filters in SQL; a withdrawn record is simply not found. */

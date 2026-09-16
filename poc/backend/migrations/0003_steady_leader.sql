@@ -1,0 +1,1 @@
+CREATE INDEX "content_admin_updated_id_idx" ON "content" USING btree ("updated_at","id");

@@ -77,7 +77,8 @@ describe('T21 admin adapter', () => {
   it('keeps the route matrix and the registered routes aligned', () => {
     const declared = ROUTE_MATRIX.filter(rule => rule.milestone === 'M1').map(rule => `${rule.method} ${rule.path}`);
     expect(declared.sort()).toEqual([
-      'GET /admin/contents/:id', 'GET /catalog/contents/:id', 'PATCH /admin/contents/:id',
+      'GET /admin/contents', 'GET /admin/contents/:id', 'GET /admin/contents/:id/audit',
+      'GET /catalog/contents/:id', 'PATCH /admin/contents/:id',
       'POST /admin/contents', 'POST /admin/contents/:id/publish', 'POST /admin/contents/:id/withdraw',
     ]);
   });

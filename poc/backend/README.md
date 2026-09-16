@@ -183,6 +183,23 @@ src/
 A `ContentModule` birtokolja a tartalom életciklusát. Az outbox csak rögzít: a
 `delivered_at` mezőt kizárólag az M3 relay írhatja, publish ACK után.
 
+## Szerkesztői read model
+
+Az admin workspace két adatminimalizált, `content:read` jogosultságú olvasási
+végpontot használ:
+
+- `GET /admin/contents`: `q`, `status`, `category`, `limit`, `cursor`; stabil
+  `updated_at DESC, id DESC` sorrend, opaque cursor és összesített találatszám
+  nélkül;
+- `GET /admin/contents/:id/audit`: `limit`, `cursor`; `content_version DESC`
+  sorrend, request body és mezőérték-diff nélkül.
+
+Ismeretlen, ismételt vagy hibás query `422 validation_failed`. A lista
+title/slug részszöveget és pontos UUID-t keres, az SQL wildcardokat escape-eli.
+Az `0003_steady_leader.sql` migráció 5000 szintetikus soros mérés alapján adja a
+`content(updated_at, id)` indexet; a végső terv `Index Scan Backward` volt teljes
+sort helyett.
+
 ## Kereső-határ (M4)
 
 `FEATURE_SEARCH=off` mellett a `GET /catalog/search` stabil
@@ -253,6 +270,9 @@ Az M1 tesztek saját összeállítást használnak (`test/support/test-app.ts`),
 amelybe az actort a teszt injektálja. Az M2 L1 próbák mock JWKS-sel futnak
 (`test/support/oidc-mock.ts`); a valódi Authentik (L2) a full Compose blueprinttel
 és `demo:m2` / `authentik-login.mjs` scripteken keresztül jön, E01–E05 után.
+A blueprint public PKCE kliensének strict redirect allowlistje a meglévő CLI
+callback mellett a frontend `http://127.0.0.1:5173/auth/callback` és
+`http://127.0.0.1:5173/login` post-logout URL-t tartalmazza; wildcard nincs.
 
 ## Hibaformátum
 

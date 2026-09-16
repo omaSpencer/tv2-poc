@@ -47,9 +47,9 @@ describe('T01 migration and database constraints', () => {
     expect(indexes).toHaveLength(1);
   });
 
-  it('recorded all three migrations once and did not apply them twice', async () => {
+  it('recorded all four migrations once and did not apply them twice', async () => {
     const applied = await query<{ count: number }>('select count(*)::int as count from drizzle.__drizzle_migrations', [], url);
-    expect(applied[0].count).toBe(3);
+    expect(applied[0].count).toBe(4);
   });
 
   it('rejects a disallowed status or category', async () => {

@@ -96,6 +96,9 @@ export const content = pgTable(
     updatedBy: text('updated_by').notNull(),
   },
   table => [
+    // PostgreSQL scans this ascending btree backwards for the required
+    // `updated_at DESC, id DESC` order. Both columns are NOT NULL.
+    index('content_admin_updated_id_idx').on(table.updatedAt, table.id),
     // A nullable slug leaves the name free; the unique constraint is the final
     // arbiter of a concurrent publish race, not a prior existence check.
     unique(CONSTRAINTS.contentSlugUnique).on(table.slug),

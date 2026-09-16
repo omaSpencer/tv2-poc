@@ -95,6 +95,10 @@ entries:
       redirect_uris:
         - matching_mode: strict
           url: http://127.0.0.1:8765/callback
+        - matching_mode: strict
+          url: http://127.0.0.1:5173/auth/callback
+        - matching_mode: strict
+          url: http://127.0.0.1:5173/login
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]

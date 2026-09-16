@@ -6,7 +6,7 @@
 | # | Előfeltétel | Felelős | Célfázis | Állapot |
 | --- | --- | --- | --- | --- |
 | E01 | Konténerregiszter-elérés az image-ek húzásához és digest rögzítéséhez | Zoli | M0-16b | Hiányzik a jelen munkakörnyezetben; a `VERSIONS.md` digest sorai emiatt nyitottak |
-| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott; blueprint + Compose mount kész (`authentik/blueprints/poc.yaml`), image húzás E01-től függ |
+| E02 | Authentik tesztpéldány vagy futtatható helyi Authentik, admin hozzáféréssel | Claude (beállítás), Zoli (hozzáférés) | M2 | Nyitott; blueprint + Compose mount és a strict CLI/SPA/post-logout redirect lista kész (`authentik/blueprints/poc.yaml`), image húzás E01-től függ |
 | E03 | Tényleges OIDC issuer, audience, JWKS URI és egy kiadott teszttoken | Claude | M2 | Nyitott; L1 mock JWKS kész; L2 discovery a blueprint szerinti `…/application/o/poc-backend/` |
 | E04 | Három tesztidentitás (viewer, editor, publisher) és a csoport→jog leképezés | Zoli | M2 | Blueprint létrehozza a `poc-*` usereket/csoportokat; `ROLE_GROUPS` bekötve; L2 login pending |
 | E05 | Token- és refresh-élettartam tényleges providerbeállítása | Claude | M2 | Blueprint: 5 perc / 1 óra; mérés (M2-T21) pending |

@@ -11,6 +11,7 @@
   kötelező ellenőrzések zöldek.
 - A részletes üzleti/API döntések forrása mindig a belinkelt fázisterv; ez a fájl
   a végrehajtási sorrend és a napi státusz követésére szolgál.
+- A full-stack böngészős E2E suite futtatása: [frontend/e2e/README.md](frontend/e2e/README.md).
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
 - Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–4 helyi
   implementációja elkészült, a közös Authentik/full-stack böngészős E2E kapuk pending.
@@ -342,15 +343,23 @@
 - [ ] **P7-01:** Vitest + React Testing Library + MSW közös tesztinfrastruktúra.
 - [ ] **P7-02:** frontend fast CI: install, contract, build, lint, unit/component.
 - [ ] **P7-03:** backend contract/integration/migration gate.
-- [ ] **P7-04:** Playwright PR-smoke és valódi full-stack release/nightly gate.
-- [ ] **P7-05:** PKCE és role guard E2E.
-- [ ] **P7-06:** publisher lifecycle + audit E2E.
-- [ ] **P7-07:** két browser context version-conflict E2E.
-- [ ] **P7-08:** search/operations A/B fallback E2E.
+- [~] **P7-04:** Playwright full-stack harness kész (`playwright.config.ts`,
+  `e2e/support`, előfeltétel-preflight, `npm run e2e`); CI job és a valódi
+  stacken futtatás még nyitott.
+- [~] **P7-05:** PKCE és role guard E2E megírva (`e2e/specs/auth-role-guard.spec.ts`);
+  zöld futás valódi Authentik ellen pending.
+- [~] **P7-06:** publisher lifecycle + audit E2E megírva
+  (`e2e/specs/content-lifecycle.spec.ts`); zöld futás pending.
+- [~] **P7-07:** két browser context version-conflict E2E megírva
+  (`e2e/specs/version-conflict.spec.ts`); zöld futás pending.
+- [~] **P7-08:** search/operations A/B fallback E2E megírva
+  (`e2e/specs/search-operations.spec.ts`, `@outage` opt-in docker vezérléssel);
+  zöld futás pending.
 - [ ] **P7-09:** operátori action E2E, ha Fázis 5 release scope.
 - [ ] **P7-10:** loading/empty/partial/stale/401/403/404/409/413/422/503/network mátrix.
 - [ ] **P7-11:** WCAG 2.2 AA cél, axe és kézi keyboard/screen-reader smoke.
-- [ ] **P7-12:** 360/768/1280 px responsive és Chromium/Firefox/WebKit smoke.
+- [~] **P7-12:** 360 és 1280 px Chromium smoke megírva (`e2e/specs/responsive.spec.ts`);
+  768 px és Firefox/WebKit még nyitott.
 - [ ] **P7-13:** token/secret/public-data-minimalizálási review.
 - [ ] **P7-14:** polling/request-halmozás és production bundle baseline.
 - [ ] **P7-15:** README, env, runbook, migration és fresh-checkout átadás.
@@ -377,11 +386,32 @@
 
 ### Release A – A meglévő HTTP API helyes UI-ja
 
-- [ ] Fázis 0 kész.
-- [ ] Fázis 1 kész.
-- [ ] Fázis 2 lifecycle része legalább lista/audit nélkül használható.
-- [ ] Fázis 3 kész.
-- [ ] Fázis 4 kész.
+**Állapot:** a Fázis 0–4 implementációja kész; a hátralévő munka a full-stack
+bizonyítás. A böngészős E2E suite megvan, egyetlen külső előfeltételen áll:
+futó Authentik L2 + full profile stack.
+
+- [x] Fázis 0 kész.
+- [~] Fázis 1 kész — implementáció és unit/component szint kész, P1-12 az E2E
+  futásra vár.
+- [~] Fázis 2 lifecycle része legalább lista/audit nélkül használható —
+  implementáció kész, E2E futásra vár.
+- [~] Fázis 3 kész — implementáció kész, E2E futásra vár.
+- [~] Fázis 4 kész — implementáció kész, E2E futásra vár.
+
+#### Hátralévő végrehajtási lépések
+
+- [ ] **RA-01:** `docker compose --profile full up -d` (PostgreSQL, NATS,
+  Meilisearch A/B, Authentik) és az Authentik blueprint tényleges alkalmazása.
+- [ ] **RA-02:** backend `.env.e2e` a `.env.example` alapján
+  (`FEATURE_IDENTITY|OUTBOX_RELAY|SEARCH=on`, a `POSTGRES_PORT` egyezzen a
+  `backend/.env` értékével), migráció és indítás.
+- [ ] **RA-03:** frontend `.env.e2e` (kulcsok: `frontend/e2e/README.md`),
+  `npm ci` (a `@playwright/test` már a `package.json`-ban van) és
+  `npm run e2e:install`.
+- [ ] **RA-04:** `npm run e2e` zöld a `@outage` eset nélkül.
+- [ ] **RA-05:** `E2E_DOCKER_CONTROL=true` mellett az `@outage` eset is zöld.
+- [ ] **RA-06:** M2-EVIDENCE L2 sorok (T20–T23) valós futással frissítve, és a
+  Fázis 1–4 `[~]` ellenőrzései átvezetve.
 
 Eredmény: valódi login, helyes content lifecycle, teljes publikus keresés és
 read-only operations dashboard. Az M5 műveletek még CLI-ről futnak.

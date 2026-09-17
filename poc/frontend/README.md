@@ -58,9 +58,16 @@ backend `GET /me` válasza.
 | `npm run build` | TypeScript ellenőrzés + production bundle |
 | `npm run compiler:check` | Ellenőrzi, hogy a build tartalmaz React Compiler memoizációt |
 | `npm run preview` | A buildelt bundle helyi előnézete |
-| `npm run lint` | oxlint a `src` fán |
+| `npm run lint` | oxlint a `src` és az `e2e` fán |
 | `npm run test` | Vitest unit- és component tesztek |
 | `npm run verify` | Contract drift + build + React Compiler + lint + tesztek |
+| `npm run e2e` | Playwright full-stack E2E (futó stacket igényel) |
+| `npm run e2e:install` | A Playwright Chromium letöltése |
+| `npm run e2e:report` | Az utolsó E2E futás HTML riportja |
+
+A `verify` a gyors kapu: mockolt, külső függőség nélküli. Az `e2e` a valódi
+Authentik + backend + Meilisearch A/B stacket használja, runbook:
+[e2e/README.md](e2e/README.md).
 
 ## Megjegyzés
 

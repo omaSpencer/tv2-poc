@@ -12,10 +12,15 @@
     "compiler:check": "node scripts/check-react-compiler.mjs",
     "contracts:generate": "openapi-typescript ../contracts/backend.openapi.json -o src/api/generated/backend.ts",
     "contracts:check": "node scripts/check-contracts.mjs",
-    "lint": "oxlint src",
+    "lint": "oxlint src e2e",
     "preview": "vite preview",
     "test": "vitest run",
-    "verify": "npm run contracts:check && npm run build && npm run compiler:check && npm run lint && npm run test"
+    "verify": "npm run contracts:check && npm run build && npm run compiler:check && npm run lint && npm run test",
+    "e2e": "npm run e2e:typecheck && playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report e2e/.report/html",
+    "e2e:install": "playwright install chromium",
+    "e2e:typecheck": "tsc -p tsconfig.e2e.json"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@babel/core": "^8.0.0-rc.4",
+    "@playwright/test": "^1.63.0",
     "@rolldown/plugin-babel": "^0.2.4",
     "@testing-library/react": "16.3.3",
     "@types/babel__core": "^7.20.5",

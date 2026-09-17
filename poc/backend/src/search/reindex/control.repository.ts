@@ -120,8 +120,12 @@ export class ReindexControlRepository {
     }).where(eq(searchIndexControl.indexAlias, alias));
   }
 
-  async fail(alias: SearchIndexAlias, code: ReindexErrorCode): Promise<void> {
-    await this.database.db.update(searchIndexControl).set({
+  async fail(
+    alias: SearchIndexAlias,
+    code: ReindexErrorCode,
+    executor: Executor = this.database.db,
+  ): Promise<void> {
+    await executor.update(searchIndexControl).set({
       phase: 'failed', desiredWorkerState: 'paused', ownerId: null,
       ownerHeartbeatAt: null, lastErrorCode: code, updatedAt: new Date(),
     }).where(eq(searchIndexControl.indexAlias, alias));

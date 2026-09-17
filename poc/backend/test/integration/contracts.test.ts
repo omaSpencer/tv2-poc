@@ -48,11 +48,12 @@ describe('permission contract', () => {
     expect([...permissionsForRoles(['viewer'])]).toEqual([]);
     expect([...permissionsForRoles(['editor'])].sort()).toEqual(['content:read', 'content:write']);
     expect([...permissionsForRoles(['publisher'])].sort()).toEqual([
-      'content:publish', 'content:read', 'content:write', 'ops:read',
+      'content:publish', 'content:read', 'content:write', 'ops:read', 'ops:write',
     ]);
     // Multiple groups union; an unknown group adds nothing.
     expect([...permissionsForRoles(['viewer', 'editor', 'ismeretlen'])].sort()).toEqual(['content:read', 'content:write']);
     expect(ROLE_PERMISSIONS.publisher).toContain('ops:read');
+    expect(ROLE_PERMISSIONS.publisher).toContain('ops:write');
   });
 
   it('requires a permission for every admin route and none for the catalog', () => {

@@ -21,6 +21,16 @@ import {
   CHANGED_FIELD_ORDER, createContentBodySchema, patchContentBodySchema, versionedBodySchema,
 } from './http.js';
 import { SEARCH_QUERY_LIMITS, searchQuarantineV1Schema } from './search.js';
+import {
+  contentRepairResultSchema,
+  operatorActionKindSchema,
+  operatorActionStateSchema,
+  quarantineReplayResultSchema,
+  repairBodySchema,
+  replayBodySchema,
+  reindexResultSchema,
+  startReindexBodySchema,
+} from './operator-actions.js';
 
 // `toISOString()` output: UTC, `Z` suffix. Declared so a generated client
 // gets a real date-time type instead of an opaque string.
@@ -191,6 +201,82 @@ export const processingStatusViewSchema = z.strictObject({
   }).optional(),
 });
 
+const operatorTargetViewSchema = z.union([
+  z.strictObject({ index: z.enum(['a', 'b']), allowSearchOutage: z.boolean() }),
+  z.strictObject({ sequence: z.number().int().positive() }),
+  z.strictObject({ contentId: z.uuid(), target: z.enum(['a', 'b', 'both']) }),
+]);
+
+const operatorResultViewSchema = z.union([
+  reindexResultSchema,
+  quarantineReplayResultSchema,
+  contentRepairResultSchema,
+]);
+
+export const operatorActionViewSchema = z.strictObject({
+  id: z.uuid(),
+  kind: operatorActionKindSchema,
+  state: operatorActionStateSchema,
+  requestedBy: z.string(),
+  requestedRoles: z.array(z.enum(ROLES)),
+  reason: z.string().min(3).max(500),
+  target: operatorTargetViewSchema,
+  result: operatorResultViewSchema.nullable(),
+  correlationId: z.string(),
+  errorCode: z.string().nullable(),
+  createdAt: isoDateTime,
+  startedAt: isoDateTime.nullable(),
+  heartbeatAt: isoDateTime.nullable(),
+  completedAt: isoDateTime.nullable(),
+});
+
+export const reindexPreflightViewSchema = z.strictObject({
+  index: z.enum(['a', 'b']),
+  otherIndex: z.enum(['a', 'b']),
+  otherIndexReady: z.boolean(),
+  otherIndexReachable: z.boolean().nullable(),
+  activeRunId: z.uuid().nullable(),
+  canStartNormally: z.boolean(),
+  confirmationRequired: z.boolean(),
+  confirmationTarget: z.string().nullable(),
+  blockers: z.array(z.enum(['active_run', 'other_index_unavailable', 'search_disabled'])),
+});
+
+export const reindexProgressViewSchema = z.strictObject({
+  phase: z.enum(REINDEX_PHASES),
+  snapshotStreamSequence: z.number().int().nullable(),
+  outboxHighWater: z.number().int().nullable(),
+  catchUpStreamSequence: z.number().int().nullable(),
+  importedDocuments: z.number().int().nonnegative(),
+  expectedDocuments: z.number().int().nullable(),
+  startedAt: isoDateTime.nullable(),
+  updatedAt: isoDateTime,
+  completedAt: isoDateTime.nullable(),
+  errorCode: z.string().nullable(),
+});
+
+export const reindexRunViewSchema = operatorActionViewSchema.extend({
+  progress: reindexProgressViewSchema.nullable(),
+});
+
+export const quarantineItemViewSchema = z.strictObject({
+  sequence: z.number().int().positive(),
+  schemaValid: z.boolean(),
+  quarantineId: z.uuid().nullable(),
+  failedAt: isoDateTime.nullable(),
+  errorCode: z.string().nullable(),
+  originalEventId: z.uuid().nullable(),
+  originalStream: z.string().nullable(),
+  originalSequence: z.number().int().positive().nullable(),
+  subject: z.string().nullable(),
+  durable: z.string().nullable(),
+});
+
+export const quarantineListViewSchema = z.strictObject({
+  items: z.array(quarantineItemViewSchema),
+  nextCursor: z.string().nullable(),
+});
+
 type JsonSchema = Record<string, unknown>;
 
 function toOpenApi(schema: z.ZodType, io: 'input' | 'output'): JsonSchema {
@@ -219,6 +305,14 @@ export const OPENAPI_SCHEMAS: Readonly<Record<string, JsonSchema>> = {
   CatalogSearchView: toOpenApi(catalogSearchViewSchema, 'output'),
   SearchIndexStatus: toOpenApi(searchIndexStatusSchema, 'output'),
   SearchQuarantineV1: toOpenApi(searchQuarantineV1Schema, 'output'),
+  StartReindexBody: toOpenApi(startReindexBodySchema, 'input'),
+  ReplayQuarantineBody: toOpenApi(replayBodySchema, 'input'),
+  StartContentRepairBody: toOpenApi(repairBodySchema, 'input'),
+  OperatorActionView: toOpenApi(operatorActionViewSchema, 'output'),
+  ReindexPreflightView: toOpenApi(reindexPreflightViewSchema, 'output'),
+  ReindexRunView: toOpenApi(reindexRunViewSchema, 'output'),
+  QuarantineItemView: toOpenApi(quarantineItemViewSchema, 'output'),
+  QuarantineListView: toOpenApi(quarantineListViewSchema, 'output'),
 };
 
 export type OpenApiSchemaName = keyof typeof OPENAPI_SCHEMAS;

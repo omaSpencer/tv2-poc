@@ -49,7 +49,7 @@ export async function truncateAll(url = testDatabaseUrl()): Promise<void> {
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
-    await client.query('TRUNCATE outbox_event, content_audit, content');
+    await client.query('TRUNCATE operator_action, outbox_event, content_audit, content');
   } finally {
     await client.end();
   }

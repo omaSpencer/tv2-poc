@@ -7,7 +7,7 @@
  * broken application path cannot persist an invalid row.
  */
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, integer, jsonb, pgSequence, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, jsonb, pgSequence, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 export const CONTENT_STATUSES = ['draft', 'published', 'withdrawn'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
@@ -33,6 +33,12 @@ export type ReindexPhase = (typeof REINDEX_PHASES)[number];
 
 export const WORKER_DESIRED_STATES = ['running', 'paused'] as const;
 export type WorkerDesiredState = (typeof WORKER_DESIRED_STATES)[number];
+
+export const OPERATOR_ACTION_KINDS = ['reindex', 'quarantine_replay', 'content_repair'] as const;
+export type OperatorActionKind = (typeof OPERATOR_ACTION_KINDS)[number];
+
+export const OPERATOR_ACTION_STATES = ['queued', 'running', 'succeeded', 'failed'] as const;
+export type OperatorActionState = (typeof OPERATOR_ACTION_STATES)[number];
 
 /** The two logical index aliases, as persisted operational rows. */
 export const SEARCH_INDEX_CONTROL_ALIASES = ['a', 'b'] as const;
@@ -271,7 +277,51 @@ export const searchIndexControl = pgTable(
   ],
 );
 
+/**
+ * Fázis 5 – durable admission, audit and terminal state for operator mutations.
+ * Only allowlisted target/result projections are written by the repository;
+ * request bodies, credentials and exception text never belong in this table.
+ */
+export const operatorAction = pgTable(
+  'operator_action',
+  {
+    id: uuid('id').primaryKey(),
+    kind: text('kind').notNull(),
+    state: text('state').notNull(),
+    requestFingerprint: text('request_fingerprint').notNull(),
+    requestedBy: text('requested_by').notNull(),
+    requestedRoles: text('requested_roles').array().notNull().default(sql`'{}'::text[]`),
+    correlationId: text('correlation_id').notNull(),
+    reason: text('reason').notNull(),
+    target: jsonb('target').notNull(),
+    result: jsonb('result'),
+    errorCode: text('error_code'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    heartbeatAt: timestamp('heartbeat_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  table => [
+    index('operator_action_state_created_idx').on(table.state, table.createdAt),
+    index('operator_action_kind_created_idx').on(table.kind, table.createdAt),
+    uniqueIndex('operator_action_one_active_reindex_idx')
+      .on(table.kind)
+      .where(sql`${table.kind} = 'reindex' and ${table.state} in ('queued', 'running')`),
+    check('operator_action_kind_allowed', inList('kind', OPERATOR_ACTION_KINDS)),
+    check('operator_action_state_allowed', inList('state', OPERATOR_ACTION_STATES)),
+    check('operator_action_fingerprint_shape', sql`${table.requestFingerprint} ~ '^[0-9a-f]{64}$'`),
+    check('operator_action_actor_present', sql`char_length(${table.requestedBy}) between 1 and ${sql.raw(String(LIMITS.actorSub))}`),
+    check('operator_action_correlation_shape', sql`${table.correlationId} ~ '^[A-Za-z0-9._-]{1,128}$'`),
+    check('operator_action_reason_length', sql`char_length(${table.reason}) between 3 and 500`),
+    check(
+      'operator_action_terminal_shape',
+      sql`(${table.state} in ('queued', 'running') and ${table.completedAt} is null) or (${table.state} in ('succeeded', 'failed') and ${table.completedAt} is not null)`,
+    ),
+  ],
+);
+
 export type ContentRow = typeof content.$inferSelect;
 export type ContentAuditRow = typeof contentAudit.$inferSelect;
 export type OutboxEventRow = typeof outboxEvent.$inferSelect;
 export type SearchIndexControlRow = typeof searchIndexControl.$inferSelect;
+export type OperatorActionRow = typeof operatorAction.$inferSelect;

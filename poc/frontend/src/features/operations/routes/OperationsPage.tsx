@@ -14,6 +14,7 @@ import {
   processingPollInterval,
   searchAvailability,
 } from '../viewModel';
+import { OperationsNav } from '../components/OperationsNav';
 
 export function OperationsPage() {
   const statusQuery = useQuery({
@@ -51,6 +52,7 @@ export function OperationsPage() {
 
   return (
     <div className="stack-pages operations-page">
+      <OperationsNav />
       <section className="panel operations-heading">
         <div>
           <p className="eyebrow">Read-only megfigyelés</p>

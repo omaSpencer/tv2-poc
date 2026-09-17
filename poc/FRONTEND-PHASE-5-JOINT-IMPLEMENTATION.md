@@ -427,15 +427,17 @@ gyorsabban elkészülne, de veszélyes lost-response és dupla-submit rést hagy
 
 ## 10. Definition of Done
 
-- [ ] `ops:write` külön permissionként él és minden mutationt véd.
-- [ ] Minden mutation tartósan idempotens és auditált.
-- [ ] Controller nem futtat shellt/CLI-t.
-- [ ] Reindex 202 + durable progress, refresh után folytatható megfigyelés.
-- [ ] Nincs párhuzamos reindex és nincs nem biztonságos cancel.
-- [ ] Outage mód exact DB confirmationnel, backend oldali újraellenőrzéssel működik.
-- [ ] Quarantine lista/inspect payloadmentes, replay reason kötelező.
-- [ ] Repair A/B/both célra konvergál és failure nem látszik successnek.
-- [ ] Restart recovery meghatározott, megszakadt reindex nem auto-resume.
-- [ ] Secret/token/payload nem kerül API-ba, UI-ba, action rekordba vagy logba.
-- [ ] Backend/frontend/full-stack teszt és OpenAPI gate zöld.
-
+- [x] `ops:write` külön permissionként él és minden mutationt véd.
+- [x] Minden mutation tartósan idempotens és auditált.
+- [x] Controller nem futtat shellt/CLI-t.
+- [x] Reindex 202 + durable progress, refresh után folytatható megfigyelés.
+- [x] Nincs párhuzamos reindex és nincs nem biztonságos cancel.
+- [~] Outage mód exact DB confirmationnel és backend oldali újraellenőrzéssel
+  implementált; valódi outage full-stack E2E nyitott.
+- [x] Quarantine lista/inspect payloadmentes, replay reason kötelező.
+- [x] Repair A/B/both célra konvergál és failure nem látszik successnek.
+- [x] Restart recovery tranzakciós, a megszakadt reindex nem auto-resume.
+- [~] Secret/token/payload allowlistelt projectionökből ki van zárva; a teljes
+  Fázis 7 security/screenshot review nyitott.
+- [~] Backend/frontend célzott teszt és OpenAPI gate zöld; a Phase 5 full-stack
+  E2E és evidence nyitott.

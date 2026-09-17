@@ -22,6 +22,7 @@ type RequestOptions = {
   retryAuth?: boolean;
   /** Health ready returns Terminus JSON on 503 – not problem+json. */
   acceptNonOkJson?: boolean;
+  idempotencyKey?: string;
 };
 
 let currentAccessToken: string | null = null;
@@ -60,6 +61,7 @@ async function executeRequest<T>(
     headers.set('Authorization', `Bearer ${currentAccessToken}`);
   }
   if (options.correlationId) headers.set('X-Correlation-Id', options.correlationId);
+  if (options.idempotencyKey) headers.set('Idempotency-Key', options.idempotencyKey);
 
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? 'GET',

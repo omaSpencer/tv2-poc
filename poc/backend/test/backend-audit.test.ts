@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { ReindexCoordinator, type ReindexTestHooks } from '../src/search/reindex/coordinator.js';
@@ -50,7 +51,7 @@ describe('backend audit recovery regressions', () => {
   it('cleans a failed pre-swap import and preserves the original error', async () => {
     const error = new ReindexRunError('import_timeout');
     const h = recovery({ afterImport: () => { throw error; } });
-    await expect(h.coordinator.run({ index: 'a' })).rejects.toBe(error);
+    await expect(h.coordinator.run({ runId: randomUUID(), index: 'a' })).rejects.toBe(error);
     expect(h.cleanup).toHaveBeenCalledOnce();
     expect(h.swap).not.toHaveBeenCalled();
     expect(h.control.fail).toHaveBeenCalledWith('a', 'import_timeout');
@@ -58,7 +59,7 @@ describe('backend audit recovery regressions', () => {
 
   it('keeps the former live index when failure follows a swap', async () => {
     const h = recovery({ afterSwap: () => { throw new ReindexRunError('aborted'); } });
-    await expect(h.coordinator.run({ index: 'a' })).rejects.toMatchObject({ code: 'aborted' });
+    await expect(h.coordinator.run({ runId: randomUUID(), index: 'a' })).rejects.toMatchObject({ code: 'aborted' });
     expect(h.swap).toHaveBeenCalledOnce();
     expect(h.cleanup).not.toHaveBeenCalled();
   });
@@ -66,14 +67,14 @@ describe('backend audit recovery regressions', () => {
   it('preserves recovery data if the swap response is lost', async () => {
     const h = recovery();
     h.swap.mockRejectedValue(new Error('response lost'));
-    await expect(h.coordinator.run({ index: 'a' })).rejects.toThrow('response lost');
+    await expect(h.coordinator.run({ runId: randomUUID(), index: 'a' })).rejects.toThrow('response lost');
     expect(h.cleanup).not.toHaveBeenCalled();
   });
 
   it('keeps a successful recovery ready even when cleanup fails', async () => {
     const h = recovery();
     h.cleanup.mockRejectedValue(new Error('delete failed'));
-    await expect(h.coordinator.run({ index: 'a' })).resolves.toMatchObject({ index: 'a' });
+    await expect(h.coordinator.run({ runId: randomUUID(), index: 'a' })).resolves.toMatchObject({ index: 'a' });
     expect(h.cleanup).toHaveBeenCalledOnce();
     expect(h.control.fail).not.toHaveBeenCalled();
   });
@@ -84,7 +85,7 @@ describe('backend audit recovery regressions', () => {
       if (sql?.includes('pg_advisory_xact_lock')) throw Object.assign(new Error('canceled'), { code: '57014' });
       return { rows: [{ name: 'audit_test', value: '0' }] };
     });
-    await expect(h.coordinator.run({ index: 'a' })).rejects.toMatchObject({ code: 'verify_timeout' });
+    await expect(h.coordinator.run({ runId: randomUUID(), index: 'a' })).rejects.toMatchObject({ code: 'verify_timeout' });
     expect(h.cleanup).not.toHaveBeenCalled();
   });
 

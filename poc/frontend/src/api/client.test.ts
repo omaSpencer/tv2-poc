@@ -21,6 +21,19 @@ function jsonResponse(body: unknown, status: number): Response {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('api auth recovery', () => {
+  it('sends an idempotency key without exposing it in the body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }, 202));
+    vi.stubGlobal('fetch', fetchMock);
+    await apiRequest('/admin/search/repairs', {
+      method: 'POST',
+      body: { contentId: 'id' },
+      idempotencyKey: '123e4567-e89b-42d3-a456-426614174000',
+    });
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((request.headers as Headers).get('Idempotency-Key')).toBe('123e4567-e89b-42d3-a456-426614174000');
+    expect(request.body).toBe('{"contentId":"id"}');
+  });
+
   it('renews once and retries an idempotent GET', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(problem, 401))

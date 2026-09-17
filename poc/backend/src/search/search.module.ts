@@ -8,6 +8,8 @@ import { SearchService } from './search.service.js';
 import { SearchState } from './worker.state.js';
 import { ReindexControlRepository } from './reindex/control.repository.js';
 import { ReindexCoordinator } from './reindex/coordinator.js';
+import { ContentRepairService } from './content-repair.service.js';
+import { QuarantineService } from './quarantine.service.js';
 
 /**
  * The search stack gets its own JetStream connection rather than sharing the
@@ -22,6 +24,8 @@ import { ReindexCoordinator } from './reindex/coordinator.js';
     SearchState,
     ReindexControlRepository,
     ReindexCoordinator,
+    ContentRepairService,
+    QuarantineService,
     {
       provide: SEARCH_BROKER,
       useFactory: (config: ConfigService) => new JetStreamAdapter(config),
@@ -30,6 +34,9 @@ import { ReindexCoordinator } from './reindex/coordinator.js';
     SearchRegistry,
     SearchService,
   ],
-  exports: [SearchState, SearchRegistry, SearchService, ReindexControlRepository, ReindexCoordinator],
+  exports: [
+    SearchState, SearchRegistry, SearchService, ReindexControlRepository, ReindexCoordinator,
+    ContentRepairService, QuarantineService,
+  ],
 })
 export class SearchModule {}

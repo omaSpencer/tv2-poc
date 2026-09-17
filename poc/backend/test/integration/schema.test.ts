@@ -29,7 +29,9 @@ describe('T01 migration and database constraints', () => {
     const tables = await query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema='public' order by table_name", [], url,
     );
-    expect(tables.map(row => row.table_name)).toEqual(['content', 'content_audit', 'outbox_event', 'search_index_control']);
+    expect(tables.map(row => row.table_name)).toEqual([
+      'content', 'content_audit', 'operator_action', 'outbox_event', 'search_index_control',
+    ]);
 
     const constraints = await query<{ conname: string }>(
       "select conname from pg_constraint where connamespace='public'::regnamespace order by conname", [], url,
@@ -37,19 +39,22 @@ describe('T01 migration and database constraints', () => {
     const names = constraints.map(row => row.conname);
     for (const expected of [
       'content_slug_unique', 'content_published_minimum', 'content_audit_content_version_unique',
+      'operator_action_kind_allowed', 'operator_action_state_allowed',
       'outbox_event_aggregate_version_unique', 'outbox_event_payload_pair',
     ]) {
       expect(names).toContain(expected);
     }
     const indexes = await query<{ indexname: string }>(
-      "select indexname from pg_indexes where schemaname='public' and indexname='outbox_event_pending_idx'", [], url,
+      "select indexname from pg_indexes where schemaname='public' and indexname in ('outbox_event_pending_idx', 'operator_action_one_active_reindex_idx') order by indexname", [], url,
     );
-    expect(indexes).toHaveLength(1);
+    expect(indexes.map(row => row.indexname)).toEqual([
+      'operator_action_one_active_reindex_idx', 'outbox_event_pending_idx',
+    ]);
   });
 
-  it('recorded all four migrations once and did not apply them twice', async () => {
+  it('recorded all six migrations once and did not apply them twice', async () => {
     const applied = await query<{ count: number }>('select count(*)::int as count from drizzle.__drizzle_migrations', [], url);
-    expect(applied[0].count).toBe(4);
+    expect(applied[0].count).toBe(6);
   });
 
   it('rejects a disallowed status or category', async () => {

@@ -16,7 +16,7 @@
     "test:integration:m2": "vitest run test/integration/identity.test.ts",
     "test:integration:m3": "vitest run test/integration/relay.test.ts",
     "test:integration:m4": "vitest run test/integration/search.test.ts",
-    "test:integration:m5": "vitest run test/m5-reindex.test.ts test/integration/reindex.test.ts",
+    "test:integration:m5": "vitest run test/m5-reindex.test.ts test/integration/reindex.test.ts test/integration/operator-actions.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:reset": "node scripts/db-reset.mjs",

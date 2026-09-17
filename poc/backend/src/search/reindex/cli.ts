@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module.js';
 import { ReindexCoordinator } from './coordinator.js';
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
     }
     if (command !== 'reindex') throw new Error('invalid_command');
     const result = await app.get(ReindexCoordinator).run({
+      runId: randomUUID(),
       index: requestedIndex(),
       allowSearchOutage: flag('allow-search-outage'),
       confirmTarget: option('confirm-target'),

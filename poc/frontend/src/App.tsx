@@ -13,6 +13,10 @@ import { ContentCreatePage } from './features/contents/routes/ContentCreatePage'
 import { ContentDetailPage } from './features/contents/routes/ContentDetailPage';
 import { ContentEditPage } from './features/contents/routes/ContentEditPage';
 import { OperationsPage } from './features/operations/routes/OperationsPage';
+import { ReindexPage } from './features/operations/routes/ReindexPage';
+import { ReindexProgressPage } from './features/operations/routes/ReindexProgressPage';
+import { QuarantinePage } from './features/operations/routes/QuarantinePage';
+import { RepairPage } from './features/operations/routes/RepairPage';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -35,6 +39,10 @@ const router = createBrowserRouter(
       <Route path="contents/:id/edit" element={<RequirePermission permission="content:write"><ContentEditPage /></RequirePermission>} />
       <Route path="editorial" element={<Navigate to="/contents" replace />} />
       <Route path="operations" element={<RequirePermission permission="ops:read"><OperationsPage /></RequirePermission>} />
+      <Route path="operations/reindex" element={<RequirePermission permission="ops:write"><ReindexPage /></RequirePermission>} />
+      <Route path="operations/reindex/:runId" element={<RequirePermission permission="ops:read"><ReindexProgressPage /></RequirePermission>} />
+      <Route path="operations/quarantine" element={<RequirePermission permission="ops:read"><QuarantinePage /></RequirePermission>} />
+      <Route path="operations/repair" element={<RequirePermission permission="ops:write"><RepairPage /></RequirePermission>} />
       <Route path="processing" element={<Navigate to="/operations" replace />} />
       <Route path="demo" element={<RequireAuth><DemoPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -43,6 +43,7 @@ export type ConsumerProgress = {
 };
 
 export type StoredMessage = { subject: string; sequence: number; data: Uint8Array };
+export type StreamBounds = { firstSequence: number; lastSequence: number; messages: number };
 
 export const JETSTREAM_TOPOLOGY_LIMITS = 'JETSTREAM_TOPOLOGY_LIMITS';
 
@@ -218,6 +219,17 @@ export class JetStreamAdapter {
     if (!this.jsm) throw new Error('JetStream manager is not connected.');
     const message = await this.jsm.streams.getMessage(stream, { seq: sequence });
     return message === null ? null : { subject: message.subject, sequence: message.seq, data: message.data };
+  }
+
+  async streamBounds(stream: string): Promise<StreamBounds> {
+    await this.ensureConnected();
+    if (!this.jsm) throw new Error('JetStream manager is not connected.');
+    const info = await this.jsm.streams.info(stream);
+    return {
+      firstSequence: info.state.first_seq,
+      lastSequence: info.state.last_seq,
+      messages: info.state.messages,
+    };
   }
 
   async snapshot(): Promise<BrokerSnapshot> {

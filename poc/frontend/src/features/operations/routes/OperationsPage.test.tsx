@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
 import { ApiProblemError, type ProcessingStatus } from '../../../api/types';
 
 const mocks = vi.hoisted(() => ({ fetchProcessingStatus: vi.fn() }));
 vi.mock('../../../api/processing', () => ({ fetchProcessingStatus: mocks.fetchProcessingStatus }));
+vi.mock('../../../auth/authContext', () => ({ useAuth: () => ({ me: { permissions: ['ops:read', 'ops:write'] } }) }));
 
 import { OperationsPage } from './OperationsPage';
 
@@ -59,7 +61,9 @@ function renderOperations() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <OperationsPage />
+      <MemoryRouter initialEntries={['/operations']}>
+        <OperationsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }

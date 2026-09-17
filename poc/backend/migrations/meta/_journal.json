@@ -29,6 +29,20 @@
       "when": 1789579120923,
       "tag": "0003_steady_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789635939679,
+      "tag": "0004_sweet_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789636724693,
+      "tag": "0005_luxuriant_nova",
+      "breakpoints": true
     }
   ]
 }

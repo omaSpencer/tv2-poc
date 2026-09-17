@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "operator_action_one_active_reindex_idx" ON "operator_action" USING btree ("kind") WHERE "operator_action"."kind" = 'reindex' and "operator_action"."state" in ('queued', 'running');

@@ -25,6 +25,125 @@
     var(--bg);
 }
 
+.operations-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.operations-subnav a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: inherit;
+  padding: 0.55rem 0.9rem;
+  text-decoration: none;
+}
+
+.operations-subnav a.active {
+  background: var(--ink, #17202a);
+  color: white;
+}
+
+.form-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-stack label,
+.form-stack fieldset {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-stack fieldset label,
+.danger-choice {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.form-stack textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.btn-danger {
+  background: #9f241f;
+  border: 1px solid #7e1714;
+  border-radius: 0.55rem;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.section-heading-row {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.operator-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+
+.operator-list-item {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.phase-stepper {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+
+.phase-stepper li {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 0.4rem;
+  padding: 0.55rem;
+  text-align: center;
+}
+
+.phase-stepper li[aria-current='step'] {
+  box-shadow: inset 0 0 0 2px currentColor;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .operator-list-item,
+  .section-heading-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .phase-stepper {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

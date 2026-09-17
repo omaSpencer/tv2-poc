@@ -19,6 +19,14 @@ export type VersionedBody = Schemas['VersionedCommandBody'];
 export type SearchResponse = Schemas['CatalogSearchView'];
 export type ProcessingStatus = Schemas['ProcessingStatusView'];
 export type SearchIndexStatus = Schemas['SearchIndexStatus'];
+export type OperatorActionView = Schemas['OperatorActionView'];
+export type ReindexPreflightView = Schemas['ReindexPreflightView'];
+export type ReindexRunView = Schemas['ReindexRunView'];
+export type QuarantineItemView = Schemas['QuarantineItemView'];
+export type QuarantineListView = Schemas['QuarantineListView'];
+export type StartReindexBody = Schemas['StartReindexBody'];
+export type ReplayQuarantineBody = Schemas['ReplayQuarantineBody'];
+export type StartContentRepairBody = Schemas['StartContentRepairBody'];
 
 export type ContentCategory = NonNullable<AdminContentView['category']>;
 export type ContentStatus = AdminContentView['status'];

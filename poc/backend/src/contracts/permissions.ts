@@ -5,7 +5,7 @@
  * scope alone never grants an application permission: the permission set is
  * derived from the group-backed claims listed below.
  */
-export const PERMISSIONS = ['content:read', 'content:write', 'content:publish', 'ops:read'] as const;
+export const PERMISSIONS = ['content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLES = ['viewer', 'editor', 'publisher'] as const;
@@ -22,7 +22,7 @@ export const ROLE_GROUPS: Readonly<Record<Role, string>> = {
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   viewer: [],
   editor: ['content:read', 'content:write'],
-  publisher: ['content:read', 'content:write', 'content:publish', 'ops:read'],
+  publisher: ['content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write'],
 };
 
 export function permissionsForRoles(roles: readonly string[]): Set<Permission> {
@@ -51,6 +51,14 @@ export const ROUTE_MATRIX: readonly RouteRule[] = [
   { method: 'GET', path: '/admin/contents/:id', access: 'content:read', milestone: 'M1' },
   { method: 'GET', path: '/admin/contents/:id/audit', access: 'content:read', milestone: 'M1' },
   { method: 'GET', path: '/admin/processing-status', access: 'ops:read', milestone: 'M3' },
+  { method: 'GET', path: '/admin/search/reindex-preflight', access: 'ops:write', milestone: 'M5' },
+  { method: 'POST', path: '/admin/search/reindex-runs', access: 'ops:write', milestone: 'M5' },
+  { method: 'GET', path: '/admin/search/reindex-runs/:runId', access: 'ops:read', milestone: 'M5' },
+  { method: 'GET', path: '/admin/search/quarantine', access: 'ops:read', milestone: 'M5' },
+  { method: 'GET', path: '/admin/search/quarantine/:sequence', access: 'ops:read', milestone: 'M5' },
+  { method: 'POST', path: '/admin/search/quarantine/:sequence/replays', access: 'ops:write', milestone: 'M5' },
+  { method: 'POST', path: '/admin/search/repairs', access: 'ops:write', milestone: 'M5' },
+  { method: 'GET', path: '/admin/operator-actions/:id', access: 'ops:read', milestone: 'M5' },
   { method: 'GET', path: '/catalog/contents/:id', access: null, milestone: 'M1' },
   { method: 'GET', path: '/catalog/search', access: null, milestone: 'M4' },
 ];

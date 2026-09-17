@@ -21,6 +21,7 @@ function delay(ms: number): Promise<void> {
 }
 
 export type ReindexRunOptions = {
+  runId: string;
   index: SearchIndexAlias;
   allowSearchOutage?: boolean;
   confirmTarget?: string;
@@ -35,6 +36,18 @@ export type ReindexRunResult = {
   expectedDocuments: number;
   verification: VerificationResult;
   durationMs: number;
+};
+
+export type ReindexPreflight = {
+  index: SearchIndexAlias;
+  otherIndex: SearchIndexAlias;
+  otherIndexReady: boolean;
+  otherIndexReachable: boolean | null;
+  activeRunId: string | null;
+  canStartNormally: boolean;
+  confirmationRequired: boolean;
+  confirmationTarget: string | null;
+  blockers: Array<'active_run' | 'other_index_unavailable' | 'search_disabled'>;
 };
 
 /** Test-assembly-only interruption points; no HTTP or environment trigger. */
@@ -61,10 +74,43 @@ export class ReindexCoordinator {
     this.log = pino({ level: this.config.get<string>('LOG_LEVEL') ?? 'info' });
   }
 
+  async preflight(index: SearchIndexAlias, allowSearchOutage: boolean): Promise<ReindexPreflight> {
+    const otherIndex: SearchIndexAlias = index === 'a' ? 'b' : 'a';
+    const controls = await this.control.all();
+    const active = controls.find(row => row.ownerId !== null);
+    const other = controls.find(row => row.indexAlias === otherIndex);
+    const otherIndexReady = other?.phase === 'ready';
+    const otherIndexReachable = this.registry.enabled
+      ? await this.registry.adapter(otherIndex).reachable()
+      : null;
+    const blockers: ReindexPreflight['blockers'] = [];
+    if (!this.registry.enabled) blockers.push('search_disabled');
+    if (active) blockers.push('active_run');
+    if (!otherIndexReady || otherIndexReachable !== true) blockers.push('other_index_unavailable');
+    const confirmationRequired = allowSearchOutage || this.config.get<string>('NODE_ENV') === 'production';
+    const confirmationTarget = confirmationRequired
+      ? await this.database.withClient(async client => {
+        const result = await client.query<{ name: string }>('select current_database() as name');
+        return result.rows[0]?.name ?? null;
+      })
+      : null;
+    return {
+      index,
+      otherIndex,
+      otherIndexReady,
+      otherIndexReachable,
+      activeRunId: active?.runId ?? null,
+      canStartNormally: blockers.length === 0,
+      confirmationRequired,
+      confirmationTarget,
+      blockers,
+    };
+  }
+
   async run(options: ReindexRunOptions): Promise<ReindexRunResult> {
     if (!this.registry.enabled) throw new ReindexRunError('index_unreachable', 'search_disabled');
     const started = Date.now();
-    const runId = randomUUID();
+    const runId = options.runId;
     const ownerId = randomUUID();
     let began = false;
     let importer: StagingImporter | null = null;

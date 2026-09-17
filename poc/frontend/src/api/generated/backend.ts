@@ -193,6 +193,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/search/reindex-preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check whether a reindex can be started */
+        get: operations["OperatorActionsController_preflight"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/reindex-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OperatorActionsController_startReindex"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/reindex-runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OperatorActionsController_reindexRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/quarantine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OperatorActionsController_quarantineList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/quarantine/{sequence}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OperatorActionsController_quarantineDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/quarantine/{sequence}/replays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OperatorActionsController_replay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search/repairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OperatorActionsController_repair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/operator-actions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OperatorActionsController_actionDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -356,7 +485,7 @@ export interface components {
         MeView: {
             sub: string;
             roles: ("viewer" | "editor" | "publisher")[];
-            permissions: ("content:read" | "content:write" | "content:publish" | "ops:read")[];
+            permissions: ("content:read" | "content:write" | "content:publish" | "ops:read" | "ops:write")[];
             /**
              * Format: date-time
              * @description ISO 8601 timestamp in UTC (Z suffix).
@@ -369,7 +498,7 @@ export interface components {
             title: string;
             status: number;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unauthenticated" | "forbidden" | "content_not_found" | "not_found" | "version_conflict" | "content_already_published" | "content_not_published" | "content_not_editable" | "slug_conflict" | "payload_too_large" | "validation_failed" | "internal_error" | "dependency_unavailable" | "search_unavailable";
+            code: "invalid_json" | "invalid_request" | "unauthenticated" | "forbidden" | "content_not_found" | "not_found" | "version_conflict" | "content_already_published" | "content_not_published" | "content_not_editable" | "slug_conflict" | "idempotency_conflict" | "reindex_already_running" | "quarantine_schema_invalid" | "payload_too_large" | "validation_failed" | "target_confirmation_required" | "operation_not_found" | "quarantine_not_found" | "internal_error" | "dependency_unavailable" | "search_unavailable";
             detail: string;
             instance: string;
             correlationId: string;
@@ -622,6 +751,242 @@ export interface components {
             originalStreamSequence: number;
             originalSubject: string;
             durable: string;
+        };
+        StartReindexBody: {
+            /** @enum {string} */
+            index: "a" | "b";
+            reason: string;
+            /** @default false */
+            allowSearchOutage: boolean;
+            confirmTarget?: string;
+        };
+        ReplayQuarantineBody: {
+            reason: string;
+        };
+        StartContentRepairBody: {
+            /** Format: uuid */
+            contentId: string;
+            /** @enum {string} */
+            target: "a" | "b" | "both";
+            reason: string;
+        };
+        OperatorActionView: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "reindex" | "quarantine_replay" | "content_repair";
+            /** @enum {string} */
+            state: "queued" | "running" | "succeeded" | "failed";
+            requestedBy: string;
+            requestedRoles: ("viewer" | "editor" | "publisher")[];
+            reason: string;
+            target: {
+                /** @enum {string} */
+                index: "a" | "b";
+                allowSearchOutage: boolean;
+            } | {
+                sequence: number;
+            } | {
+                /** Format: uuid */
+                contentId: string;
+                /** @enum {string} */
+                target: "a" | "b" | "both";
+            };
+            result: ({
+                /** Format: uuid */
+                runId: string;
+                /** @enum {string} */
+                index: "a" | "b";
+                snapshotStreamSequence: number;
+                catchUpStreamSequence: number;
+                expectedDocuments: number;
+                durationMs: number;
+            } | {
+                sequence: number;
+                /** Format: uuid */
+                quarantineId: string;
+                originalSequence: number;
+                replaySequence: number;
+                duplicate: boolean;
+            } | {
+                /** Format: uuid */
+                contentId: string;
+                tasks: {
+                    /** @enum {string} */
+                    alias: "a" | "b";
+                    taskUid: number;
+                }[];
+            }) | null;
+            correlationId: string;
+            errorCode: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            startedAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            heartbeatAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            completedAt: string | null;
+        };
+        ReindexPreflightView: {
+            /** @enum {string} */
+            index: "a" | "b";
+            /** @enum {string} */
+            otherIndex: "a" | "b";
+            otherIndexReady: boolean;
+            otherIndexReachable: boolean | null;
+            /** Format: uuid */
+            activeRunId: string | null;
+            canStartNormally: boolean;
+            confirmationRequired: boolean;
+            confirmationTarget: string | null;
+            blockers: ("active_run" | "other_index_unavailable" | "search_disabled")[];
+        };
+        ReindexRunView: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "reindex" | "quarantine_replay" | "content_repair";
+            /** @enum {string} */
+            state: "queued" | "running" | "succeeded" | "failed";
+            requestedBy: string;
+            requestedRoles: ("viewer" | "editor" | "publisher")[];
+            reason: string;
+            target: {
+                /** @enum {string} */
+                index: "a" | "b";
+                allowSearchOutage: boolean;
+            } | {
+                sequence: number;
+            } | {
+                /** Format: uuid */
+                contentId: string;
+                /** @enum {string} */
+                target: "a" | "b" | "both";
+            };
+            result: ({
+                /** Format: uuid */
+                runId: string;
+                /** @enum {string} */
+                index: "a" | "b";
+                snapshotStreamSequence: number;
+                catchUpStreamSequence: number;
+                expectedDocuments: number;
+                durationMs: number;
+            } | {
+                sequence: number;
+                /** Format: uuid */
+                quarantineId: string;
+                originalSequence: number;
+                replaySequence: number;
+                duplicate: boolean;
+            } | {
+                /** Format: uuid */
+                contentId: string;
+                tasks: {
+                    /** @enum {string} */
+                    alias: "a" | "b";
+                    taskUid: number;
+                }[];
+            }) | null;
+            correlationId: string;
+            errorCode: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            startedAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            heartbeatAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            completedAt: string | null;
+            progress: {
+                /** @enum {string} */
+                phase: "ready" | "draining" | "importing" | "swapping" | "catching_up" | "verifying" | "failed";
+                snapshotStreamSequence: number | null;
+                outboxHighWater: number | null;
+                catchUpStreamSequence: number | null;
+                importedDocuments: number;
+                expectedDocuments: number | null;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                startedAt: string | null;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                updatedAt: string;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                completedAt: string | null;
+                errorCode: string | null;
+            } | null;
+        };
+        QuarantineItemView: {
+            sequence: number;
+            schemaValid: boolean;
+            /** Format: uuid */
+            quarantineId: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp in UTC (Z suffix).
+             */
+            failedAt: string | null;
+            errorCode: string | null;
+            /** Format: uuid */
+            originalEventId: string | null;
+            originalStream: string | null;
+            originalSequence: number | null;
+            subject: string | null;
+            durable: string | null;
+        };
+        QuarantineListView: {
+            items: {
+                sequence: number;
+                schemaValid: boolean;
+                /** Format: uuid */
+                quarantineId: string | null;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp in UTC (Z suffix).
+                 */
+                failedAt: string | null;
+                errorCode: string | null;
+                /** Format: uuid */
+                originalEventId: string | null;
+                originalStream: string | null;
+                originalSequence: number | null;
+                subject: string | null;
+                durable: string | null;
+            }[];
+            nextCursor: string | null;
         };
     };
     responses: never;
@@ -1340,6 +1705,534 @@ export interface operations {
                 };
             };
             /** @description dependency_unavailable when the database is down */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_preflight: {
+        parameters: {
+            query: {
+                allowSearchOutage?: boolean;
+                index: "a" | "b";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live, non-reserving reindex preflight */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReindexPreflightView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:write is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_startReindex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartReindexBody"];
+            };
+        };
+        responses: {
+            /** @description Queued or existing idempotent action */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorActionView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:write is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description idempotency_conflict or reindex_already_running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed or target_confirmation_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_reindexRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action plus current durable reindex progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReindexRunView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description operation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_quarantineList: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest-first payload-free quarantine list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuarantineListView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_quarantineDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payload-free quarantine metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuarantineItemView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description quarantine_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_replay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sequence: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayQuarantineBody"];
+            };
+        };
+        responses: {
+            /** @description Queued or existing idempotent replay action */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorActionView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:write is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_repair: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartContentRepairBody"];
+            };
+        };
+        responses: {
+            /** @description Queued or existing idempotent repair action */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorActionView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:write is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+        };
+    };
+    OperatorActionsController_actionDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable operator action state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorActionView"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description forbidden; ops:read is required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description operation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description validation_failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description dependency_unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

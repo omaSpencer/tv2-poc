@@ -26,7 +26,7 @@
 4. Fázis 2 – Szerkesztői tartalomkezelés — **kész**
 5. Fázis 3 – Publikus katalógus és keresés — **kész**
 6. Fázis 4 – Operációs megfigyelő dashboard — **kész, A/B outage bizonyított**
-7. Fázis 5 – M5 operátori beavatkozások
+7. Fázis 5 – M5 operátori beavatkozások — **implementáció kész; full-stack bizonyítás nyitott**
 8. Fázis 6 – Vezetett demó és bizonyíték
 9. Fázis 7 – Minőségkapu és átadás
 
@@ -248,7 +248,9 @@
 
 ## Fázis 5 – M5 operátori beavatkozások
 
-**Állapot:** nyitott  
+**Állapot:** folyamatban — backend/frontend implementáció és célzott kapuk zöldek;
+valódi full-stack operátori E2E és evidence még nyitott
+
 **Becslés:** 9–12,5 mérnöknap frontend + backend együtt  
 **Függőség:** Fázis 1 és 4; új `ops:write`, tartós action/idempotency backend  
 **Részletes terv:**
@@ -256,44 +258,50 @@
 
 ### Backend végrehajtási terv
 
-- [ ] Új `ops:write` permission; PoC-ban publisherhez rendelve.
-- [ ] `operator_action` migration és safe, szűk action schema.
-- [ ] Tartós Idempotency-Key + request fingerprint kezelés.
-- [ ] Action repository, background runner, heartbeat és restart recovery.
-- [ ] Quarantine CLI üzleti logika injektálható service-be emelése.
-- [ ] Content repair CLI üzleti logika injektálható service-be emelése.
-- [ ] Reindex coordinator külső `runId`-val, meglévő lock/invariánsok megtartásával.
-- [ ] `GET /admin/search/reindex-preflight`.
-- [ ] `POST /admin/search/reindex-runs` és run detail.
-- [ ] Quarantine lista/detail/replay endpointok payload nélkül.
-- [ ] Content repair endpoint A/B/both célra.
-- [ ] Közös operator action detail endpoint.
-- [ ] Stabil async error-code térkép és OpenAPI/route matrix frissítés.
-- [ ] CLI regresszió: CLI és HTTP ugyanazokat a service-eket használja.
+- [x] Új `ops:write` permission; PoC-ban publisherhez rendelve.
+- [x] `operator_action` migration és safe, szűk action schema.
+- [x] Tartós Idempotency-Key + request fingerprint kezelés.
+- [x] Action repository, background runner, heartbeat és tranzakciós restart recovery.
+- [x] Quarantine CLI üzleti logika injektálható service-be emelése.
+- [x] Content repair CLI üzleti logika injektálható service-be emelése.
+- [x] Reindex coordinator külső `runId`-val, meglévő lock/invariánsok megtartásával.
+- [x] `GET /admin/search/reindex-preflight`.
+- [x] `POST /admin/search/reindex-runs` és run detail.
+- [x] Quarantine lista/detail/replay endpointok payload nélkül.
+- [x] Content repair endpoint A/B/both célra.
+- [x] Közös operator action detail endpoint.
+- [x] Stabil async error-code térkép és OpenAPI/route matrix frissítés.
+- [x] CLI regresszió: CLI és HTTP ugyanazokat a service-eket használja.
 
 ### Frontend végrehajtási terv
 
-- [ ] **P5-FE-01:** közös operator action polling és idempotency helper.
-- [ ] **P5-FE-02:** reindex wizard preflighttal, reasonnel és outage ággal.
-- [ ] **P5-FE-03:** refresh után helyreálló reindex phase/progress oldal.
-- [ ] **P5-FE-04:** cursoros quarantine lista és payload nélküli inspect.
-- [ ] **P5-FE-05:** reason-köteles replay dialog és action progress.
-- [ ] **P5-FE-06:** content repair form A/B/both céllal.
-- [ ] **P5-FE-07:** permission, secret és accessibility review.
+- [x] **P5-FE-01:** közös operator action polling, session-helyreállítás és idempotency helper.
+- [x] **P5-FE-02:** reindex wizard preflighttal, reasonnel és outage ággal.
+- [x] **P5-FE-03:** refresh után helyreálló reindex phase/progress oldal.
+- [x] **P5-FE-04:** cursoros quarantine lista és payload nélküli inspect.
+- [x] **P5-FE-05:** reason-köteles replay dialog és action progress.
+- [x] **P5-FE-06:** content repair form A/B/both céllal.
+- [~] **P5-FE-07:** permission- és secret-review kódszinten kész; a teljes axe,
+  keyboard/screen-reader és screenshot review a Fázis 7 kapujában nyitott.
 
 ### Kötelező ellenőrzések
 
-- [ ] Ugyanaz az idempotency key azonos requesttel nem indít második műveletet.
-- [ ] Azonos key eltérő requesttel `409 idempotency_conflict`.
-- [ ] Két reindex nem fut párhuzamosan.
-- [ ] Normál reindex másik routolható index nélkül blokkolt.
-- [ ] Outage mód exact DB-név megerősítést és backend újraellenőrzést kér.
-- [ ] Reindex cancel/resume gomb nincs biztonságos backend contract nélkül.
-- [ ] Restart után megszakadt reindex failed/aborted; csak új teljes run indítható.
-- [ ] Replay reason nélkül nem indul és a quarantine rekord nem törlődik.
-- [ ] Repair failure nem jelenik meg sikerként.
-- [ ] Token, payload, API key, NATS/Meili credential és teljes DB URL sehol nem jelenik meg.
-- [ ] Backend/frontend/full-stack tesztek és contract gate zöldek.
+- [x] Ugyanaz az idempotency key azonos requesttel nem indít második műveletet.
+- [x] Azonos key eltérő requesttel `409 idempotency_conflict`.
+- [x] Két reindex nem fut párhuzamosan.
+- [~] Normál reindex másik routolható index nélkül backend/UI szinten blokkolt;
+  a valódi outage E2E még nyitott.
+- [~] Outage mód exact DB-név megerősítést és backend újraellenőrzést kér;
+  a valódi outage E2E még nyitott.
+- [x] Reindex cancel/resume gomb nincs biztonságos backend contract nélkül.
+- [x] Restart után megszakadt reindex és control sor együtt `failed/aborted`;
+  csak új teljes run indítható.
+- [x] Replay reason nélkül nem indul és a quarantine rekord nem törlődik.
+- [x] Repair failure nem jelenik meg sikerként.
+- [~] Token, payload, API key, NATS/Meili credential és teljes DB URL nem kerül
+  action/API/UI projectionbe; a teljes Fázis 7 security review nyitott.
+- [~] Backend M5 13/13, új schema/recovery 10/10, frontend 112/112, build,
+  lint és contract gate zöld; a Phase 5 full-stack E2E még nyitott.
 
 ---
 

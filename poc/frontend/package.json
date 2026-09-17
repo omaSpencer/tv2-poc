@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
     "compiler:check": "node scripts/check-react-compiler.mjs",
     "contracts:generate": "openapi-typescript ../contracts/backend.openapi.json -o src/api/generated/backend.ts",
     "contracts:check": "node scripts/check-contracts.mjs",
@@ -20,7 +20,10 @@
     "e2e:backend-restart": "npm run e2e:typecheck && playwright test -c playwright.restart.config.ts",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report e2e/.report/html",
-    "e2e:install": "playwright install chromium",
+    "e2e:install": "playwright install chromium firefox webkit",
+    "e2e:a11y": "npm run e2e:typecheck && playwright test accessibility.spec.ts",
+    "e2e:responsive": "npm run e2e:typecheck && playwright test responsive.spec.ts",
+    "e2e:cross-browser": "npm run e2e:typecheck && playwright test cross-browser.spec.ts",
     "e2e:typecheck": "tsc -p tsconfig.e2e.json"
   },
   "dependencies": {

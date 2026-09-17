@@ -10,6 +10,11 @@ export default defineConfig({
     },
   },
   test: {
+    // A developer's runtime .env may enable every integration. Test workers
+    // read an intentionally empty env file; individual harnesses install the
+    // database and adapter configuration they own, while service URLs remain
+    // explicit opt-in inputs.
+    env: { ENV_FILE: 'test/test.env' },
     // Integration files share one disposable PostgreSQL database and truncate
     // between cases, so they must not run at the same time.
     fileParallelism: false,

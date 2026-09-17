@@ -98,12 +98,16 @@ async function harness(options: HarnessOptions = {}): Promise<Harness> {
 
 /** Both workers bootstrapped and waiting for messages. */
 async function awaitIdle(app: SearchTestApp, aliases: ReadonlyArray<'a' | 'b'> = ['a', 'b']): Promise<void> {
-  await waitFor(
-    `search workers ${aliases.join('/')} idle`,
-    async () => aliases.every(alias => app.state.get(alias).state === 'idle'),
-    20_000,
-    50,
-  );
+  try {
+    await waitFor(
+      `search workers ${aliases.join('/')} idle`,
+      async () => aliases.every(alias => app.state.get(alias).state === 'idle'),
+      20_000,
+      50,
+    );
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; state=${JSON.stringify(app.state.snapshot())}`);
+  }
 }
 
 /** Creates and publishes one content, returning the row and its outbox events. */
@@ -311,6 +315,7 @@ describe('M4-T12 (envelope): the quarantine record is a locator, not a copy', ()
 
 describe.skipIf(!ready)('M4: index bootstrap', () => {
   let h: Harness;
+  beforeEach(async () => { await truncateAll(dbUrl!); });
   afterEach(async () => { await h?.close(); });
 
   it('M4-T02: provisions both empty indexes and repeats without a further settings task', async () => {

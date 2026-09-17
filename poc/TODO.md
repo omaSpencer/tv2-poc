@@ -16,8 +16,8 @@
 - Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope), a
   Release B szerkesztői workspace, valamint a Release C Fázis 5 operátori
   konzolja és Fázis 6 scenario runnere kész, valódi Authentik/full-stack
-  böngészős E2E-vel bizonyított. A további munka a Release C Fázis 7,
-  valamint a külön jelölt, release-en kívüli L2 mélytesztek.
+  böngészős E2E-vel bizonyított. A Release C Fázis 7 minőségkapuja is kész;
+  további munka csak a külön jelölt, release-en kívüli L2 mélyteszt.
 
 ## Végrehajtási sorrend
 
@@ -29,7 +29,7 @@
 6. Fázis 4 – Operációs megfigyelő dashboard — **kész, A/B outage bizonyított**
 7. Fázis 5 – M5 operátori beavatkozások — **kész; outage és restart E2E bizonyított**
 8. Fázis 6 – Vezetett demó és bizonyíték — **kész; S01/S04 full-stack bizonyított**
-9. Fázis 7 – Minőségkapu és átadás
+9. Fázis 7 – Minőségkapu és átadás — **kész**
 
 ---
 
@@ -282,9 +282,8 @@ full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EV
 - [x] **P5-FE-04:** cursoros quarantine lista és payload nélküli inspect.
 - [x] **P5-FE-05:** reason-köteles replay dialog és action progress.
 - [x] **P5-FE-06:** content repair form A/B/both céllal.
-- [~] **P5-FE-07:** permission- és secret-review kódszinten és full-stack
-  payloadmentességi próbával kész; a teljes axe,
-  keyboard/screen-reader és screenshot review a Fázis 7 kapujában nyitott.
+- [x] **P5-FE-07:** permission- és secret-review, payloadmentesség, axe,
+  keyboard/screen-reader szemantikai és responsive/browser review kész.
 
 ### Kötelező ellenőrzések
 
@@ -302,7 +301,7 @@ full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EV
 - [x] Repair failure nem jelenik meg sikerként.
 - [x] Token, payload, API key, NATS/Meili credential és teljes DB URL nem kerül
   action/API/UI projectionbe; inspect, replay és repair E2E ezt tartalmi
-  negatív állításokkal is ellenőrzi. A szélesebb Fázis 7 security review külön kapu.
+  negatív állításokkal is ellenőrzi; a Fázis 7 security review lezárta.
 - [x] Backend M5 15/15, frontend 112/112, build/lint/contract gate zöld;
   Phase 5 full-stack: 3/3 normál + 1/1 outage + 1/1 restart recovery.
 
@@ -349,19 +348,19 @@ full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EV
 
 ## Fázis 7 – Minőségkapu és átadás
 
-**Állapot:** nyitott  
+**Állapot:** kész (2026-09-17)
+
 **Becslés:** 4–6,5 mérnöknap a közös release-kapura  
 **Függőség:** az adott release-scope összes funkciója kész  
 **Részletes terv:** [FRONTEND-PHASE-7-QUALITY-GATE.md](FRONTEND-PHASE-7-QUALITY-GATE.md)
 
 ### Végrehajtási terv
 
-- [ ] **P7-01:** Vitest + React Testing Library + MSW közös tesztinfrastruktúra.
-- [ ] **P7-02:** frontend fast CI: install, contract, build, lint, unit/component.
-- [ ] **P7-03:** backend contract/integration/migration gate.
-- [~] **P7-04:** Playwright full-stack harness és a valódi stacken futtatás kész
-  (`playwright.config.ts`, `e2e/support`, előfeltétel-preflight, `npm run e2e`);
-  a CI job még nyitott.
+- [x] **P7-01:** Vitest + React Testing Library + MSW közös tesztinfrastruktúra.
+- [x] **P7-02:** frontend fast CI: install, contract, build, lint, unit/component.
+- [x] **P7-03:** backend contract/integration/migration gate.
+- [x] **P7-04:** Playwright full-stack harness, valódi stack és kézzel indítható
+  release CI job (`playwright.config.ts`, `e2e/support`, preflight, `npm run e2e`).
 - [x] **P7-05:** PKCE és role guard E2E zöld valódi Authentik ellen (6 eset).
 - [x] **P7-06:** publisher lifecycle + audit E2E zöld (3 eset).
 - [x] **P7-07:** két browser context version-conflict E2E zöld.
@@ -369,13 +368,13 @@ full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EV
   egy index kiesése, teljes kiesés és helyreállás valódi Meilisearch A/B stacken bizonyított.
 - [x] **P7-09:** operátori action E2E: reindex/idempotencia/párhuzamos tiltás,
   repair both, quarantine inspect/replay, outage opt-in és valódi restart recovery zöld.
-- [ ] **P7-10:** loading/empty/partial/stale/401/403/404/409/413/422/503/network mátrix.
-- [ ] **P7-11:** WCAG 2.2 AA cél, axe és kézi keyboard/screen-reader smoke.
-- [~] **P7-12:** 360 és 1280 px Chromium smoke zöld; 768 px és Firefox/WebKit nyitott.
-- [ ] **P7-13:** token/secret/public-data-minimalizálási review.
-- [ ] **P7-14:** polling/request-halmozás és production bundle baseline.
-- [ ] **P7-15:** README, env, runbook, migration és fresh-checkout átadás.
-- [ ] **P7-16:** backend capability lefedési nyilvántartás ownerrel és teszttel.
+- [x] **P7-10:** loading/empty/partial/stale/401/403/404/409/413/422/503/network mátrix.
+- [x] **P7-11:** WCAG 2.2 AA cél, axe és keyboard/screen-reader szemantikai smoke.
+- [x] **P7-12:** 360/768/1280 px Chromium, Firefox és WebKit smoke zöld.
+- [x] **P7-13:** token/secret/public-data-minimalizálási review.
+- [x] **P7-14:** polling/request-halmozás és production bundle baseline/budget.
+- [x] **P7-15:** README, env, runbook, migration és fresh-checkout átadás.
+- [x] **P7-16:** backend capability lefedési nyilvántartás ownerrel és teszttel.
 
 ### Közös Release Definition of Done
 
@@ -386,12 +385,12 @@ scope-arányos részhalmazzal zárult.
 - [x] Release A backend contract/integration gate zöld.
 - [x] Kijelölt Release A full-stack E2E suite zöld.
 - [x] Authentik L2 belépési és jogosultsági kapu nem pending a Release A-ban.
-- [ ] Axe blocker/critical nulla; keyboard és screen-reader smoke kész.
-- [ ] 360/768/1280 viewport ellenőrizve.
-- [ ] Teljes UI állapotmátrix lefedve.
-- [ ] Security és adatminimalizálási review kész.
-- [ ] Friss checkoutból dokumentált indulás bizonyított.
-- [ ] Backend funkciómátrix minden sora `UI`, `guided runbook`,
+- [x] Axe blocker/critical nulla; keyboard és screen-reader szemantikai smoke kész.
+- [x] 360/768/1280 viewport ellenőrizve.
+- [x] Teljes UI állapotmátrix lefedve.
+- [x] Security és adatminimalizálási review kész.
+- [x] Friss checkoutból dokumentált indulás bizonyított.
+- [x] Backend funkciómátrix minden sora `UI`, `guided runbook`,
   `intentionally CLI-only` vagy `not implemented backend` státuszú.
 - [x] Release A evidence és ismert korlátok verziózva.
 
@@ -450,9 +449,11 @@ Eredmény: UUID másolása nélkül használható editor/publisher workspace.
 
 ### Release C – M5 operátori konzol és bizonyítható demo
 
+**Állapot: KÉSZ.** Jegyzőkönyv: [RELEASE-C-EVIDENCE.md](RELEASE-C-EVIDENCE.md).
+
 - [x] Fázis 5 kész.
 - [x] Fázis 6 kész.
-- [ ] Fázis 7 teljes release gate kész.
+- [x] Fázis 7 teljes release gate kész.
 
 Eredmény: biztonságos reindex/replay/repair UI, pontos scenario runner és
 reprodukálható full-stack evidence.

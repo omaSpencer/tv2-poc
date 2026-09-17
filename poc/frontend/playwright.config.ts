@@ -49,6 +49,26 @@ export default defineConfig({
       testMatch: /responsive\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 } },
     },
+    {
+      name: 'chromium-768',
+      testMatch: /responsive\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: 'chromium-responsive-1280',
+      testMatch: /responsive\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'firefox-smoke',
+      testMatch: /cross-browser\.spec\.ts$/,
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'webkit-smoke',
+      testMatch: /cross-browser\.spec\.ts$/,
+      use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } },
+    },
   ],
   webServer: e2eConfig.startFrontend
     ? {

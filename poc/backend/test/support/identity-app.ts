@@ -4,8 +4,8 @@
  */
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { pino } from 'pino';
-import { AppModule } from '../../src/app.module.js';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from '../../src/http.js';
 import { identityBoundary } from '../../src/identity/identity.boundary.js';
 import { TokenVerifier, type TokenVerifierOptions } from '../../src/identity/token-verifier.js';
@@ -59,11 +59,23 @@ export function applyIdentityEnv(options: IdentityAppOptions, databaseUrl: strin
 }
 
 export async function createIdentityApp(options: IdentityAppOptions): Promise<IdentityApp> {
+  // Import only after applyIdentityEnv(): ConfigModule.forRoot validates while
+  // AppModule is evaluated, so a static import would capture the developer's
+  // runtime .env before this isolated harness can install its mock issuer.
+  const { AppModule } = await import('../../src/app.module.js');
   const app: INestApplication = await NestFactory.create(AppModule, {
     logger: false,
     abortOnError: false,
     bodyParser: false,
   });
+  // AppModule is cached by ESM after the first harness instance. Nested
+  // discovery/JWKS cases still need their own dynamic issuer values.
+  const config = app.get(ConfigService);
+  config.set('OIDC_ISSUER_URL', options.issuer);
+  config.set('OIDC_AUDIENCE', options.audience);
+  if (options.jwksUri !== undefined) config.set('OIDC_JWKS_URI', options.jwksUri);
+  config.set('OIDC_CLOCK_TOLERANCE_S', options.clockToleranceS ?? 30);
+  config.set('OIDC_HTTP_TIMEOUT_MS', options.httpTimeoutMs ?? 2000);
   const verifier = app.get(TokenVerifier);
   if (options.verifierOptions) verifier.configureForTest(options.verifierOptions);
   const discovery = app.get(OidcDiscovery);

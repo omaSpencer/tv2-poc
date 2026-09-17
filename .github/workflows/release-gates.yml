@@ -1,0 +1,165 @@
+name: Release gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: npm
+          cache-dependency-path: poc/frontend/package-lock.json
+      - run: npm ci
+        working-directory: poc/frontend
+      - run: npm run verify
+        working-directory: poc/frontend
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: poc/frontend
+
+  backend-contract-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: poc
+          POSTGRES_PASSWORD: poc-ci
+          POSTGRES_DB: poc
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U poc -d poc"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql://poc:poc-ci@127.0.0.1:5432/poc
+      TEST_DATABASE_URL: postgresql://poc:poc-ci@127.0.0.1:5432/poc_ci_test
+      NATS_URL: nats://127.0.0.1:4222
+      TEST_NATS_URL: nats://127.0.0.1:4222
+      MEILI_A_URL: http://127.0.0.1:7700
+      MEILI_A_KEY: ci-meili-a-key
+      MEILI_B_URL: http://127.0.0.1:7701
+      MEILI_B_KEY: ci-meili-b-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: npm
+          cache-dependency-path: poc/backend/package-lock.json
+      - run: npm ci
+        working-directory: poc/backend
+      - name: Start JetStream test dependency
+        run: docker run --rm -d --name poc-ci-nats -p 4222:4222 -p 8222:8222 nats:2-alpine -js -m 8222
+      - name: Start Meilisearch test dependencies
+        run: |
+          docker run --rm -d --name poc-ci-meili-a -e MEILI_MASTER_KEY=ci-meili-a-key -p 7700:7700 getmeili/meilisearch:v1.15
+          docker run --rm -d --name poc-ci-meili-b -e MEILI_MASTER_KEY=ci-meili-b-key -p 7701:7700 getmeili/meilisearch:v1.15
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:7700/health && curl -fsS http://127.0.0.1:7701/health && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Fresh migration target
+        run: npm run db:reset
+        working-directory: poc/backend
+      - run: npm run verify
+        working-directory: poc/backend
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: poc/backend
+
+  full-stack-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      POSTGRES_PASSWORD: ci-poc-password
+      MEILI_A_KEY: ci-meili-a-key
+      MEILI_B_KEY: ci-meili-b-key
+      AUTHENTIK_POSTGRES_PASSWORD: ci-authentik-postgres-password
+      AUTHENTIK_SECRET_KEY: ci-authentik-secret-key-with-at-least-fifty-characters-00001
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ci-authentik-admin-password
+      AUTHENTIK_BOOTSTRAP_TOKEN: ci-authentik-bootstrap-token-00001
+      AUTHENTIK_POC_USER_PASSWORD: ci-poc-user-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: npm
+          cache-dependency-path: |
+            poc/backend/package-lock.json
+            poc/frontend/package-lock.json
+      - run: npm ci
+        working-directory: poc/backend
+      - run: npm ci
+        working-directory: poc/frontend
+      - run: npx playwright install --with-deps chromium firefox webkit
+        working-directory: poc/frontend
+      - name: Start full dependency profile
+        run: docker compose --profile full up -d --wait
+        working-directory: poc/backend
+      - name: Wait for Authentik discovery
+        run: |
+          for attempt in $(seq 1 120); do
+            curl -fsS http://127.0.0.1:9000/application/o/poc-backend/.well-known/openid-configuration && exit 0
+            sleep 5
+          done
+          echo "Authentik L2 prerequisite did not become ready; this is a release blocker."
+          exit 1
+      - name: Migrate and build backend
+        working-directory: poc/backend
+        env:
+          DATABASE_URL: postgresql://poc:ci-poc-password@127.0.0.1:5432/poc
+        run: |
+          npm run db:migrate
+          npm run build
+      - name: Start backend
+        working-directory: poc/backend
+        env:
+          NODE_ENV: test
+          HOST: 127.0.0.1
+          PORT: 3000
+          LOG_LEVEL: info
+          DATABASE_URL: postgresql://poc:ci-poc-password@127.0.0.1:5432/poc
+          FEATURE_IDENTITY: on
+          FEATURE_OUTBOX_RELAY: on
+          FEATURE_SEARCH: on
+          FEATURE_MEDIA: off
+          OIDC_ISSUER_URL: http://127.0.0.1:9000/application/o/poc-backend/
+          OIDC_AUDIENCE: poc-backend-api
+          NATS_URL: nats://127.0.0.1:4222
+          MEILI_A_URL: http://127.0.0.1:7700
+          MEILI_B_URL: http://127.0.0.1:7701
+        run: npm start > /tmp/poc-backend.log 2>&1 &
+      - name: Full-stack browser release gate
+        working-directory: poc/frontend
+        env:
+          E2E_USER_PASSWORD: ci-poc-user-password
+          E2E_DOCKER_CONTROL: 'true'
+        run: npm run e2e
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-e2e-evidence
+          path: |
+            poc/frontend/e2e/.artifacts
+            poc/frontend/e2e/.report
+            /tmp/poc-backend.log

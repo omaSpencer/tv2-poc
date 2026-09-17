@@ -36,7 +36,8 @@
     "demo:m5": "npm run build && node scripts/demo-m5.mjs",
     "e2e:seed-quarantine": "node scripts/e2e-seed-quarantine.mjs",
     "smoke:m0": "node scripts/smoke-m0.mjs",
-    "smoke:full": "npm run build && node scripts/smoke-full.mjs"
+    "smoke:full": "npm run build && node scripts/smoke-full.mjs",
+    "verify": "npm run build && npm run lint && npm run openapi:check && npm test"
   },
   "dependencies": {
     "@nats-io/jetstream": "3.4.0",

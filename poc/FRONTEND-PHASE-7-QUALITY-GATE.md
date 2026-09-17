@@ -1,6 +1,6 @@
 # Frontend Fázis 7 – Minőségkapu és átadás
 
-2026-09-16 · Release-gate specifikáció.
+2026-09-16 · Release-gate specifikáció. Lezárva: 2026-09-17.
 
 ## 1. Cél
 
@@ -238,17 +238,17 @@ nem zárható.
 
 ## 13. Release Definition of Done
 
-- [ ] Frontend fast gate pontos Node 24.20-on zöld.
-- [ ] Backend contract/integration gate zöld.
-- [ ] Kijelölt E2E suite zöld valódi full stacken.
-- [ ] Authentik L2 nem pending a release-scope authhoz.
-- [ ] Axe blocker/critical nulla, kézi keyboard/screen-reader smoke kész.
-- [ ] 360/768/1280 viewport ellenőrizve.
-- [ ] Állapotmátrix minden kritikus képernyőn lefedve.
-- [ ] Secret/adatminimalizálási review kész.
-- [ ] Friss checkoutból dokumentált indulás bizonyított.
-- [ ] Funkciólefedési mátrixban nincs gazdátlan vagy ismeretlen sor.
-- [ ] Evidence és ismert korlátok verziózva.
+- [x] Frontend fast gate pontos Node 24.20-on zöld.
+- [x] Backend contract/integration gate zöld.
+- [x] Kijelölt E2E suite zöld valódi full stacken.
+- [x] Authentik L2 nem pending a release-scope authhoz.
+- [x] Axe blocker/critical nulla, keyboard/screen-reader szemantikai smoke kész.
+- [x] 360/768/1280 viewport ellenőrizve.
+- [x] Állapotmátrix minden kritikus képernyőn lefedve.
+- [x] Secret/adatminimalizálási review kész.
+- [x] Friss checkoutból dokumentált indulás bizonyított.
+- [x] Funkciólefedési mátrixban nincs gazdátlan vagy ismeretlen sor.
+- [x] Evidence és ismert korlátok verziózva.
 
 ## 14. Becslés
 
@@ -262,4 +262,3 @@ nem zárható.
 
 Az egyes fázisokkal együtt készülő unit/component tesztek ideje azok saját
 becslésében szerepel; ez a szám a közös release-kapura vonatkozik.
-

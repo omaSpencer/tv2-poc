@@ -1,4 +1,4 @@
-# Full-stack E2E runbook (Release A–B + Release C / Fázis 5–6)
+# Full-stack E2E runbook (Release A–C)
 
 2026-09-17 · A Fázis 7 P7-04/P7-05/P7-06/P7-07/P7-08 kapuk végrehajtása a
 Release A–B és Fázis 5–6 scope-ra: valódi Authentik, valódi backend, valódi
@@ -19,7 +19,9 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 | `specs/operator-actions.spec.ts` | reindex idempotencia és párhuzamos tiltás, reload utáni progress, repair both, payloadmentes quarantine inspect/replay, exact DB-névvel engedélyezett valódi kiesési reindex (`@operator-outage`) |
 | `specs/backend-restart.spec.ts` | saját backend process SIGKILL, stale `failed/aborted` recovery, majd UI-ból indított új teljes reindex (`npm run e2e:backend-restart`) |
 | `specs/demo-scenarios.spec.ts` | Phase 6 S01 teljes lifecycle + redaktált export, valamint opt-in S04 manual checkpoint, A/B fallback, teljes kiesés, CMS-write és recovery |
-| `specs/responsive.spec.ts` | 360 px kártyanézet és vízszintes túlcsordulás-mentesség |
+| `specs/accessibility.spec.ts` | Axe serious/critical nulla a kritikus route-okon, skip link, dialog keyboard/fókusz |
+| `specs/responsive.spec.ts` | 360×800, 768×1024 és 1280×800 layout, kártya/tábla váltás, túlcsordulás |
+| `specs/cross-browser.spec.ts` | Firefox/WebKit publikus katalógus és keyboard skip-link smoke |
 
 ## Előfeltételek
 
@@ -30,7 +32,7 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 ```bash
 cd poc/frontend
 npm ci                # a @playwright/test a package.jsonban van
-npm run e2e:install   # chromium letöltése
+npm run e2e:install   # Chromium, Firefox és WebKit letöltése
 ```
 
 Ezután hozd létre a `frontend/.env.e2e` fájlt (nincs verziózva). Minden kulcsnak
@@ -109,6 +111,9 @@ ENV_FILE=.env.e2e npm start
 ```bash
 cd poc/frontend
 npm run e2e                 # típusellenőrzés + teljes suite
+npm run e2e:a11y            # axe + keyboard/fókusz kapu
+npm run e2e:responsive      # három kötelező viewport
+npm run e2e:cross-browser   # Firefox + WebKit smoke
 npm run e2e -- --grep-invert @outage   # a konténerleállítós eset nélkül
 E2E_DOCKER_CONTROL=true npm run e2e -- demo-scenarios.spec.ts  # Phase 6 S01 + S04
 npm run e2e:report          # HTML riport
@@ -172,7 +177,10 @@ cd poc/backend && ENV_FILE=.env.e2e npm run db:reset
   `OperationsPage` komponensteszt bizonyítja.
 - Az access token élettartama 5 perc; a refresh ág valós lejárattal nincs
   E2E-ben mérve (a reload utáni helyreállás igen).
-- Az axe/WCAG automata ellenőrzés (P7-11) még nem része a suite-nak.
+- A kézi screen-reader smoke négy állomása: login oldal és hibaüzenet; create
+  form label/mezőhiba; conflict dialog cím/leírás/fókusz; reindex confirm dialog
+  és élő progress. A programozott név, live region és keyboard viselkedés
+  automatizált; a beszéd természetessége kiadásonként kézi ellenőrzés.
 
 ## Hibaelhárítás
 

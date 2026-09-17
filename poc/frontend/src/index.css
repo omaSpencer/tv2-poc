@@ -670,7 +670,7 @@ fieldset .stack {
 }
 
 .ops-status-neutral {
-  color: var(--muted);
+  color: #40546a;
   background: var(--bg-accent);
 }
 

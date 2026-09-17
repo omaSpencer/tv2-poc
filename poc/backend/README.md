@@ -59,6 +59,7 @@ open http://localhost:3000/docs
 | `npm start` | A lefordított alkalmazás indítása |
 | `npm run lint` | oxlint a `src`, `scripts` és `test` fákon |
 | `npm test` | Teljes Vitest futás (alap + integrációs próbák) |
+| `npm run verify` | Build + lint + OpenAPI drift + teljes tesztkapu |
 | `npm run test:integration:m1` | M1 T01–T23 integrációs próbák |
 | `npm run test:integration:m2` | M2 L1 identity próbák (mock JWKS + TEST_DATABASE_URL) |
 | `npm run test:integration:m3` | M3 T01–T20 relay próbák (NATS_URL + TEST_DATABASE_URL) |
@@ -107,9 +108,17 @@ npm run db:reset
 npm test
 ```
 
+A teljes integrációs futáshoz add meg a `NATS_URL`/`TEST_NATS_URL` és a két
+`MEILI_*` kapcsolatot is, de ne töltsd be globálisan az alkalmazás
+`FEATURE_*`/`OIDC_*` runtime kapcsolóit: az identity-tesztek saját, izolált JWKS
+szervert indítanak. Ezt a szétválasztást a CI release gate is megtartja.
+
 A `db:reset` visszautasít minden olyan célt, amelynek a neve nem `_test`
 végződésű, és azt is, ha a cél megegyezik a `DATABASE_URL`-lel. A `DATABASE_URL`
 soha nem implicit célpont.
+
+A HTTP- és CLI-képességek átadási besorolása, tulajdonosa és teszthivatkozása:
+[../BACKEND-CAPABILITY-MATRIX.md](../BACKEND-CAPABILITY-MATRIX.md).
 
 ## Smoke és demó
 

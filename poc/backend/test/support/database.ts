@@ -50,6 +50,20 @@ export async function truncateAll(url = testDatabaseUrl()): Promise<void> {
   await client.connect();
   try {
     await client.query('TRUNCATE operator_action, outbox_event, content_audit, content');
+    // Reindex control is durable by design, so TRUNCATE must not remove its
+    // fixed A/B rows. Reset every operational field instead: an aborted test
+    // must not leave a worker paused for the next integration file.
+    await client.query(`
+      update search_index_control set
+        phase = 'ready', desired_worker_state = 'running', run_id = null,
+        owner_id = null, owner_heartbeat_at = null,
+        worker_heartbeat_at = null, worker_paused_at = null,
+        worker_in_flight_event_id = null,
+        snapshot_stream_sequence = null, outbox_high_water = null,
+        catch_up_stream_sequence = null, imported_documents = 0,
+        expected_documents = null, last_error_code = null, started_at = null,
+        completed_at = statement_timestamp(), updated_at = statement_timestamp()
+    `);
   } finally {
     await client.end();
   }

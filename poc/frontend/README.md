@@ -21,7 +21,7 @@ alapból és a normál build DOM-jában sincs jelen; kizárólag
 ```bash
 cd poc/frontend
 cp .env.example .env   # ha még nincs
-npm install
+npm ci
 npm run dev
 ```
 
@@ -55,19 +55,28 @@ backend `GET /me` válasza.
 | Parancs | Mit csinál |
 | --- | --- |
 | `npm run dev` | Fejlesztői szerver + proxy |
-| `npm run build` | TypeScript ellenőrzés + production bundle |
+| `npm run build` | TypeScript + route-szintű production bundle + méretkeret |
 | `npm run compiler:check` | Ellenőrzi, hogy a build tartalmaz React Compiler memoizációt |
 | `npm run preview` | A buildelt bundle helyi előnézete |
 | `npm run lint` | oxlint a `src` és az `e2e` fán |
 | `npm run test` | Vitest unit- és component tesztek |
 | `npm run verify` | Contract drift + build + React Compiler + lint + tesztek |
 | `npm run e2e` | Playwright full-stack E2E (futó stacket igényel) |
-| `npm run e2e:install` | A Playwright Chromium letöltése |
+| `npm run e2e:install` | A Playwright Chromium, Firefox és WebKit letöltése |
+| `npm run e2e:a11y` | Axe + keyboard/fókusz smoke a kritikus route-okon |
+| `npm run e2e:responsive` | 360×800, 768×1024 és 1280×800 responsive smoke |
+| `npm run e2e:cross-browser` | Firefox/WebKit publikus és keyboard smoke |
 | `npm run e2e:report` | Az utolsó E2E futás HTML riportja |
 
 A `verify` a gyors kapu: mockolt, külső függőség nélküli. Az `e2e` a valódi
 Authentik + backend + Meilisearch A/B stacket használja, runbook:
 [e2e/README.md](e2e/README.md).
+
+A route-ok külön JavaScript chunkokba töltődnek. A build a mért Phase 7
+baseline alapján 800 KiB teljes JS- és 64 KiB teljes CSS-keretet érvényesít;
+ennek túllépése hibával állítja meg a kaput. A minőségi állapot- és security
+mátrix: [../FRONTEND-QUALITY-MATRIX.md](../FRONTEND-QUALITY-MATRIX.md),
+[../SECURITY-REVIEW.md](../SECURITY-REVIEW.md).
 
 ## Megjegyzés
 

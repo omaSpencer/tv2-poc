@@ -7,7 +7,6 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { pino } from 'pino';
-import { AppModule } from '../../src/app.module.js';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from '../../src/http.js';
 import type { Actor } from '../../src/identity/actor.js';
 
@@ -24,6 +23,19 @@ const silent = pino({ level: 'silent' });
  * the application: the middleware below lives in the test build only.
  */
 export async function createTestApp(defaultActor: Actor | null = null): Promise<TestApp> {
+  if (!process.env.DATABASE_URL && process.env.TEST_DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  }
+  process.env.NODE_ENV = 'test';
+  process.env.PORT = '0';
+  process.env.LOG_LEVEL = 'silent';
+  process.env.FEATURE_IDENTITY = 'off';
+  process.env.FEATURE_OUTBOX_RELAY = 'off';
+  process.env.FEATURE_SEARCH = 'off';
+  process.env.FEATURE_MEDIA = 'off';
+  // Callers set DATABASE_URL in beforeAll. AppModule must be evaluated after
+  // that point because ConfigModule performs validation during module import.
+  const { AppModule } = await import('../../src/app.module.js');
   const app: INestApplication = await NestFactory.create(AppModule, { logger: false, abortOnError: false, bodyParser: false });
   app.use(requestBoundary(silent, { blockAdmin: false }));
   app.use((req: Request, res: Response, next: NextFunction) => {

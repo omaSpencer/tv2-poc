@@ -34,6 +34,7 @@
     "search:repair-content": "npm run build && node dist/search/reindex/quarantine-cli.js repair",
     "baseline:m5": "npm run build && node scripts/baseline-m5.mjs",
     "demo:m5": "npm run build && node scripts/demo-m5.mjs",
+    "e2e:seed-quarantine": "node scripts/e2e-seed-quarantine.mjs",
     "smoke:m0": "node scripts/smoke-m0.mjs",
     "smoke:full": "npm run build && node scripts/smoke-full.mjs"
   },

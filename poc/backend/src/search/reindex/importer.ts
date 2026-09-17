@@ -62,7 +62,14 @@ export class StagingImporter {
   }
 
   async swap(): Promise<void> {
-    await this.succeeded(await this.adapter.swapWithLive(this.stagingUid), 'swap_task_failed');
+    try {
+      await this.succeeded(await this.adapter.swapWithLive(this.stagingUid), 'swap_task_failed');
+    } catch (error) {
+      if (error instanceof ReindexRunError) throw error;
+      // Submission failures happen before a Meilisearch task id exists, but
+      // are still a swap failure rather than an opaque internal error.
+      throw new ReindexRunError('swap_task_failed');
+    }
   }
 
   async cleanupOldIndex(): Promise<void> {

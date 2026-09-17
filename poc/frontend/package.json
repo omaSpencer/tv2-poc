@@ -17,6 +17,7 @@
     "test": "vitest run",
     "verify": "npm run contracts:check && npm run build && npm run compiler:check && npm run lint && npm run test",
     "e2e": "npm run e2e:typecheck && playwright test",
+    "e2e:backend-restart": "npm run e2e:typecheck && playwright test -c playwright.restart.config.ts",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report e2e/.report/html",
     "e2e:install": "playwright install chromium",

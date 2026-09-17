@@ -300,8 +300,8 @@ generált, tényleges OpenAPI contract után jelölhető.
 - [x] UUID másolása nélkül bejárható a workspace.
 - [x] Editor/publisher permission- és státuszmátrixa helyes a komponens- és
   backend integrációs tesztekben.
-- [~] Create/edit/publish/withdraw/republish teljes flow működik — backend
-  PostgreSQL integrációval igazolt; valódi Authentik böngészős E2E pending.
+- [x] Create/edit/publish/withdraw/republish teljes flow működik — backend
+  PostgreSQL integrációval és valódi Authentik böngészős E2E-vel igazolt.
 - [x] Published tartalom nem szerkeszthető.
 - [x] No-op nem jelez hamis verziónövekedést.
 - [x] Version conflict adatvesztés és automatikus overwrite nélkül feloldható.
@@ -325,5 +325,13 @@ generált, tényleges OpenAPI contract után jelölhető.
 - a teszthez létrehozott `indaplay-phase2-test-postgres` konténer a futás után
   eltávolítva; kizárólag szintetikus adata volt;
 - a viewer/editor/publisher valódi böngészős E2E az Authentik L2 hiánya miatt
-  pending, ezért a teljes fázis külső validáció nélkül nem kap végleges „kész”
-  státuszt.
+  ezen a napon még pending volt; a külső validációt a másnapi Release B kapu
+  zárta le.
+
+2026-09-17:
+
+- a valódi Authentik L2/full-stack kapu teljesült;
+- a publisher v1 → v6 életciklusa, az audit sorrendje, az editor tiltásai és a
+  két browser context konfliktusfeloldása zöld;
+- a Release B célzott backend kapu 67/67, a frontend kapu 112/112 teszttel zöld;
+- részletes futtatási jegyzőkönyv: [RELEASE-B-EVIDENCE.md](RELEASE-B-EVIDENCE.md).

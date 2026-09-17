@@ -13,10 +13,11 @@
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - A full-stack böngészős E2E suite futtatása: [frontend/e2e/README.md](frontend/e2e/README.md).
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope) kész és
-  valódi Authentik/full-stack böngészős E2E-vel bizonyított. A további munka a
-  Release C-be tartozó Fázis 5–7, valamint a külön jelölt, release-en kívüli L2
-  mélytesztek.
+- Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope) és a
+  Release B szerkesztői workspace, valamint a Release C Fázis 5 operátori
+  konzolja kész, valódi Authentik/full-stack böngészős E2E-vel bizonyított.
+  A további munka a Release C-be tartozó Fázis 6–7,
+  valamint a külön jelölt, release-en kívüli L2 mélytesztek.
 
 ## Végrehajtási sorrend
 
@@ -26,7 +27,7 @@
 4. Fázis 2 – Szerkesztői tartalomkezelés — **kész**
 5. Fázis 3 – Publikus katalógus és keresés — **kész**
 6. Fázis 4 – Operációs megfigyelő dashboard — **kész, A/B outage bizonyított**
-7. Fázis 5 – M5 operátori beavatkozások — **implementáció kész; full-stack bizonyítás nyitott**
+7. Fázis 5 – M5 operátori beavatkozások — **kész; outage és restart E2E bizonyított**
 8. Fázis 6 – Vezetett demó és bizonyíték
 9. Fázis 7 – Minőségkapu és átadás
 
@@ -248,8 +249,8 @@
 
 ## Fázis 5 – M5 operátori beavatkozások
 
-**Állapot:** folyamatban — backend/frontend implementáció és célzott kapuk zöldek;
-valódi full-stack operátori E2E és evidence még nyitott
+**Állapot:** kész — backend/frontend implementáció, célzott kapuk és valódi
+full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EVIDENCE.md)
 
 **Becslés:** 9–12,5 mérnöknap frontend + backend együtt  
 **Függőség:** Fázis 1 és 4; új `ops:write`, tartós action/idempotency backend  
@@ -281,7 +282,8 @@ valódi full-stack operátori E2E és evidence még nyitott
 - [x] **P5-FE-04:** cursoros quarantine lista és payload nélküli inspect.
 - [x] **P5-FE-05:** reason-köteles replay dialog és action progress.
 - [x] **P5-FE-06:** content repair form A/B/both céllal.
-- [~] **P5-FE-07:** permission- és secret-review kódszinten kész; a teljes axe,
+- [~] **P5-FE-07:** permission- és secret-review kódszinten és full-stack
+  payloadmentességi próbával kész; a teljes axe,
   keyboard/screen-reader és screenshot review a Fázis 7 kapujában nyitott.
 
 ### Kötelező ellenőrzések
@@ -289,19 +291,20 @@ valódi full-stack operátori E2E és evidence még nyitott
 - [x] Ugyanaz az idempotency key azonos requesttel nem indít második műveletet.
 - [x] Azonos key eltérő requesttel `409 idempotency_conflict`.
 - [x] Két reindex nem fut párhuzamosan.
-- [~] Normál reindex másik routolható index nélkül backend/UI szinten blokkolt;
-  a valódi outage E2E még nyitott.
-- [~] Outage mód exact DB-név megerősítést és backend újraellenőrzést kér;
-  a valódi outage E2E még nyitott.
+- [x] Normál reindex másik routolható index nélkül backend/UI szinten és valódi
+  Meilisearch B kieséssel blokkolt.
+- [x] Outage mód exact DB-név megerősítést és backend újraellenőrzést kér;
+  a valódi outage E2E sikeresen lefutott.
 - [x] Reindex cancel/resume gomb nincs biztonságos backend contract nélkül.
-- [x] Restart után megszakadt reindex és control sor együtt `failed/aborted`;
-  csak új teljes run indítható.
+- [x] Valódi SIGKILL + backend restart után a megszakadt reindex és control sor
+  együtt `failed/aborted`; az UI-ból indított új teljes run sikeresen lefutott.
 - [x] Replay reason nélkül nem indul és a quarantine rekord nem törlődik.
 - [x] Repair failure nem jelenik meg sikerként.
-- [~] Token, payload, API key, NATS/Meili credential és teljes DB URL nem kerül
-  action/API/UI projectionbe; a teljes Fázis 7 security review nyitott.
-- [~] Backend M5 13/13, új schema/recovery 10/10, frontend 112/112, build,
-  lint és contract gate zöld; a Phase 5 full-stack E2E még nyitott.
+- [x] Token, payload, API key, NATS/Meili credential és teljes DB URL nem kerül
+  action/API/UI projectionbe; inspect, replay és repair E2E ezt tartalmi
+  negatív állításokkal is ellenőrzi. A szélesebb Fázis 7 security review külön kapu.
+- [x] Backend M5 15/15, frontend 112/112, build/lint/contract gate zöld;
+  Phase 5 full-stack: 3/3 normál + 1/1 outage + 1/1 restart recovery.
 
 ---
 
@@ -364,7 +367,8 @@ valódi full-stack operátori E2E és evidence még nyitott
 - [x] **P7-07:** két browser context version-conflict E2E zöld.
 - [x] **P7-08:** search/operations E2E zöld (4 normál + 1 opt-in outage eset);
   egy index kiesése, teljes kiesés és helyreállás valódi Meilisearch A/B stacken bizonyított.
-- [ ] **P7-09:** operátori action E2E, ha Fázis 5 release scope.
+- [x] **P7-09:** operátori action E2E: reindex/idempotencia/párhuzamos tiltás,
+  repair both, quarantine inspect/replay, outage opt-in és valódi restart recovery zöld.
 - [ ] **P7-10:** loading/empty/partial/stale/401/403/404/409/413/422/503/network mátrix.
 - [ ] **P7-11:** WCAG 2.2 AA cél, axe és kézi keyboard/screen-reader smoke.
 - [~] **P7-12:** 360 és 1280 px Chromium smoke zöld; 768 px és Firefox/WebKit nyitott.
@@ -432,16 +436,21 @@ read-only operations dashboard. Az M5 műveletek még CLI-ről futnak.
 
 ### Release B – Használható szerkesztői workspace
 
-- [ ] Admin lista backend/API/UI kész.
-- [ ] Audit backend/API/UI kész.
-- [ ] Fázis 2 conflict és teljes szerkesztői flow kész.
-- [ ] Kritikus szerkesztői E2E zöld.
+**Állapot: KÉSZ.** A release-kapu 2026-09-17-én pontos Node 24.20.0 runtime-mal,
+elkülönített PostgreSQL tesztadatbázissal és valódi Authentik/full-stack
+böngészős futással lezárult. Jegyzőkönyv:
+[RELEASE-B-EVIDENCE.md](RELEASE-B-EVIDENCE.md).
+
+- [x] Admin lista backend/API/UI kész.
+- [x] Audit backend/API/UI kész.
+- [x] Fázis 2 conflict és teljes szerkesztői flow kész.
+- [x] Kritikus szerkesztői E2E zöld.
 
 Eredmény: UUID másolása nélkül használható editor/publisher workspace.
 
 ### Release C – M5 operátori konzol és bizonyítható demo
 
-- [ ] Fázis 5 kész.
+- [x] Fázis 5 kész.
 - [ ] Fázis 6 kész.
 - [ ] Fázis 7 teljes release gate kész.
 

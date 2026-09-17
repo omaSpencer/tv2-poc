@@ -2,6 +2,9 @@
 
 2026-09-16 · Dev-ready közös implementációs specifikáció.
 
+**Lezárva 2026-09-17-én:** implementáció és valódi full-stack E2E kész;
+[jegyzőkönyv](PHASE-5-EVIDENCE.md).
+
 ## 1. Cél és biztonsági határ
 
 Az operátor böngészőből, auditálható és idempotens API-n keresztül tud:
@@ -432,12 +435,13 @@ gyorsabban elkészülne, de veszélyes lost-response és dupla-submit rést hagy
 - [x] Controller nem futtat shellt/CLI-t.
 - [x] Reindex 202 + durable progress, refresh után folytatható megfigyelés.
 - [x] Nincs párhuzamos reindex és nincs nem biztonságos cancel.
-- [~] Outage mód exact DB confirmationnel és backend oldali újraellenőrzéssel
-  implementált; valódi outage full-stack E2E nyitott.
+- [x] Outage mód exact DB confirmationnel és backend oldali újraellenőrzéssel,
+  valódi Meilisearch-kieséses full-stack E2E-vel bizonyított.
 - [x] Quarantine lista/inspect payloadmentes, replay reason kötelező.
 - [x] Repair A/B/both célra konvergál és failure nem látszik successnek.
 - [x] Restart recovery tranzakciós, a megszakadt reindex nem auto-resume.
-- [~] Secret/token/payload allowlistelt projectionökből ki van zárva; a teljes
-  Fázis 7 security/screenshot review nyitott.
-- [~] Backend/frontend célzott teszt és OpenAPI gate zöld; a Phase 5 full-stack
-  E2E és evidence nyitott.
+- [x] Secret/token/payload allowlistelt projectionökből ki van zárva, és az
+  inspect/replay/repair full-stack E2E negatív állításokkal ellenőrzi ezt. A
+  szélesebb Fázis 7 security/screenshot review külön kapu.
+- [x] Backend/frontend célzott teszt, OpenAPI gate és a Phase 5 full-stack E2E
+  (normál, outage, valódi process restart) zöld.

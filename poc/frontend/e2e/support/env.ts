@@ -30,7 +30,7 @@ export const IDENTITY_PROFILES: Readonly<Record<E2eIdentity, E2eIdentityProfile>
   'poc-publisher': {
     identity: 'poc-publisher',
     roles: ['publisher'],
-    permissions: ['content:read', 'content:write', 'content:publish', 'ops:read'],
+    permissions: ['content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write'],
   },
 };
 

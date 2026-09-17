@@ -275,7 +275,11 @@ export class MeiliIndexAdapter {
   }
 
   async swapWithLive(stagingUid: string): Promise<number> {
-    const task = await this.client.swapIndexes([{ indexes: [this.options.indexUid, stagingUid], rename: false }]);
+    // Meilisearch 1.15 accepts only `indexes` here. The pinned JS client also
+    // models the later `rename` flag as required, so keep the runtime request
+    // compatible with the server image and isolate the type-version skew.
+    const swaps = ([{ indexes: [this.options.indexUid, stagingUid] }] as unknown) as Parameters<Meilisearch['swapIndexes']>[0];
+    const task = await this.client.swapIndexes(swaps);
     return task.taskUid;
   }
 

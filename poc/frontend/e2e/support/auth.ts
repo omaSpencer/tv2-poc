@@ -8,7 +8,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { e2eConfig, type E2eIdentity } from './env';
 
-const AUTHENTIK_FORM_TIMEOUT = 30_000;
+const AUTHENTIK_FORM_TIMEOUT = 60_000;
+const APPLICATION_ORIGIN = new URL(e2eConfig.baseUrl).origin;
 
 /** Az Authentik flow-executor web componentjei nyílt shadow rootot használnak; a CSS selector átlát rajtuk. */
 const USERNAME_INPUT = 'input[name="uidField"]';
@@ -23,15 +24,49 @@ export function loginLink(page: Page) {
   return page.getByRole('navigation', { name: 'Elsődleges navigáció' }).getByRole('link', { name: 'Belépés' });
 }
 
+function isAtApplication(page: Page): boolean {
+  return new URL(page.url()).origin === APPLICATION_ORIGIN;
+}
+
 /** Az Authentik stage-ek submit gombja (a `Continue`/`Log in` felirat verziónként változik). */
 async function submitStage(page: Page, field: Locator): Promise<void> {
-  const button = page.locator('button[type="submit"]:visible').first();
-  if (await button.isVisible().catch(() => false)) {
-    await button.click();
-    return;
-  }
-  // Tartalék: néhány stage az Enterre is elküldi magát.
+  // Az Enter a fókuszban lévő mező saját formját küldi el, ezért nem tud egy
+  // animációból visszamaradt, másik shadow-rootbeli submit gombra kattintani.
+  // A pointert elfogó Authentik loading overlay sem zavarja.
   await field.press('Enter');
+  await page.waitForTimeout(250);
+
+  const returnedToApplication = () => isAtApplication(page);
+  if (returnedToApplication() || !(await field.isVisible().catch(() => false))) return;
+
+  const overlay = page.locator('ak-loading-overlay:visible').first();
+  if (await overlay.isVisible().catch(() => false)) {
+    await overlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    // Az előző submit közben az Authentik már átirányíthatott vagy stage-et
+    // válthatott. Ilyenkor a régi gombra kattintani egyszerre felesleges és
+    // flakey: a loading overlay elfogja a pointer eventet.
+    if (returnedToApplication() || !(await field.isVisible().catch(() => false))) return;
+    // A submit még dolgozik. A külső ciklus megvárja a stage-váltást, és csak
+    // a torlódásvédelmi idő után próbálkozik újra.
+    if (await overlay.isVisible().catch(() => false)) return;
+  }
+
+  // Régebbi/egyedi flow stage-eknél az Enter nem feltétlen submitol; ilyenkor
+  // ugyanannak a formnak a gombja a kontrollált tartalék.
+  const formButton = field
+    .locator('xpath=ancestor::form[1]')
+    .locator('button[type="submit"]:visible')
+    .first();
+  const button = (await formButton.isVisible().catch(() => false))
+    ? formButton
+    : page.locator('button[type="submit"]:visible').first();
+  if (await button.isVisible().catch(() => false)) {
+    try {
+      await button.click({ timeout: 5000 });
+    } catch {
+      if (returnedToApplication() || !(await field.isVisible().catch(() => false))) return;
+    }
+  }
 }
 
 /**
@@ -48,11 +83,18 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
   const deadline = Date.now() + AUTHENTIK_FORM_TIMEOUT;
   let lastSubmitAt = 0;
   let lastStage = '';
+  let noStageSince = Date.now();
+  let loadingReloads = 0;
 
   const canSubmit = (stage: string) => stage !== lastStage || Date.now() - lastSubmitAt > 3000;
 
   while (Date.now() < deadline) {
     if (await profileLink(page).isVisible().catch(() => false)) return;
+    // A callback feldolgozása már a SPA feladata. Ne tartsuk bent az IdP-form
+    // ciklusában: a loginAs alább külön megvárja a /me bootstrap végét és a
+    // Profil linket.
+    const currentUrl = new URL(page.url());
+    if (currentUrl.origin === APPLICATION_ORIGIN && currentUrl.pathname === '/auth/callback') return;
 
     const username = page.locator(USERNAME_INPUT).first();
     const password = page.locator(PASSWORD_INPUT).first();
@@ -64,6 +106,7 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
     // amit a Playwright láthatónak lát. Ha azt néznénk előbb, üres
     // felhasználónévvel küldenénk be a formot, és a flow körbeérne.
     if (usernameVisible) {
+      noStageSince = Date.now();
       if (canSubmit('identification')) {
         if ((await username.inputValue().catch(() => '')) !== identity) {
           await username.fill(identity);
@@ -81,6 +124,7 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
     }
 
     if (passwordVisible) {
+      noStageSince = Date.now();
       if (canSubmit('password')) {
         if ((await password.inputValue().catch(() => '')) !== e2eConfig.userPassword) {
           await password.fill(e2eConfig.userPassword);
@@ -93,8 +137,21 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
       continue;
     }
 
+    // Authentik occasionally leaves its flow web component on the initial
+    // loading card even though the URL is valid. Reload the same flow at most
+    // twice; `next`, PKCE state and challenge remain in the URL.
+    if (Date.now() - noStageSince > 10_000 && loadingReloads < 2) {
+      await page.reload({ waitUntil: 'commit', timeout: 10_000 }).catch(() => undefined);
+      loadingReloads += 1;
+      noStageSince = Date.now();
+    }
     await page.waitForTimeout(250);
   }
+
+  // A redirect can land exactly as the loop deadline expires. The callback is
+  // already the SPA's responsibility, so accept that terminal URL here too.
+  const finalUrl = new URL(page.url());
+  if (finalUrl.origin === APPLICATION_ORIGIN && finalUrl.pathname === '/auth/callback') return;
 
   throw new Error(
     `Az Authentik bejelentkezés nem fejeződött be ${AUTHENTIK_FORM_TIMEOUT} ms alatt (identitás: ${identity}, utolsó stage: ${lastStage || 'nincs felismert stage'}, utolsó URL: ${page.url()}).`,

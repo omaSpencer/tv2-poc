@@ -1,7 +1,8 @@
-# Full-stack E2E runbook (Release A)
+# Full-stack E2E runbook (Release A–B + Release C / Fázis 5)
 
 2026-09-17 · A Fázis 7 P7-04/P7-05/P7-06/P7-07/P7-08 kapuk végrehajtása a
-Release A scope-ra: valódi Authentik, valódi backend, valódi Meilisearch A/B.
+Release A–B és Fázis 5 scope-ra: valódi Authentik, valódi backend, valódi
+PostgreSQL/NATS és valódi Meilisearch A/B.
 
 Ez a suite szándékosan **nem** használ mockot és nem használja a
 `VITE_ALLOW_MANUAL_TOKEN` fejlesztői escape hatchet. A belépés a valódi
@@ -15,6 +16,8 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 | `specs/content-lifecycle.spec.ts` | v1 → v6 életciklus UUID másolása nélkül, published read-only, no-op verzió, audit sorrend, katalógus megjelenés és eltűnés, editor tiltott lifecycle |
 | `specs/version-conflict.spec.ts` | két browser context 409-e, helyi/szerver diff, kézi reapply, nincs automatikus újraküldés |
 | `specs/search-operations.spec.ts` | anonymous keresés → szűrés → lapozás → detail → vissza, bookmarkolható URL, `returned` vs `estimatedTotalHits`, operations kártyák, A/B fallback és teljes kiesés (`@outage`) |
+| `specs/operator-actions.spec.ts` | reindex idempotencia és párhuzamos tiltás, reload utáni progress, repair both, payloadmentes quarantine inspect/replay, exact DB-névvel engedélyezett valódi kiesési reindex (`@operator-outage`) |
+| `specs/backend-restart.spec.ts` | saját backend process SIGKILL, stale `failed/aborted` recovery, majd UI-ból indított új teljes reindex (`npm run e2e:backend-restart`) |
 | `specs/responsive.spec.ts` | 360 px kártyanézet és vízszintes túlcsordulás-mentesség |
 
 ## Előfeltételek
@@ -40,6 +43,7 @@ van értelmes defaultja, egyedül az `E2E_USER_PASSWORD` kötelező:
 | `E2E_AUTHENTIK_URL` | `http://127.0.0.1:9000` | Authentik publikus URL (compose `AUTHENTIK_PORT`) |
 | `E2E_START_FRONTEND` | `true` | `false`, ha magad futtatod a Vite dev szervert |
 | `E2E_DOCKER_CONTROL` | `false` | `true` esetén az `@outage` teszt leállíthatja a Meili konténereket |
+| `E2E_BACKEND_PROCESS_CONTROL` | `false` | csak a dedikált restart-hámhoz; a teszt saját backend processt indít és szakít meg |
 | `E2E_COMPOSE_FILE` / `E2E_COMPOSE_PROJECT` | `../backend/compose.yaml` / `indaplay-poc` | csak eltérő compose setupnál |
 | `E2E_OIDC_*` | az `E2E_AUTHENTIK_URL`-ből képződik | issuer, client ID, redirect URI felülbírálás |
 
@@ -124,6 +128,22 @@ E2E_DOCKER_CONTROL=true
 Enélkül a teszt `skip` státuszt kap a magyarázattal együtt, és a kiesési
 bizonyíték pending marad.
 
+### Valódi backend-crash és restart recovery
+
+Ehhez a próbához a normál, kézzel indított backendet előbb állítsd le. A
+dedikált hám maga indítja a `dist/main.js` folyamatot, futó reindex közben
+`SIGKILL`-lel megszakítja, kivárja a produkciós 30 másodperces stale határt,
+majd újraindítja. A teszt végén kontrolláltan leállítja a saját processt.
+
+```bash
+cd poc/backend && npm run build
+cd ../frontend
+E2E_BACKEND_PROCESS_CONTROL=true npm run e2e:backend-restart
+```
+
+A restart-hám trace/video kimenete `/tmp/tv2-poc-playwright-restart-*` alatt
+van, hogy a Vite fájlfigyelője ne tölthesse újra a PKCE oldalt futás közben.
+
 ## Tesztadat
 
 Minden futás saját, egyedi című tartalmakat hoz létre; seedre nincs szükség és a
@@ -132,7 +152,10 @@ dolgozik. A katalógus lapozásához 12 publikált elem kell, ezt a HTTP API-n
 készíti el a fixture (`seedPublishedContents`), mert UI-ból percekig tartana; a
 *vizsgált* viselkedés továbbra is a böngészőben fut.
 
-A tartalmak a futás után az adatbázisban maradnak. Tiszta állapothoz:
+A Phase 5 karantén-fixture egy valóban publikált content eseményre mutató,
+payloadmentes DLQ-locatort ír; a replay ugyanazt a tárolt JetStream-üzenetet
+olvassa és validálja, mint produkcióban. A tartalmak és a karanténrekordok a
+futás után megmaradnak. Tiszta állapothoz:
 
 ```bash
 cd poc/backend && ENV_FILE=.env.e2e npm run db:reset

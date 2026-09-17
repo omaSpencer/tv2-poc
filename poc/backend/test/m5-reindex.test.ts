@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isStagingIndexUid, phaseIsRoutable, stagingIndexUid } from '../src/contracts/reindex.js';
 import { validateConfig, ConfigurationError } from '../src/config.js';
 import { StagingImporter } from '../src/search/reindex/importer.js';
-import type { MeiliIndexAdapter } from '../src/search/meili.adapter.js';
+import { MeiliIndexAdapter } from '../src/search/meili.adapter.js';
 import type { ReindexControlRepository } from '../src/search/reindex/control.repository.js';
 
 const baseConfig = () => ({
@@ -71,5 +71,32 @@ describe('M5 durable recovery contracts', () => {
       title: 'Cím', summary: 'Összefoglaló', category: 'film', tags: [], aggregateVersion: 1,
     }])).rejects.toMatchObject({ code: 'import_task_failed' });
     expect(control.addImported).not.toHaveBeenCalled();
+  });
+
+  it('sends the Meilisearch 1.15-compatible swap payload without rename', async () => {
+    const adapter = new MeiliIndexAdapter(
+      { alias: 'a', url: 'http://127.0.0.1:7700', apiKey: 'test-only', durable: 'search-a-v1' },
+      { indexUid: 'contents', searchTimeoutMs: 1000, taskTimeoutMs: 1000, taskPollMs: 10 },
+    );
+    const swapIndexes = vi.fn(async () => ({ taskUid: 91 }));
+    Object.defineProperty(adapter, 'client', { value: { swapIndexes } });
+
+    await expect(adapter.swapWithLive('contents__rebuild__run')).resolves.toBe(91);
+    expect(swapIndexes).toHaveBeenCalledWith([{ indexes: ['contents', 'contents__rebuild__run'] }]);
+  });
+
+  it('classifies a swap submission rejection as swap_task_failed', async () => {
+    const adapter = {
+      indexUid: 'contents',
+      swapWithLive: vi.fn(async () => { throw new Error('request rejected'); }),
+    } as unknown as MeiliIndexAdapter;
+    const importer = new StagingImporter(
+      adapter,
+      {} as ReindexControlRepository,
+      'a',
+      '123e4567-e89b-42d3-a456-426614174000',
+    );
+
+    await expect(importer.swap()).rejects.toMatchObject({ code: 'swap_task_failed' });
   });
 });

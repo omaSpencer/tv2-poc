@@ -2,11 +2,14 @@
 
 2026-09-16 · A `frontend/` és a `backend/` aktuális forrása alapján.
 
-> Státuszfrissítés (2026-09-17): a Release A scope (Fázis 0–4) elkészült és
-> valódi Authentik/full-stack böngészős E2E-vel, köztük opt-in A/B outage
-> futással bizonyított. A lentebbi audit az indulási baseline-t rögzíti; az
-> aktuális állapot forrása a [TODO.md](TODO.md), a futtatási jegyzőkönyv a
-> [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
+> Státuszfrissítés (2026-09-17): a Release A, a Release B és a Release C Fázis 5 elkészült és valódi
+> Authentik/full-stack böngészős E2E-vel bizonyított. A Release A az opt-in A/B
+> outage futást, a Release B a teljes szerkesztői workspace-t és konfliktuságat
+> zárta le. A lentebbi audit az indulási baseline-t rögzíti; az aktuális állapot
+> forrása a [TODO.md](TODO.md), a jegyzőkönyvek:
+> [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md) és
+> [RELEASE-B-EVIDENCE.md](RELEASE-B-EVIDENCE.md), valamint
+> [PHASE-5-EVIDENCE.md](PHASE-5-EVIDENCE.md).
 
 ## 1. Vezetői összefoglaló
 
@@ -46,7 +49,7 @@ L2 környezet elérhetősége külön külső függőség.
 | 2 | ticket-szintű BE+FE | [Szerkesztői tartalomkezelés](FRONTEND-PHASE-2-IMPLEMENTATION.md) | kész; full-stack E2E zöld |
 | 3 | delivery brief | [Publikus katalógus és keresés](FRONTEND-PHASE-3-DELIVERY-BRIEF.md) | kész; full-stack E2E zöld |
 | 4 | delivery brief | [Operációs megfigyelő dashboard](FRONTEND-PHASE-4-DELIVERY-BRIEF.md) | kész; A/B outage E2E zöld |
-| 5 | közös BE+FE, ticket-szintű | [M5 operátori beavatkozások](FRONTEND-PHASE-5-JOINT-IMPLEMENTATION.md) | dev-ready |
+| 5 | közös BE+FE, ticket-szintű | [M5 operátori beavatkozások](FRONTEND-PHASE-5-JOINT-IMPLEMENTATION.md) | kész; full-stack outage/restart E2E zöld |
 | 6 | ticket-szintű | [Vezetett demó és bizonyíték](FRONTEND-PHASE-6-IMPLEMENTATION.md) | dev-ready a belépési kapuk után |
 | 7 | release gate | [Minőségkapu és átadás](FRONTEND-PHASE-7-QUALITY-GATE.md) | rögzített |
 
@@ -584,6 +587,10 @@ read-only operációs dashboard. M5 beavatkozások még CLI-ről futnak.
 
 Admin lista + audit endpoint, Fázis 2 teljes befejezése, konfliktuskezelés és
 kritikus E2E tesztek.
+
+**Lezárva 2026-09-17-én.** A célzott backend kapu 67/67, a frontend fast gate
+112/112 teszttel, a kijelölt valódi Authentik/full-stack szerkesztői E2E-k
+pedig zöldek; részletek: [RELEASE-B-EVIDENCE.md](RELEASE-B-EVIDENCE.md).
 
 Eredmény: UUID másolása nélkül használható szerkesztői folyamat.
 

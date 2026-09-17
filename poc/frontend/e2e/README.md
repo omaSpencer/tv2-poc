@@ -156,10 +156,11 @@ cd poc/backend && ENV_FILE=.env.e2e npm run db:reset
 | `Timed out waiting 120000ms from config.webServer` | A Vite dev szerver nem a `127.0.0.1` címen hallgat (a default `localhost` bind macOS-en gyakran csak `::1`). A config már `--host 127.0.0.1`-gyel indítja; ha magad futtatod a szervert, ugyanezt a kapcsolót add meg. |
 | `BLOCKER frontend` | Ugyanaz, mint fent: a `E2E_BASE_URL` címen nincs válaszoló frontend. |
 | `BLOCKER authentik` | A full profile nem fut, vagy a blueprint még nem alkalmazódott. Nézd meg: `docker compose --profile full logs authentik-worker`. |
+| `role "poc" does not exist`, miközben a konténerben létezik | Egy helyi (nem dockeres) PostgreSQL foglalja ugyanazt a portot `127.0.0.1`-en. macOS-en a specifikus bind elfedi a Docker `*:port` bindjét, így a kapcsolat a helyi szerverre fut. Ellenőrzés: `lsof -nP -iTCP:<port> -sTCP:LISTEN` – ha két listener van, válassz szabad portot a compose-nak (`POSTGRES_PORT` a `backend/.env`-ben), és a `DATABASE_URL`-t is írd át mindkét env fájlban. |
 | `BLOCKER backend` + `leállt indikátor: postgres` | Futtasd: `cd poc/backend && ENV_FILE=.env.e2e node scripts/check-e2e-db.mjs` – megmondja, hogy port, jelszó, adatbázisnév vagy hiányzó migráció az ok. Ha a DB önmagában rendben van, a backend process fut még a régi env fájllal: állítsd le (a 3000-es portot foglaló processzt) és indítsd újra. |
 | `BLOCKER identity` | A backend `FEATURE_IDENTITY=off`, vagy nem éri el az OIDC discoveryt. |
 | `BLOCKER search` | `FEATURE_SEARCH=off`, vagy egyik Meilisearch instance sem routolható. |
 | Az Authentik `redirect_uri` hibát ad | A frontend nem a `127.0.0.1:5173` originen fut (a `localhost` nem ugyanaz). |
-| A bejelentkezés időtúllépéssel áll meg | Rossz `E2E_USER_PASSWORD`, vagy a blueprint nem hozta létre a felhasználókat. |
+| A bejelentkezés időtúllépéssel áll meg (`utolsó stage: password`) | Az Authentik elutasította a jelszót, és visszadobta a flow-t az első stage-re. Ellenőrzés: `cd poc/backend && ENV_FILE=.env.e2e node scripts/authentik-poc-users.mjs`; szinkronizálás az env fájlhoz: ugyanez `--set-password` kapcsolóval. A blueprint csak a felhasználó létrehozásakor írja be a jelszót, ezért egy régebbi authentik kötet jelszava eltérhet. |
 | A backend indulásakor DB kapcsolati hiba | A `.env.e2e` `DATABASE_URL` portja nem egyezik a `backend/.env` `POSTGRES_PORT` értékével. |
 | A katalógus teszt nem találja a tartalmat | A projekció még indexel; a helper 90 s-ig vár. Tartósan: nézd meg az operations dashboard Outbox/Relay kártyáját. |

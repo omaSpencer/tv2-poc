@@ -5,7 +5,7 @@
  * használja a `VITE_ALLOW_MANUAL_TOKEN` escape hatchet. Ez a különbség az L1
  * (mock JWKS) és az L2 (valódi Authentik) bizonyíték között.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { e2eConfig, type E2eIdentity } from './env';
 
 const AUTHENTIK_FORM_TIMEOUT = 30_000;
@@ -23,39 +23,61 @@ export function loginLink(page: Page) {
   return page.getByRole('navigation', { name: 'Elsődleges navigáció' }).getByRole('link', { name: 'Belépés' });
 }
 
+/** Az Authentik stage-ek submit gombja (a `Continue`/`Log in` felirat verziónként változik). */
+async function submitStage(page: Page, field: Locator): Promise<void> {
+  const button = page.locator('button[type="submit"]').first();
+  if (await button.isVisible().catch(() => false)) {
+    await button.click();
+    return;
+  }
+  // Tartalék: néhány stage az Enterre is elküldi magát.
+  await field.press('Enter');
+}
+
 /**
  * Végigkíséri az IdP oldalát: kitölti az identification és a password stage-et,
- * ha megjelennek. Ha az Authentik munkamenet már él, a folyamat form nélkül,
+ * ahogy megjelennek. Ha az Authentik munkamenet már él, a folyamat form nélkül,
  * csendes redirecttel fut le – ezért a ciklus kilépési feltétele az
  * alkalmazásban látható bejelentkezett állapot, nem egy konkrét űrlap.
+ *
+ * A stage-eket nem egyszer töltjük ki és felejtjük el: amíg ugyanaz a mező
+ * látszik, a submit ismételhető (3 s-os torlódásvédelemmel). Enélkül egy le nem
+ * adott form némán kifutna a határidőből.
  */
 export async function completeAuthentikForm(page: Page, identity: E2eIdentity): Promise<void> {
   const deadline = Date.now() + AUTHENTIK_FORM_TIMEOUT;
-  let usernameSubmitted = false;
-  let passwordSubmitted = false;
+  let lastSubmitAt = 0;
+  let lastStage = '';
+
+  const canSubmit = (stage: string) => stage !== lastStage || Date.now() - lastSubmitAt > 3000;
 
   while (Date.now() < deadline) {
     if (await profileLink(page).isVisible().catch(() => false)) return;
 
     const password = page.locator(PASSWORD_INPUT).first();
-    if (!passwordSubmitted && (await password.isVisible().catch(() => false))) {
-      const username = page.locator(USERNAME_INPUT).first();
-      if (!usernameSubmitted && (await username.isVisible().catch(() => false))) {
-        await username.fill(identity);
-        usernameSubmitted = true;
+    if (await password.isVisible().catch(() => false)) {
+      if (canSubmit('password')) {
+        if ((await password.inputValue().catch(() => '')) !== e2eConfig.userPassword) {
+          await password.fill(e2eConfig.userPassword);
+        }
+        await submitStage(page, password);
+        lastStage = 'password';
+        lastSubmitAt = Date.now();
       }
-      await password.fill(e2eConfig.userPassword);
-      await password.press('Enter');
-      passwordSubmitted = true;
       await page.waitForTimeout(500);
       continue;
     }
 
     const username = page.locator(USERNAME_INPUT).first();
-    if (!usernameSubmitted && (await username.isVisible().catch(() => false))) {
-      await username.fill(identity);
-      await username.press('Enter');
-      usernameSubmitted = true;
+    if (await username.isVisible().catch(() => false)) {
+      if (canSubmit('identification')) {
+        if ((await username.inputValue().catch(() => '')) !== identity) {
+          await username.fill(identity);
+        }
+        await submitStage(page, username);
+        lastStage = 'identification';
+        lastSubmitAt = Date.now();
+      }
       await page.waitForTimeout(500);
       continue;
     }
@@ -64,7 +86,7 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
   }
 
   throw new Error(
-    `Az Authentik bejelentkezés nem fejeződött be ${AUTHENTIK_FORM_TIMEOUT} ms alatt (identitás: ${identity}, utolsó URL: ${page.url()}).`,
+    `Az Authentik bejelentkezés nem fejeződött be ${AUTHENTIK_FORM_TIMEOUT} ms alatt (identitás: ${identity}, utolsó stage: ${lastStage || 'nincs felismert stage'}, utolsó URL: ${page.url()}).`,
   );
 }
 

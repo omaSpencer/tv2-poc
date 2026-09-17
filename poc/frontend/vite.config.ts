@@ -16,6 +16,17 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       port: 5173,
+      watch: {
+        // A Playwright trace/riport fájljai a projekt alatt keletkeznek; enélkül a
+        // watcher HMR reloadot küldene a tesztelt oldalra futás közben.
+        ignored: [
+          '**/.git/**',
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/e2e/.artifacts/**',
+          '**/e2e/.report/**',
+        ],
+      },
       proxy: {
         '/api': {
           target: backendOrigin,

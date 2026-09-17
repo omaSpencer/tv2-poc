@@ -154,7 +154,11 @@ export class ProcessingStatusController {
           startedAt: row?.startedAt?.toISOString() ?? null,
           updatedAt: row?.updatedAt?.toISOString() ?? null,
           completedAt: row?.completedAt?.toISOString() ?? null,
-          routeEligible: row?.phase === 'ready' && runtimeRoutable,
+          // Egy leállt Meilisearch nem tud forgalmat fogadni, hiába `idle` a
+          // worker: forgalom híján sosem lépne hibaállapotba, és az operátor
+          // teljes A/B rendelkezésre állást látna egy kiesés közben. A `null`
+          // (még nem szondázott) állapotot nem tekintjük kiesésnek.
+          routeEligible: row?.phase === 'ready' && runtimeRoutable && current.reachable !== false,
         };
       };
       view.indexes = { a: merged('a'), b: merged('b') };

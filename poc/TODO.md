@@ -1,6 +1,6 @@
 # Frontend megvalósítási TODO
 
-2026-09-16 · Végrehajtási sorrend és státuszkövető checklist.
+2026-09-17 · Végrehajtási sorrend és státuszkövető checklist.
 
 Átfogó roadmap: [FRONTEND-IMPLEMENTATION-PLAN.md](FRONTEND-IMPLEMENTATION-PLAN.md).
 
@@ -13,17 +13,19 @@
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - A full-stack böngészős E2E suite futtatása: [frontend/e2e/README.md](frontend/e2e/README.md).
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Fázis 0 kész; a Fázis 1–4 helyi
-  implementációja elkészült, a közös Authentik/full-stack böngészős E2E kapuk pending.
+- Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope) kész és
+  valódi Authentik/full-stack böngészős E2E-vel bizonyított. A további munka a
+  Release C-be tartozó Fázis 5–7, valamint a külön jelölt, release-en kívüli L2
+  mélytesztek.
 
 ## Végrehajtási sorrend
 
 1. Fázis 0 – Stabilizálás és szerződéshelyreállítás — **kész**
-2. Identity- és UI-glue API-döntési kapu — **contract kész, Authentik L2 nyitott**
-3. Fázis 1 – Alkalmazásváz és valódi identity — **implementáció kész, L2 validációra vár**
-4. Fázis 2 – Szerkesztői tartalomkezelés — **implementáció kész, L2 E2E-re vár**
-5. Fázis 3 – Publikus katalógus és keresés — **implementáció kész, full-stack E2E-re vár**
-6. Fázis 4 – Operációs megfigyelő dashboard — **implementáció kész, full-stack E2E-re vár**
+2. Identity- és UI-glue API-döntési kapu — **kész; valódi callback bizonyított**
+3. Fázis 1 – Alkalmazásváz és valódi identity — **Release A scope kész**
+4. Fázis 2 – Szerkesztői tartalomkezelés — **kész**
+5. Fázis 3 – Publikus katalógus és keresés — **kész**
+6. Fázis 4 – Operációs megfigyelő dashboard — **kész, A/B outage bizonyított**
 7. Fázis 5 – M5 operátori beavatkozások
 8. Fázis 6 – Vezetett demó és bizonyíték
 9. Fázis 7 – Minőségkapu és átadás
@@ -64,7 +66,8 @@
 
 ## Döntési kapu – Identity és UI-glue API
 
-**Állapot:** a contract kész; a valódi Authentik L2 környezet külső függőség  
+**Állapot:** kész; a valódi Authentik L2 környezet és a strict SPA callback bizonyított
+
 **Részletes döntések:**
 [FRONTEND-IDENTITY-AND-API-DECISIONS.md](FRONTEND-IDENTITY-AND-API-DECISIONS.md)
 
@@ -81,17 +84,19 @@
 - [x] `GET /admin/contents/:id/audit` cursoros audit contract.
 - [x] Admin lista stabil sorrendje: `updated_at DESC, id DESC`.
 - [x] Lista/audit permission: `content:read`.
-- [ ] Authentik image és L2 környezet ténylegesen elérhető.
-- [ ] Blueprint alkalmazva és a browser callback ténylegesen elfogadva.
+- [x] Authentik image és L2 környezet ténylegesen elérhető.
+- [x] Blueprint alkalmazva és a browser callback ténylegesen elfogadva.
 
 ---
 
 ## Fázis 1 – Alkalmazásváz és valódi identity
 
-**Állapot:** folyamatban — P1-01–P1-11 kész; P1-12 külső Authentik L2-re vár
+**Állapot:** Release A scope kész — P1-01–P1-12 teljes; a refresh, key rotation
+és IdP-kiesés kibővített L2 mérései külön nyitottak
 
 **Becslés:** 4–5,5 mérnöknap  
-**Függőség:** Fázis 0; a végső lezáráshoz valódi Authentik L2  
+**Függőség:** Fázis 0; a Release A lezárásához előírt valódi Authentik L2 teljesült
+
 **Részletes terv:** [FRONTEND-PHASE-1-IMPLEMENTATION.md](FRONTEND-PHASE-1-IMPLEMENTATION.md)
 
 ### Végrehajtási terv
@@ -108,28 +113,28 @@
 - [x] **P1-09:** egységes `ProblemDetails`, notification és correlation ID disclosure.
 - [x] **P1-10:** manual token kizárólag dev flag mögött.
 - [x] **P1-11:** auth/session/guard unit és component tesztek.
-- [~] **P1-12:** valódi Authentik L2 full-stack ellenőrzés mindhárom identitással —
-  futó Authentik, issuer és tesztidentitás-hozzáférés hiányzik.
+- [x] **P1-12:** valódi Authentik L2 full-stack ellenőrzés mindhárom identitással —
+  2026-09-17, böngészős PKCE belépés zölden lefutott mindhárom identitással.
 
 ### Kötelező ellenőrzések
 
-- [ ] Viewer, editor és publisher PKCE belépése sikeres.
-- [~] Hard reload és access-token refresh után a session helyreáll — komponensszinten
-  tesztelt, valódi providerrel még ellenőrzendő.
+- [x] Viewer, editor és publisher PKCE belépése sikeres — valódi Authentik, E2E-01.
+- [~] Hard reload és access-token refresh után a session helyreáll — a hard reload
+  valódi providerrel bizonyított; az 5 perces lejárat utáni refresh L2 méréssel nyitott.
 - [x] Callback kétszeri mountja idempotens.
 - [~] Hibás issuer/audience és IdP-kiesés nem okoz login loopot — config-, 401-
-  és 503-ág tesztelt; a valós L2 hibamátrix nyitott.
+  és 503-ág tesztelt; a valós L2 hibamátrix (Authentik leállítása) nyitott.
 - [x] 401, 403 és 503 külön UX-et kap.
 - [x] Logout törli az OIDC usert, tokent és user-függő cache-t.
 - [x] Normál build DOM-jában nincs manual token mező.
 - [x] Contract check, build, lint és 25 auth/session/guard teszt zöld.
-- [ ] M2 L2 evidence valós futással frissítve.
+- [x] M2 L2 evidence valós futással frissítve — [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md), M2-EVIDENCE M2-T20.
 
 ---
 
 ## Fázis 2 – Szerkesztői tartalomkezelés
 
-**Állapot:** folyamatban — backend, UI és helyi PostgreSQL kapuk készek; Authentik L2 E2E pending
+**Állapot:** kész — backend, UI, PostgreSQL és valódi Authentik böngészős E2E zöld
 
 **Becslés:** 8–11 mérnöknap frontend + backend együtt  
 **Függőség:** Fázis 1; admin list és audit backend API  
@@ -163,14 +168,14 @@
 
 ### Kötelező ellenőrzések
 
-- [~] Editor listáz, létrehoz és szerkeszt, de nem publishol/withdrawol —
-  permission/component teszt zöld, valódi Authentik böngészős E2E pending.
-- [~] Publisher UUID másolása nélkül végigjárja a teljes v1 → v6 életciklust —
-  backend integráció és UI-flow kész, valódi Authentik böngészős E2E pending.
+- [x] Editor listáz, létrehoz és szerkeszt, de nem publishol/withdrawol — valódi
+  Authentik böngészős E2E zöld.
+- [x] Publisher UUID másolása nélkül végigjárja a teljes v1 → v6 életciklust —
+  valódi Authentik böngészős E2E zöld, az audit 6 bejegyzése pontos sorrendben.
 - [x] Published content nem szerkeszthető.
 - [x] No-op patch nem mutat hamis verziónövekedést.
-- [~] Két browser context version conflictja adatvesztés nélkül feloldható —
-  komponensszinten reload/reapply és no-auto-retry igazolt; valódi kétcontextes E2E pending.
+- [x] Két browser context version conflictja adatvesztés nélkül feloldható —
+  valódi kétcontextes E2E zöld, pontosan 2 PATCH automatikus újraküldés nélkül.
 - [x] Audit minden sikeres verziót pontosan egyszer, jó sorrendben mutat.
 - [x] Backend 67/67 és frontend 37/37 célzott teszt, build, lint és contract gate zöld.
 
@@ -178,7 +183,7 @@
 
 ## Fázis 3 – Publikus katalógus és keresés
 
-**Állapot:** folyamatban — implementáció és helyi tesztkapuk készek; full-stack browser E2E pending
+**Állapot:** kész — implementáció, helyi tesztkapuk és full-stack browser E2E zöld
 
 **Becslés:** 2–3 mérnöknap  
 **Függőség:** Fázis 0; a publikus flow Fázis 1-től függetlenül fejleszthető  
@@ -191,16 +196,16 @@
 - [x] **P3-03:** `/catalog/:id` publikus detail adminmezők nélkül.
 - [x] **P3-04:** 422, 404, `search_unavailable`, `dependency_unavailable` és network UX.
 - [x] **P3-05:** publish/withdraw utáni korlátozott, háttértabon szünetelő polling.
-- [~] **P3-06:** 17 új unit/component/integration-style teszt és adatminimalizálás
-  zöld; valódi backend+browser E2E még futtatandó.
+- [x] **P3-06:** 17 új unit/component/integration-style teszt és adatminimalizálás
+  zöld; a valódi backend+browser E2E 2026-09-17-én lefutott.
 
 ### Kötelező ellenőrzések
 
 - [x] Query, category, limit és offset bookmarkolható URL-ben marad.
 - [x] `returned` és `estimatedTotalHits` jelentése külön jelenik meg.
 - [x] Rövid oldal stale indexhit esetén érthető magyarázatot kap.
-- [~] Anonymous search → filter → next → detail → back komponens-integráció
-  sikeres; valódi browser/full-stack E2E pending.
+- [x] Anonymous search → filter → next → detail → back — valódi full-stack
+  böngészős E2E zöld, bookmarkolható URL-lel.
 - [x] Withdrawn tartalom stale index esetén sem jelenik meg — backend M4-T21/T22
   DB-visszaellenőrzési regresszióval védett, a detail 404 UI tesztelt.
 - [x] Polling timeout nem mutat hamis publish failure-t.
@@ -210,7 +215,7 @@
 
 ## Fázis 4 – Operációs megfigyelő dashboard
 
-**Állapot:** folyamatban — implementáció és helyi tesztkapuk készek; full-stack browser E2E pending
+**Állapot:** kész — implementáció, helyi tesztkapuk és a valódi A/B kiesési E2E zöld
 
 **Becslés:** 3–4 mérnöknap  
 **Függőség:** Fázis 0 processing contract és Fázis 1 permission route  
@@ -225,8 +230,8 @@
 - [x] **P4-05:** egységes A/B indexkártyák runtime és tartós állapottal.
 - [x] **P4-06:** 10 s/2 s adaptív polling, hidden tab stop és hibabackoff.
 - [x] **P4-07:** optional/partial/stale/401/403/503 állapotok.
-- [~] **P4-08:** 52 új unit/component/integration-style teszt és hozzáférhető
-  natív vezérlők zöldek; valódi backend+browser E2E még futtatandó.
+- [x] **P4-08:** 52 új unit/component/integration-style teszt és hozzáférhető
+  natív vezérlők zöldek; a valódi backend+browser E2E 2026-09-17-én lefutott.
 
 ### Kötelező ellenőrzések
 
@@ -235,8 +240,8 @@
 - [x] Két routolható index = teljes, egy = fallback, nulla = unavailable.
 - [x] `off`, `unknown`, `down` és optional-hiány nem mosódik össze.
 - [x] Polling háttértabon leáll és requestek nem halmozódnak.
-- [~] Egy index down és mindkettő down fixture-szinten bizonyított; valódi
-  backend+browser E2E pending.
+- [x] Egy index down és mindkettő down fixture- és valódi full-stack szinten
+  bizonyított; az opt-in `@outage` E2E 1/1 sikeres, 0 skip, 0 hiba (RA-05).
 - [x] Frontend contract, build, React Compiler, warningmentes lint és 106/106 teszt zöld.
 
 ---
@@ -343,34 +348,32 @@
 - [ ] **P7-01:** Vitest + React Testing Library + MSW közös tesztinfrastruktúra.
 - [ ] **P7-02:** frontend fast CI: install, contract, build, lint, unit/component.
 - [ ] **P7-03:** backend contract/integration/migration gate.
-- [~] **P7-04:** Playwright full-stack harness kész (`playwright.config.ts`,
-  `e2e/support`, előfeltétel-preflight, `npm run e2e`); CI job és a valódi
-  stacken futtatás még nyitott.
-- [~] **P7-05:** PKCE és role guard E2E megírva (`e2e/specs/auth-role-guard.spec.ts`);
-  zöld futás valódi Authentik ellen pending.
-- [~] **P7-06:** publisher lifecycle + audit E2E megírva
-  (`e2e/specs/content-lifecycle.spec.ts`); zöld futás pending.
-- [~] **P7-07:** két browser context version-conflict E2E megírva
-  (`e2e/specs/version-conflict.spec.ts`); zöld futás pending.
-- [~] **P7-08:** search/operations A/B fallback E2E megírva
-  (`e2e/specs/search-operations.spec.ts`, `@outage` opt-in docker vezérléssel);
-  zöld futás pending.
+- [~] **P7-04:** Playwright full-stack harness és a valódi stacken futtatás kész
+  (`playwright.config.ts`, `e2e/support`, előfeltétel-preflight, `npm run e2e`);
+  a CI job még nyitott.
+- [x] **P7-05:** PKCE és role guard E2E zöld valódi Authentik ellen (6 eset).
+- [x] **P7-06:** publisher lifecycle + audit E2E zöld (3 eset).
+- [x] **P7-07:** két browser context version-conflict E2E zöld.
+- [x] **P7-08:** search/operations E2E zöld (4 normál + 1 opt-in outage eset);
+  egy index kiesése, teljes kiesés és helyreállás valódi Meilisearch A/B stacken bizonyított.
 - [ ] **P7-09:** operátori action E2E, ha Fázis 5 release scope.
 - [ ] **P7-10:** loading/empty/partial/stale/401/403/404/409/413/422/503/network mátrix.
 - [ ] **P7-11:** WCAG 2.2 AA cél, axe és kézi keyboard/screen-reader smoke.
-- [~] **P7-12:** 360 és 1280 px Chromium smoke megírva (`e2e/specs/responsive.spec.ts`);
-  768 px és Firefox/WebKit még nyitott.
+- [~] **P7-12:** 360 és 1280 px Chromium smoke zöld; 768 px és Firefox/WebKit nyitott.
 - [ ] **P7-13:** token/secret/public-data-minimalizálási review.
 - [ ] **P7-14:** polling/request-halmozás és production bundle baseline.
 - [ ] **P7-15:** README, env, runbook, migration és fresh-checkout átadás.
 - [ ] **P7-16:** backend capability lefedési nyilvántartás ownerrel és teszttel.
 
-### Release Definition of Done
+### Közös Release Definition of Done
 
-- [ ] Frontend fast gate pontos Node 24.20 runtime-mal zöld.
-- [ ] Backend contract/integration gate zöld.
-- [ ] Kijelölt full-stack E2E suite zöld.
-- [ ] Authentik L2 nem pending az authot tartalmazó release-ben.
+A teljes lista a Release C kapuja; a Release A az alább név szerint jelölt,
+scope-arányos részhalmazzal zárult.
+
+- [x] Release A frontend fast gate pontos Node 24.20 runtime-mal zöld.
+- [x] Release A backend contract/integration gate zöld.
+- [x] Kijelölt Release A full-stack E2E suite zöld.
+- [x] Authentik L2 belépési és jogosultsági kapu nem pending a Release A-ban.
 - [ ] Axe blocker/critical nulla; keyboard és screen-reader smoke kész.
 - [ ] 360/768/1280 viewport ellenőrizve.
 - [ ] Teljes UI állapotmátrix lefedve.
@@ -378,7 +381,7 @@
 - [ ] Friss checkoutból dokumentált indulás bizonyított.
 - [ ] Backend funkciómátrix minden sora `UI`, `guided runbook`,
   `intentionally CLI-only` vagy `not implemented backend` státuszú.
-- [ ] Evidence és ismert korlátok verziózva.
+- [x] Release A evidence és ismert korlátok verziózva.
 
 ---
 
@@ -386,32 +389,35 @@
 
 ### Release A – A meglévő HTTP API helyes UI-ja
 
-**Állapot:** a Fázis 0–4 implementációja kész; a hátralévő munka a full-stack
-bizonyítás. A böngészős E2E suite megvan, egyetlen külső előfeltételen áll:
-futó Authentik L2 + full profile stack.
+**Állapot: KÉSZ.** A full-stack bizonyítás 2026-09-17-én megtörtént: `npm run
+verify` zöld (106/106); az alap E2E **17 passed / 1 skipped / 0 failed**, majd az
+opt-in `@outage` futás **1 passed / 0 skipped / 0 failed** valódi Authentik,
+backend és Meilisearch A/B stacken.
+Jegyzőkönyv: [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
 
 - [x] Fázis 0 kész.
-- [~] Fázis 1 kész — implementáció és unit/component szint kész, P1-12 az E2E
-  futásra vár.
-- [~] Fázis 2 lifecycle része legalább lista/audit nélkül használható —
-  implementáció kész, E2E futásra vár.
-- [~] Fázis 3 kész — implementáció kész, E2E futásra vár.
-- [~] Fázis 4 kész — implementáció kész, E2E futásra vár.
+- [x] Fázis 1 Release A scope kész — az L2 belépés mindhárom identitással zöld;
+  a token refresh, key rotation és IdP-kiesés mélytesztje ismert, release-en kívüli korlát.
+- [x] Fázis 2 lifecycle része legalább lista/audit nélkül használható.
+- [x] Fázis 3 kész.
+- [x] Fázis 4 kész — a dashboard, az egyindexes fallback, a teljes kiesés és a
+  helyreállás valódi `@outage` futással zöld.
 
-#### Hátralévő végrehajtási lépések
+#### Lezárási lépések
 
-- [ ] **RA-01:** `docker compose --profile full up -d` (PostgreSQL, NATS,
+- [x] **RA-01:** `docker compose --profile full up -d` (PostgreSQL, NATS,
   Meilisearch A/B, Authentik) és az Authentik blueprint tényleges alkalmazása.
-- [ ] **RA-02:** backend `.env.e2e` a `.env.example` alapján
+- [x] **RA-02:** backend `.env.e2e` a `.env.example` alapján
   (`FEATURE_IDENTITY|OUTBOX_RELAY|SEARCH=on`, a `POSTGRES_PORT` egyezzen a
   `backend/.env` értékével), migráció és indítás.
-- [ ] **RA-03:** frontend `.env.e2e` (kulcsok: `frontend/e2e/README.md`),
+- [x] **RA-03:** frontend `.env.e2e` (kulcsok: `frontend/e2e/README.md`),
   `npm ci` (a `@playwright/test` már a `package.json`-ban van) és
   `npm run e2e:install`.
-- [ ] **RA-04:** `npm run e2e` zöld a `@outage` eset nélkül.
-- [ ] **RA-05:** `E2E_DOCKER_CONTROL=true` mellett az `@outage` eset is zöld.
-- [ ] **RA-06:** M2-EVIDENCE L2 sorok (T20–T23) valós futással frissítve, és a
-  Fázis 1–4 `[~]` ellenőrzései átvezetve.
+- [x] **RA-04:** `npm run e2e` zöld a `@outage` eset nélkül (17 passed, 0 failed).
+- [x] **RA-05:** `E2E_DOCKER_CONTROL=true` mellett az `@outage` eset zöld
+  (1 passed, 0 skipped, 0 failed; teljes futás 61,0 s).
+- [x] **RA-06:** M2-EVIDENCE L2 sorai és a Fázis 1–4 ellenőrzései átvezetve;
+  jegyzőkönyv: [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
 
 Eredmény: valódi login, helyes content lifecycle, teljes publikus keresés és
 read-only operations dashboard. Az M5 műveletek még CLI-ről futnak.

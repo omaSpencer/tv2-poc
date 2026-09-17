@@ -142,7 +142,7 @@ export type ReindexControlView = {
   startedAt: string | null;
   updatedAt: string | null;
   completedAt: string | null;
-  /** The merged verdict: `phase === 'ready'` and the runtime agrees. */
+  /** The merged verdict: `phase === 'ready'`, the runtime agrees, and the endpoint is not known to be unreachable. */
   routeEligible: boolean;
 };
 

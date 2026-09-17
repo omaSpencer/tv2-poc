@@ -486,7 +486,7 @@ export interface components {
                      * @description ISO 8601 timestamp in UTC (Z suffix).
                      */
                     completedAt: string | null;
-                    /** @description phase === ready AND the runtime state is routable. */
+                    /** @description phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false). */
                     routeEligible: boolean;
                 };
                 b: {
@@ -533,7 +533,7 @@ export interface components {
                      * @description ISO 8601 timestamp in UTC (Z suffix).
                      */
                     completedAt: string | null;
-                    /** @description phase === ready AND the runtime state is routable. */
+                    /** @description phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false). */
                     routeEligible: boolean;
                 };
             };
@@ -604,7 +604,7 @@ export interface components {
              * @description ISO 8601 timestamp in UTC (Z suffix).
              */
             completedAt: string | null;
-            /** @description phase === ready AND the runtime state is routable. */
+            /** @description phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false). */
             routeEligible: boolean;
         };
         SearchQuarantineV1: {

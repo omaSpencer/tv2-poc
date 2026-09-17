@@ -2090,7 +2090,7 @@
                   },
                   "routeEligible": {
                     "type": "boolean",
-                    "description": "phase === ready AND the runtime state is routable."
+                    "description": "phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false)."
                   }
                 },
                 "required": [
@@ -2242,7 +2242,7 @@
                   },
                   "routeEligible": {
                     "type": "boolean",
-                    "description": "phase === ready AND the runtime state is routable."
+                    "description": "phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false)."
                   }
                 },
                 "required": [
@@ -2502,7 +2502,7 @@
           },
           "routeEligible": {
             "type": "boolean",
-            "description": "phase === ready AND the runtime state is routable."
+            "description": "phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false)."
           }
         },
         "required": [

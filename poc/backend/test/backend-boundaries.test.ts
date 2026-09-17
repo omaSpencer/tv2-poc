@@ -53,6 +53,30 @@ it('F-02 validates the actual paused status and complete consumer progress', asy
   expect(status.indexes?.a.state).toBe('paused');
 });
 
+it('F-02b keeps a ready but unreachable index out of the routable set', async () => {
+  const state = new SearchState();
+  state.get('a').setState('idle');
+  state.get('a').setReachable(false);
+  state.get('b').setState('idle');
+  // `b` reachable marad `null`: a még nem szondázott állapot nem kiesés.
+  const controller = new ProcessingStatusController(
+    new ConfigService({ FEATURE_OUTBOX_RELAY: 'on' }), { db: {} } as never,
+    { pendingStats: async () => ({ pending: 0, oldestOccurredAt: null }) } as never,
+    { snapshot: async () => ({ connected: true, streamPresent: true, quarantinePending: 0, consumers: [] }) } as never,
+    new RelayState(), { enabled: true, probeReachability: async () => {} } as never, state,
+    { all: async () => [
+      { indexAlias: 'a', phase: 'ready', desiredWorkerState: 'running', importedDocuments: 0 },
+      { indexAlias: 'b', phase: 'ready', desiredWorkerState: 'running', importedDocuments: 0 },
+    ] } as never,
+  );
+  const status = await controller.status();
+  expect(processingStatusViewSchema.safeParse(status).success).toBe(true);
+  expect(status.indexes?.a.reachable).toBe(false);
+  expect(status.indexes?.a.routeEligible).toBe(false);
+  expect(status.indexes?.b.reachable).toBe(null);
+  expect(status.indexes?.b.routeEligible).toBe(true);
+});
+
 it('F-10 never treats an arbitrary error message as an identity outage', () => {
   const verifier = new TokenVerifier(new ConfigService({ LOG_LEVEL: 'silent' }), {} as never);
   const classify = (error: unknown) => (verifier as unknown as { mapJoseError(error: unknown): never }).mapJoseError(error);

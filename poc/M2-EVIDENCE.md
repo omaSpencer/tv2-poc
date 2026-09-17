@@ -45,15 +45,20 @@ npm run test:integration:m3
 
 | Próba | Állapot | Megjegyzés |
 | --- | --- | --- |
-| M2-T20 – három identitás PKCE | **pending** | E01–E05 |
-| M2-T21 – token élettartam / refresh | **pending** | E05 |
+| M2-T20 – három identitás PKCE | **pass** | 2026-09-17, böngészős E2E valódi Authentik 2025.8 ellen; viewer/editor/publisher belépés és `/me` szerinti jogosultság |
+| M2-T21 – token élettartam / refresh | **részben** | hard reload utáni session-helyreállítás valódi providerrel pass; az 5 perces lejárat utáni refresh még nincs mérve |
 | M2-T22 – csoportváltozás / key rotation | **pending** | átadva M5-nek is |
-| M2-T23 – L2 log ág | **pending** | E02 |
+| M2-T23 – L2 log ág | **részben** | a sikeres L2 belépés correlation ID-vel naplózódik; a hibamátrix (IdP-kiesés) nyitott |
 
-A blueprint (`authentik/blueprints/poc.yaml`) és a Compose mount / bootstrap
-kulcsok készen állnak. Image húzás és első sikeres blueprint-alkalmazás E01
-után. `demo:m2` valódi `OIDC_ACCESS_TOKEN` nélkül pending kóddal lép ki, nem
-hamis sikerrel.
+A blueprint (`authentik/blueprints/poc.yaml`) alkalmazva, a három tesztidentitás
+él és csoporthoz kötött. A belépést a Release A E2E suite bizonyítja valódi
+böngészőből: [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md). `demo:m2` valódi
+`OIDC_ACCESS_TOKEN` nélkül továbbra is pending kóddal lép ki, nem hamis sikerrel.
+
+Üzemeltetési tanulság: a blueprint a jelszót a felhasználó létrehozásakor írja be,
+ezért egy korábbi authentik kötet jelszava eltérhet az aktuális env fájltól. Az
+állapot ellenőrzése és szinkronizálása: `node scripts/authentik-poc-users.mjs`
+(`--set-password`).
 
 ## Konfiguráció
 
@@ -72,8 +77,8 @@ hamis sikerrel.
 | Szint | Állapot |
 | --- | --- |
 | L1 (tokenellenőrzés, jogmátrix, audit) | **kész** |
-| L2 (valódi Authentik kapu) | **pending** (E01–E05) |
-| M2 milestone lezárás | **nyitott** amíg L2 nem fut |
+| L2 (valódi Authentik kapu) | **részben kész** – belépés és jogosultságok pass (T20); refresh és key rotation nyitott |
+| M2 milestone lezárás | **nyitott** a T21 refresh és a T22 rotation méréséig |
 
 Az L1 önmagában nem zárja le az M2 milestone-t a terv szerint; a hiányzó
 külső előfeltételeket nem jelöljük sikernek.

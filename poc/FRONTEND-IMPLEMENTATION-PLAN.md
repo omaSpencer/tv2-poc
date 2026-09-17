@@ -2,11 +2,11 @@
 
 2026-09-16 · A `frontend/` és a `backend/` aktuális forrása alapján.
 
-> Státuszfrissítés: a Fázis 0 és a Fázis 1 P1-01–P1-11 munkacsomagja már
-> implementált; a Fázis 2 backend- és frontendcsomagja, valamint a Fázis 3–4 helyi
-> implementációja is elkészült. A lentebbi
-> audit az indulási baseline-t rögzíti; a valódi Authentik L2 ellenőrzés és az
-> arra épülő böngészős E2E továbbra is külső függőségen vár.
+> Státuszfrissítés (2026-09-17): a Release A scope (Fázis 0–4) elkészült és
+> valódi Authentik/full-stack böngészős E2E-vel, köztük opt-in A/B outage
+> futással bizonyított. A lentebbi audit az indulási baseline-t rögzíti; az
+> aktuális állapot forrása a [TODO.md](TODO.md), a futtatási jegyzőkönyv a
+> [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
 
 ## 1. Vezetői összefoglaló
 
@@ -41,11 +41,11 @@ L2 környezet elérhetősége külön külső függőség.
 | Fázis | Részletezettség | Dokumentum | Állapot |
 | --- | --- | --- | --- |
 | 0 | ticket-szintű | [Stabilizálás és szerződéshelyreállítás](FRONTEND-PHASE-0-IMPLEMENTATION.md) | implementálva, gate-ek zöldek |
-| döntési kapu | rögzített contract | [Identity és UI-glue API-döntések](FRONTEND-IDENTITY-AND-API-DECISIONS.md) | kész; Authentik L2 külső kapu nyitott |
-| 1 | ticket-szintű | [Alkalmazásváz és valódi identity](FRONTEND-PHASE-1-IMPLEMENTATION.md) | P1-01–11 implementálva; P1-12 L2 pending |
-| 2 | ticket-szintű BE+FE | [Szerkesztői tartalomkezelés](FRONTEND-PHASE-2-IMPLEMENTATION.md) | implementálva; Authentik L2 E2E pending |
-| 3 | delivery brief | [Publikus katalógus és keresés](FRONTEND-PHASE-3-DELIVERY-BRIEF.md) | implementálva; full-stack browser E2E pending |
-| 4 | delivery brief | [Operációs megfigyelő dashboard](FRONTEND-PHASE-4-DELIVERY-BRIEF.md) | ready for breakdown |
+| döntési kapu | rögzített contract | [Identity és UI-glue API-döntések](FRONTEND-IDENTITY-AND-API-DECISIONS.md) | kész; valódi callback bizonyított |
+| 1 | ticket-szintű | [Alkalmazásváz és valódi identity](FRONTEND-PHASE-1-IMPLEMENTATION.md) | Release A scope kész; PKCE L2 zöld |
+| 2 | ticket-szintű BE+FE | [Szerkesztői tartalomkezelés](FRONTEND-PHASE-2-IMPLEMENTATION.md) | kész; full-stack E2E zöld |
+| 3 | delivery brief | [Publikus katalógus és keresés](FRONTEND-PHASE-3-DELIVERY-BRIEF.md) | kész; full-stack E2E zöld |
+| 4 | delivery brief | [Operációs megfigyelő dashboard](FRONTEND-PHASE-4-DELIVERY-BRIEF.md) | kész; A/B outage E2E zöld |
 | 5 | közös BE+FE, ticket-szintű | [M5 operátori beavatkozások](FRONTEND-PHASE-5-JOINT-IMPLEMENTATION.md) | dev-ready |
 | 6 | ticket-szintű | [Vezetett demó és bizonyíték](FRONTEND-PHASE-6-IMPLEMENTATION.md) | dev-ready a belépési kapuk után |
 | 7 | release gate | [Minőségkapu és átadás](FRONTEND-PHASE-7-QUALITY-GATE.md) | rögzített |
@@ -556,7 +556,7 @@ Minimum automatizált hibakészlet:
 
 | Kockázat / döntés | Javaslat |
 | --- | --- |
-| Authentik L2 továbbra is pending | Fázis 0 és a legtöbb képernyő fejleszthető, de Fázis 1 és teljes E2E nem zárható le |
+| Kibővített Authentik L2 mélytesztek nyitottak | A Release A belépési/jogosultsági kapuja zöld; refresh, key rotation és IdP-kiesés a későbbi minőségkapuban mérendő |
 | Kézzel tükrözött frontend DTO-k | OpenAPI codegen legyen Fázis 0 kötelező kapu |
 | Nincs admin content lista | Vékony read endpoint nélkül ne próbáljunk kliensoldali UUID-regisztert építeni |
 | Hosszú reindex HTTP-n | 202 + háttérfutás + durable polling; ne legyen percekig nyitott request |
@@ -572,6 +572,10 @@ Minimum automatizált hibakészlet:
 ### Release A — „A meglévő HTTP API helyes UI-ja”
 
 Fázis 0 + 1 + a Fázis 2 lista/audit nélküli lifecycle része + Fázis 3 + Fázis 4.
+
+**Lezárva 2026-09-17-én.** A kijelölt 18 full-stack E2E eset két futásban,
+hiba és nyitott eset nélkül zöld; részletek:
+[RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
 
 Eredmény: valódi login, helyes tartalomszerkesztés, teljes keresés és teljes
 read-only operációs dashboard. M5 beavatkozások még CLI-ről futnak.

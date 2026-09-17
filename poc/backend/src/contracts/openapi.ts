@@ -155,7 +155,8 @@ export const searchIndexStatusSchema = z.strictObject({
   startedAt: isoDateTime.nullable(),
   updatedAt: isoDateTime.nullable(),
   completedAt: isoDateTime.nullable(),
-  routeEligible: z.boolean().describe('phase === ready AND the runtime state is routable.'),
+  routeEligible: z.boolean()
+    .describe('phase === ready AND the runtime state is routable AND the endpoint is not known to be unreachable (reachable !== false).'),
 });
 
 export const processingStatusViewSchema = z.strictObject({

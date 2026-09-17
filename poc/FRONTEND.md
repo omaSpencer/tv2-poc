@@ -7,10 +7,10 @@ Az aktuális, backend-auditon alapuló végrehajtási roadmap:
 implementációja és a Fázis 1–7 részletes végrehajtási dokumentumai onnan érhetők
 el; ez a fájl a playground eredeti high-level kontextusát őrzi.
 
-> Státuszfrissítés (2026-09-16): a Fázis 0, a Fázis 1 helyi implementációja és a
-> Fázis 2 szerkesztői workspace, a Fázis 3 publikus katalógus és a Fázis 4
-> operációs dashboard elkészült. A valódi Authentik L2 böngészős E2E
-> továbbra is külső függőség; az aktuális állapot forrása a `TODO.md`.
+> Státuszfrissítés (2026-09-17): a Release A scope (Fázis 0–4) elkészült és
+> valódi Authentik/full-stack böngészős E2E-vel, köztük opt-in A/B outage
+> futással bizonyított. Jegyzőkönyv: [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md).
+> Az aktuális backlog forrása a [TODO.md](TODO.md).
 
 Ez a fájl a backend mellé készülő **fejlesztői playground** célját, határait és a későbbi megvalósítás irányát rögzíti. Nem implementációs backlog, nem UI-wireframe, és nem termelési frontend-terv.
 
@@ -74,7 +74,7 @@ A playground a backend állapotához igazodik; nem előzi meg a szerződéses ka
 | Backend állapot | Mit tud a playground? |
 | --- | --- |
 | **M0–M1** | Health, OpenAPI, publikus részlet és a teljes verziókezelt content lifecycle implementált. |
-| **M2** | A resource-server, `/me`, role/permission ellenőrzés L1 szinten kész; a valódi Authentik L2 PKCE/refresh út továbbra is pending. |
+| **M2** | A resource-server, `/me`, role/permission ellenőrzés L1 szinten kész; a valódi Authentik L2 PKCE belépés mindhárom szerepkörrel bizonyított, a refresh/key-rotation mélyteszt nyitott. |
 | **M3** | Outbox relay és `GET /admin/processing-status` implementált. |
 | **M4** | Kétindexes keresés, fallback és DB-visszaellenőrzés implementált. |
 | **M5** | Reindex/karantén/repair vezérlősík implementált; a teljes full-stack evidence pending. A mutációk egyelőre CLI-only eszközök. |
@@ -214,15 +214,15 @@ Amíg `FEATURE_IDENTITY=off`, a playground ne inventáljon „dev actor” bypas
 2. **Katalógus + hibapanel** – publikus GET, problem+json. ✅  
 3. **Szerkesztői űrlap** – Create/Patch/Publish/Withdraw UI. ✅  
 4. **Router + Auth/Search/Processing/Demo screenek** – M2–M4 UI előre. ✅  
-5. **M2 PKCE kötés** – Authentik code flow, amikor megvan a provider.  
+5. **M2 PKCE kötés** – Authentik code flow valódi providerrel. ✅
 6. **OpenAPI contract gate + M3/M4 válaszmezők** – frontend Fázis 0. ✅
 
 A futtatás: [frontend/README.md](frontend/README.md).
 
 ---
 
-**Következő lépés:** a Fázis 5 operátori beavatkozásai; ezzel párhuzamosan a
-valódi Authentik L2 és full-stack böngészős bizonyítékok továbbra is nyitottak.
+**Következő lépés:** a Fázis 5 operátori beavatkozásai. A Release A lezárult;
+a refresh/key-rotation/IdP-kiesés kibővített L2 mérései külön minőségkapuk.
 
 ## 11. Elfogadás – mit jelent „kész a playground”?
 
@@ -235,9 +235,9 @@ Minimum:
 
 M2 utáni demó-minimum:
 
-- [ ] Editor létrehoz/szerkeszt, publisher publikál/visszavon, viewer tiltott írása 403.
-- [ ] A mintatartalom végigjárható; visszavonás után a katalógus 404.
-- [ ] A `expectedVersion` konfliktus bemutatható.
+- [x] Editor létrehoz/szerkeszt, publisher publikál/visszavon, viewer tiltott írása 403.
+- [x] A mintatartalom végigjárható; visszavonás után a katalógus 404.
+- [x] A `expectedVersion` konfliktus bemutatható.
 
 M4 utáni bónusz: keresőoldal a dokumentált fallback-viselkedés rövid magyarázatával.
 

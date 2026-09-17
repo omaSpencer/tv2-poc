@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { isApiProblemError, type AdminContentView, type PatchContentBody, type ProblemDocument } from '../../../api/types';
 import { ProblemPanel } from '../../../components/ProblemPanel';
@@ -45,8 +45,19 @@ function EditWorkspace({ initial }: { initial: AdminContentView }) {
   const [values, setValues] = useState<ContentFormValues>(() => contentToForm(initial));
   const [errors, setErrors] = useState<ContentFormErrors>({});
   const [conflict, setConflict] = useState<Conflict | null>(null);
-  const dirty = isFormDirty(values, baseline);
+  const [redirect, setRedirect] = useState<{ to: string; notice?: string } | null>(null);
+  // Amíg a saját átirányításunk függőben van, az űrlap nem számít mentetlennek:
+  // enélkül a dirty guard a sikeres feloldás után is rákérdezne az adatvesztésre.
+  const dirty = isFormDirty(values, baseline) && redirect === null;
   const confirmDiscard = useDirtyGuard(dirty);
+
+  useEffect(() => {
+    if (!redirect) return;
+    navigate(redirect.to, {
+      replace: true,
+      ...(redirect.notice ? { state: { notice: redirect.notice } } : {}),
+    });
+  }, [redirect, navigate]);
   const id = initial.id;
 
   const patch = useMutation({
@@ -105,14 +116,17 @@ function EditWorkspace({ initial }: { initial: AdminContentView }) {
     setValues(next);
     setConflict(null);
     queryClient.setQueryData(contentKeys.detail(id), { data: conflict.server, status: 200, correlationId: '' });
-    if (conflict.server.status === 'published') navigate(`/contents/${id}`, { replace: true });
+    if (conflict.server.status === 'published') setRedirect({ to: `/contents/${id}` });
   }
 
   function keepLocal() {
     if (!conflict) return;
     queryClient.setQueryData(contentKeys.detail(id), { data: conflict.server, status: 200, correlationId: '' });
     if (conflict.server.status === 'published') {
-      navigate(`/contents/${id}`, { replace: true, state: { notice: 'A tartalom időközben publikált lett; a helyi draft nem írható rá.' } });
+      setRedirect({
+        to: `/contents/${id}`,
+        notice: 'A tartalom időközben publikált lett; a helyi draft nem írható rá.',
+      });
       return;
     }
     const nextBaseline = contentToForm(conflict.server);

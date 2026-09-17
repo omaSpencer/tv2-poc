@@ -25,7 +25,7 @@ export function loginLink(page: Page) {
 
 /** Az Authentik stage-ek submit gombja (a `Continue`/`Log in` felirat verziónként változik). */
 async function submitStage(page: Page, field: Locator): Promise<void> {
-  const button = page.locator('button[type="submit"]').first();
+  const button = page.locator('button[type="submit"]:visible').first();
   if (await button.isVisible().catch(() => false)) {
     await button.click();
     return;
@@ -54,28 +54,39 @@ export async function completeAuthentikForm(page: Page, identity: E2eIdentity): 
   while (Date.now() < deadline) {
     if (await profileLink(page).isVisible().catch(() => false)) return;
 
+    const username = page.locator(USERNAME_INPUT).first();
     const password = page.locator(PASSWORD_INPUT).first();
-    if (await password.isVisible().catch(() => false)) {
-      if (canSubmit('password')) {
-        if ((await password.inputValue().catch(() => '')) !== e2eConfig.userPassword) {
-          await password.fill(e2eConfig.userPassword);
+    const usernameVisible = await username.isVisible().catch(() => false);
+    const passwordVisible = await password.isVisible().catch(() => false);
+
+    // A stage sorrendje nem cserélhető fel: az identification oldal a
+    // jelszókezelők kedvéért egy `input[name="password"]` mezőt is kirajzol,
+    // amit a Playwright láthatónak lát. Ha azt néznénk előbb, üres
+    // felhasználónévvel küldenénk be a formot, és a flow körbeérne.
+    if (usernameVisible) {
+      if (canSubmit('identification')) {
+        if ((await username.inputValue().catch(() => '')) !== identity) {
+          await username.fill(identity);
         }
-        await submitStage(page, password);
-        lastStage = 'password';
+        // Egyesített identification+password stage esetén a jelszó is itt kell.
+        if (passwordVisible) {
+          await password.fill(e2eConfig.userPassword).catch(() => {});
+        }
+        await submitStage(page, username);
+        lastStage = 'identification';
         lastSubmitAt = Date.now();
       }
       await page.waitForTimeout(500);
       continue;
     }
 
-    const username = page.locator(USERNAME_INPUT).first();
-    if (await username.isVisible().catch(() => false)) {
-      if (canSubmit('identification')) {
-        if ((await username.inputValue().catch(() => '')) !== identity) {
-          await username.fill(identity);
+    if (passwordVisible) {
+      if (canSubmit('password')) {
+        if ((await password.inputValue().catch(() => '')) !== e2eConfig.userPassword) {
+          await password.fill(e2eConfig.userPassword);
         }
-        await submitStage(page, username);
-        lastStage = 'identification';
+        await submitStage(page, password);
+        lastStage = 'password';
         lastSubmitAt = Date.now();
       }
       await page.waitForTimeout(500);

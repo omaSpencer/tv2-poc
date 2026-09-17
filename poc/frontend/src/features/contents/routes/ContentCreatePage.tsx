@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { isApiProblemError } from '../../../api/types';
 import { ProblemPanel } from '../../../components/ProblemPanel';
@@ -25,8 +25,16 @@ export function ContentCreatePage() {
   const { notify } = useNotifications();
   const [values, setValues] = useState<ContentFormValues>(EMPTY);
   const [errors, setErrors] = useState<ContentFormErrors>({});
-  const dirty = isFormDirty(values, EMPTY);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  // Sikeres mentés után az űrlap már nem „nem mentett módosítás”: a guardnak
+  // előbb le kell fegyverződnie, különben a saját navigációnkat blokkolná egy
+  // félrevezető „elvesznek a módosítások” kérdéssel.
+  const dirty = isFormDirty(values, EMPTY) && redirectTo === null;
   const confirmDiscard = useDirtyGuard(dirty);
+
+  useEffect(() => {
+    if (redirectTo) navigate(redirectTo, { replace: true });
+  }, [redirectTo, navigate]);
 
   const create = useMutation({
     mutationFn: () => createContent(toCreateContentBody(values)),
@@ -35,7 +43,7 @@ export function ContentCreatePage() {
       queryClient.setQueryData(contentKeys.detail(response.data.id), response);
       void queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
       notify('A piszkozat létrejött.');
-      navigate(`/contents/${response.data.id}`, { replace: true });
+      setRedirectTo(`/contents/${response.data.id}`);
     },
     onError: error => {
       if (isApiProblemError(error) && error.problem.code === 'validation_failed') {

@@ -13,10 +13,10 @@
   a végrehajtási sorrend és a napi státusz követésére szolgál.
 - A full-stack böngészős E2E suite futtatása: [frontend/e2e/README.md](frontend/e2e/README.md).
 - `[x]` kész, `[ ]` nyitott, `[~]` folyamatban vagy külső függőségen vár.
-- Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope) és a
+- Teljes becslés: **36–52 mérnöknap**. A Release A (Fázis 0–4 scope), a
   Release B szerkesztői workspace, valamint a Release C Fázis 5 operátori
-  konzolja kész, valódi Authentik/full-stack böngészős E2E-vel bizonyított.
-  A további munka a Release C-be tartozó Fázis 6–7,
+  konzolja és Fázis 6 scenario runnere kész, valódi Authentik/full-stack
+  böngészős E2E-vel bizonyított. A további munka a Release C Fázis 7,
   valamint a külön jelölt, release-en kívüli L2 mélytesztek.
 
 ## Végrehajtási sorrend
@@ -28,7 +28,7 @@
 5. Fázis 3 – Publikus katalógus és keresés — **kész**
 6. Fázis 4 – Operációs megfigyelő dashboard — **kész, A/B outage bizonyított**
 7. Fázis 5 – M5 operátori beavatkozások — **kész; outage és restart E2E bizonyított**
-8. Fázis 6 – Vezetett demó és bizonyíték
+8. Fázis 6 – Vezetett demó és bizonyíték — **kész; S01/S04 full-stack bizonyított**
 9. Fázis 7 – Minőségkapu és átadás
 
 ---
@@ -310,40 +310,40 @@ full-stack operátori E2E zöld; jegyzőkönyv: [PHASE-5-EVIDENCE.md](PHASE-5-EV
 
 ## Fázis 6 – Vezetett demó és bizonyíték
 
-**Állapot:** nyitott  
+**Állapot:** kész (2026-09-17)
 **Becslés:** 4,25–6 mérnöknap  
 **Függőség:** az adott scenario által használt Fázis 1–5 képernyők/API-k stabilak  
 **Részletes terv:** [FRONTEND-PHASE-6-IMPLEMENTATION.md](FRONTEND-PHASE-6-IMPLEMENTATION.md)
 
 ### Végrehajtási terv
 
-- [ ] **P6-01:** verziózott, allowlistelt scenario registry és runtime validáció.
-- [ ] **P6-02:** determinisztikus execution engine aborttal és bounded pollinggal.
-- [ ] **P6-03:** exact HTTP/problem/fields/business assertion engine.
-- [ ] **P6-04:** auth, permission, health, feature és aktív-run preflight.
-- [ ] **P6-05:** hozzáférhető step timeline correlation ID-val és safe metaadattal.
-- [ ] **P6-06:** manual runbook checkpoint; nincs UI-ból fault injection.
-- [ ] **P6-07:** safe session persistence és lost-response reconciliation.
-- [ ] **P6-08:** allowlistelt, titokmentes JSON és Markdown evidence export.
-- [ ] **P6-09:** scenario/assertion/redaction/integration/full-stack tesztek.
+- [x] **P6-01:** verziózott, allowlistelt scenario registry és runtime validáció.
+- [x] **P6-02:** determinisztikus execution engine aborttal és bounded pollinggal.
+- [x] **P6-03:** exact HTTP/problem/fields/business assertion engine.
+- [x] **P6-04:** auth, permission, health, feature és aktív-run preflight.
+- [x] **P6-05:** hozzáférhető step timeline correlation ID-val és safe metaadattal.
+- [x] **P6-06:** manual runbook checkpoint; nincs UI-ból fault injection.
+- [x] **P6-07:** safe session persistence és lost-response reconciliation.
+- [x] **P6-08:** allowlistelt, titokmentes JSON és Markdown evidence export.
+- [x] **P6-09:** scenario/assertion/redaction/integration/full-stack tesztek.
 
 ### Kötelező scenario-k
 
-- [ ] **S01:** publisher draft → edit → publish → catalog/search → withdraw →
+- [x] **S01:** publisher draft → edit → publish → catalog/search → withdraw →
   eltűnés → edit → republish → audit.
-- [ ] **S02:** pontos 422, published-patch 409 és stale-version 409 negatív contractok.
-- [ ] **S03:** viewer/editor/publisher permissionmátrix és 401.
-- [ ] **S04:** egyindexes fallback, kétindexes kiesés és CMS-write fennmaradás.
-- [ ] **S05:** M5 reindex/replay/repair, ha Release C scope.
+- [x] **S02:** pontos 422, published-patch 409 és stale-version 409 negatív contractok.
+- [x] **S03:** viewer/editor/publisher permissionmátrix és 401.
+- [x] **S04:** egyindexes fallback, kétindexes kiesés és CMS-write fennmaradás.
+- [x] **S05:** M5 reindex/replay/repair, ha Release C scope.
 
 ### Kötelező ellenőrzések
 
-- [ ] Váratlan hibatípus soha nem számít sikeres negatív próbának.
-- [ ] Minden run új content ID-t hoz létre.
-- [ ] Mutation lost response nem okoz automatikus duplikálást.
-- [ ] Refresh után a run safe módon folytatható vagy `inconclusive`.
-- [ ] Export nem tartalmaz tokent, headert, body-t, passwordöt vagy credentialt.
-- [ ] Kijelölt scenario-k integration és full-stack szinten zöldek.
+- [x] Váratlan hibatípus soha nem számít sikeres negatív próbának.
+- [x] Minden run új content ID-t hoz létre.
+- [x] Mutation lost response nem okoz automatikus duplikálást.
+- [x] Refresh után a run safe módon folytatható vagy `inconclusive`.
+- [x] Export nem tartalmaz tokent, headert, body-t, passwordöt vagy credentialt.
+- [x] Kijelölt scenario-k integration és full-stack szinten zöldek.
 
 ---
 
@@ -451,7 +451,7 @@ Eredmény: UUID másolása nélkül használható editor/publisher workspace.
 ### Release C – M5 operátori konzol és bizonyítható demo
 
 - [x] Fázis 5 kész.
-- [ ] Fázis 6 kész.
+- [x] Fázis 6 kész.
 - [ ] Fázis 7 teljes release gate kész.
 
 Eredmény: biztonságos reindex/replay/repair UI, pontos scenario runner és

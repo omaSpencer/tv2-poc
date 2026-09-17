@@ -1,412 +1,233 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import {
-  createContent,
-  getAdminContent,
-  patchContent,
-  publishContent,
-  withdrawContent,
-} from '../api/admin';
-import { fetchPublishedContent } from '../api/catalog';
-import { isApiProblemError, type AdminContentView, type ProblemDocument } from '../api/types';
 import { useAuth } from '../auth/authContext';
-import { useActiveContent } from '../content/activeContentContext';
-import { catalogKeys } from '../features/catalog/queryKeys';
+import { advanceRun, createRun, runPreflight } from '../features/demo/engine';
+import { downloadEvidence, evidenceJson, evidenceMarkdown } from '../features/demo/export';
 import {
-  DEMO_CONTENT,
-  DEMO_EDIT,
-  DEMO_WITHDRAWN_EDIT,
-  NEGATIVE_CASES,
-} from '../data/demoFixture';
-import { JsonBlock } from '../components/JsonBlock';
-import { MilestoneGate } from '../components/MilestoneGate';
-import { ProblemPanel } from '../components/ProblemPanel';
+  clearPersistedRun, fingerprintSubject, loadPersistedRun, persistRun,
+} from '../features/demo/persistence';
+import { getScenario, SCENARIOS } from '../features/demo/registry';
+import type { SafeRunContext, ScenarioId } from '../features/demo/types';
 
-type StepId =
-  | 'create'
-  | 'edit'
-  | 'publish'
-  | 'catalog-ok'
-  | 'withdraw'
-  | 'catalog-404'
-  | 'edit-withdrawn'
-  | 'republish'
-  | 'catalog-ok-2';
-
-type StepDef = {
-  id: StepId;
-  title: string;
-  detail: string;
+const STATUS_LABELS: Record<SafeRunContext['status'], string> = {
+  running: 'Fut', waiting_manual: 'Kézi lépésre vár', passed: 'Sikeres', failed: 'Sikertelen',
+  cancelled: 'Megszakítva', inconclusive: 'Nem eldönthető',
 };
 
-const LIFECYCLE: StepDef[] = [
-  { id: 'create', title: '1. Draft létrehozás', detail: 'POST /admin/contents → v1' },
-  { id: 'edit', title: '2. Szerkesztés', detail: 'PATCH DEMO_EDIT → v2' },
-  { id: 'publish', title: '3. Publikálás', detail: 'POST …/publish → v3' },
-  { id: 'catalog-ok', title: '4. Katalógus GET', detail: '200 publikus nézet' },
-  { id: 'withdraw', title: '5. Visszavonás', detail: 'POST …/withdraw → v4' },
-  { id: 'catalog-404', title: '6. Katalógus GET', detail: '404 punchline' },
-  { id: 'edit-withdrawn', title: '7. Withdrawn szerkesztés', detail: 'PATCH title → v5' },
-  { id: 'republish', title: '8. Újrapublikálás', detail: 'publish → v6' },
-  { id: 'catalog-ok-2', title: '9. Katalógus GET', detail: 'ismét 200' },
-];
-
-type LogEntry = { step: string; ok: boolean; message: string; payload?: unknown };
-
-type ExpectedProblem = {
-  status: number;
-  code: ProblemDocument['code'];
-  fields?: string[];
-};
-
-function expectProblem(error: unknown, expected: ExpectedProblem): ProblemDocument {
-  if (!isApiProblemError(error)) {
-    throw new Error(
-      `Várt HTTP ${expected.status} ${expected.code}, de nem problem+json hiba érkezett: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-  const { problem } = error;
-  if (problem.status !== expected.status || problem.code !== expected.code) {
-    throw new Error(
-      `Várt HTTP ${expected.status} ${expected.code}, kapott HTTP ${problem.status} ${problem.code}.`,
-    );
-  }
-  const missingFields = (expected.fields ?? []).filter(
-    (field) => !(problem.fields ?? []).includes(field),
-  );
-  if (missingFields.length > 0) {
-    throw new Error(`A várt problem fields hiányzik: ${missingFields.join(', ')}.`);
-  }
-  return problem;
+function stateLabel(state: SafeRunContext['steps'][number]['state']): string {
+  return {
+    pending: 'Várakozik', running: 'Fut', passed: 'PASS', failed: 'FAIL', manual: 'Kézi lépés', inconclusive: 'Nem eldönthető',
+  }[state];
 }
 
 export function DemoPage() {
-  const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
-  const { contentId, setContentId } = useActiveContent();
-  const [done, setDone] = useState<Partial<Record<StepId, boolean>>>({});
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const [lastError, setLastError] = useState<unknown>(null);
-  const [adminSnapshot, setAdminSnapshot] = useState<AdminContentView | null>(null);
+  const { me, isAuthenticated } = useAuth();
+  const [selectedId, setSelectedId] = useState<ScenarioId>('S01');
+  const [run, setRun] = useState<SafeRunContext | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const selected = getScenario(selectedId) ?? SCENARIOS[0];
 
-  function pushLog(entry: LogEntry) {
-    setLog((prev) => [...prev, entry]);
+  const acceptRun = useCallback((next: SafeRunContext) => {
+    setRun(next);
+    persistRun(next);
+  }, []);
+
+  useEffect(() => {
+    let current = true;
+    if (!me) return () => { current = false; };
+    void fingerprintSubject(me.sub).then((hash) => {
+      if (!current) return;
+      const restored = loadPersistedRun(hash);
+      if (restored) {
+        setSelectedId(restored.scenarioId);
+        setRun(restored);
+        persistRun(restored);
+      }
+    });
+    return () => { current = false; };
+  }, [me]);
+
+  async function start(): Promise<void> {
+    if (!me || !isAuthenticated) {
+      setMessage('A scenario futtatásához bejelentkezett identitás szükséges.');
+      return;
+    }
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setBusy(true);
+    setMessage(null);
+    const subjectHash = await fingerprintSubject(me.sub);
+    const next = createRun(selected, subjectHash, me);
+    acceptRun(next);
+    const ready = await runPreflight(selected, next, me, acceptRun);
+    if (ready) await advanceRun(selected, next, controller.signal, acceptRun);
+    setBusy(false);
   }
 
-  function mark(id: StepId, ok: boolean) {
-    setDone((prev) => ({ ...prev, [id]: ok }));
+  async function continueManual(): Promise<void> {
+    if (!run || !me) return;
+    const definition = getScenario(run.scenarioId);
+    if (!definition) return;
+    const subjectHash = await fingerprintSubject(me.sub);
+    const reattached: SafeRunContext = {
+      ...run,
+      subjectHash,
+      roles: [...me.roles],
+      permissions: [...me.permissions],
+      steps: run.steps.map((step) => ({ ...step })),
+    };
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setBusy(true);
+    setMessage(null);
+    acceptRun(reattached);
+    await advanceRun(definition, reattached, controller.signal, acceptRun, true);
+    setBusy(false);
   }
 
-  async function invalidateAll() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['admin-content'] }),
-      queryClient.invalidateQueries({ queryKey: catalogKeys.all }),
-      queryClient.invalidateQueries({ queryKey: ['processing'] }),
-    ]);
+  function clear(): void {
+    controllerRef.current?.abort();
+    clearPersistedRun();
+    setRun(null);
+    setBusy(false);
+    setMessage(null);
   }
 
-  const runStep = useMutation({
-    mutationFn: async (stepId: StepId) => {
-      if (!isAuthenticated && stepId !== 'catalog-ok' && stepId !== 'catalog-404' && stepId !== 'catalog-ok-2') {
-        throw new Error('Admin lépésekhez érvényes munkamenet kell.');
-      }
+  function exportRun(format: 'json' | 'markdown'): void {
+    if (!run) return;
+    const definition = getScenario(run.scenarioId);
+    if (!definition) return;
+    const base = `phase-6-${run.scenarioId.toLowerCase()}-${run.runId}`;
+    if (format === 'json') downloadEvidence(`${base}.json`, evidenceJson(definition, run), 'application/json');
+    else downloadEvidence(`${base}.md`, evidenceMarkdown(definition, run), 'text/markdown');
+  }
 
-      let current = adminSnapshot;
-      let id = contentId || current?.id || '';
-
-      if (stepId === 'create') {
-        const res = await createContent({ ...DEMO_CONTENT });
-        setContentId(res.data.id);
-        setAdminSnapshot(res.data);
-        return { stepId, res };
-      }
-
-      if (!id && current) id = current.id;
-      if (!id) throw new Error('Nincs content id – futtasd a create lépést.');
-
-      if (stepId === 'edit') {
-        const version = current?.version ?? (await getAdminContent(id)).data.version;
-        const res = await patchContent(
-          id,
-          { expectedVersion: version, summary: DEMO_EDIT.summary, tags: [...DEMO_EDIT.tags] },
-        );
-        setAdminSnapshot(res.data);
-        return { stepId, res };
-      }
-
-      if (stepId === 'publish' || stepId === 'republish') {
-        const version = current?.version ?? (await getAdminContent(id)).data.version;
-        const res = await publishContent(id, { expectedVersion: version });
-        setAdminSnapshot(res.data);
-        return { stepId, res };
-      }
-
-      if (stepId === 'withdraw') {
-        const version = current?.version ?? (await getAdminContent(id)).data.version;
-        const res = await withdrawContent(id, { expectedVersion: version });
-        setAdminSnapshot(res.data);
-        return { stepId, res };
-      }
-
-      if (stepId === 'edit-withdrawn') {
-        const version = current?.version ?? (await getAdminContent(id)).data.version;
-        const res = await patchContent(
-          id,
-          { expectedVersion: version, title: DEMO_WITHDRAWN_EDIT.title },
-        );
-        setAdminSnapshot(res.data);
-        return { stepId, res };
-      }
-
-      if (stepId === 'catalog-ok' || stepId === 'catalog-ok-2') {
-        const res = await fetchPublishedContent(id);
-        return { stepId, res };
-      }
-
-      if (stepId === 'catalog-404') {
-        try {
-          await fetchPublishedContent(id);
-          throw new Error('Várt 404 helyett siker – a tartalom még published?');
-        } catch (error) {
-          const problem = expectProblem(error, { status: 404, code: 'content_not_found' });
-          return { stepId, res: null, expectedError: problem };
-        }
-      }
-
-      throw new Error(`Ismeretlen lépés: ${stepId}`);
-    },
-    onSuccess: async (result) => {
-      setLastError(null);
-      const { stepId } = result;
-      if (stepId === 'catalog-404' && 'expectedError' in result) {
-        mark(stepId, true);
-        pushLog({
-          step: stepId,
-          ok: true,
-          message: 'HTTP 404 content_not_found a várakozás szerint',
-          payload: result.expectedError,
-        });
-      } else if (result.res) {
-        mark(stepId, true);
-        pushLog({
-          step: stepId,
-          ok: true,
-          message: `HTTP ${result.res.status}`,
-          payload: result.res.data,
-        });
-      }
-      await invalidateAll();
-    },
-    onError: (error, stepId) => {
-      setLastError(error);
-      mark(stepId, false);
-      pushLog({
-        step: stepId,
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    },
-  });
-
-  const negCreate = useMutation({
-    mutationFn: async () => {
-      if (!isAuthenticated) throw new Error('Érvényes munkamenet kell.');
-      return createContent({ ...NEGATIVE_CASES.missingMediaAsset });
-    },
-    onSuccess: async (res) => {
-      setLastError(null);
-      setContentId(res.data.id);
-      setAdminSnapshot(res.data);
-      pushLog({
-        step: 'neg-create-no-media',
-        ok: true,
-        message: 'Draft media nélkül (publish majd 422-t kell adjon)',
-        payload: res.data,
-      });
-      await invalidateAll();
-    },
-    onError: (error) => {
-      setLastError(error);
-      pushLog({ step: 'neg-create-no-media', ok: false, message: String(error) });
-    },
-  });
-
-  const negPublish = useMutation({
-    mutationFn: async () => {
-      if (!isAuthenticated || !contentId) throw new Error('Munkamenet + content id.');
-      const row = adminSnapshot ?? (await getAdminContent(contentId)).data;
-      try {
-        const res = await publishContent(contentId, { expectedVersion: row.version });
-        throw new Error(`Várt 422 validation_failed, de HTTP ${res.status} érkezett.`);
-      } catch (error) {
-        return expectProblem(error, {
-          status: 422,
-          code: 'validation_failed',
-          fields: ['mediaAssetId'],
-        });
-      }
-    },
-    onSuccess: (problem) => {
-      setLastError(null);
-      pushLog({
-        step: 'neg-publish-incomplete',
-        ok: true,
-        message: 'HTTP 422 validation_failed, mediaAssetId mezővel',
-        payload: problem,
-      });
-    },
-    onError: (error) => {
-      setLastError(error);
-      pushLog({
-        step: 'neg-publish-incomplete',
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    },
-  });
-
-  const negStale = useMutation({
-    mutationFn: async () => {
-      if (!isAuthenticated || !contentId) throw new Error('Munkamenet + content id.');
-      try {
-        const res = await patchContent(
-          contentId,
-          {
-            expectedVersion: NEGATIVE_CASES.conflictingExpectedVersion,
-            summary: 'stale version probe',
-          },
-        );
-        throw new Error(`Várt 409 version_conflict, de HTTP ${res.status} érkezett.`);
-      } catch (error) {
-        return expectProblem(error, { status: 409, code: 'version_conflict' });
-      }
-    },
-    onSuccess: (problem) => {
-      setLastError(null);
-      pushLog({
-        step: 'neg-stale-version',
-        ok: true,
-        message: 'HTTP 409 version_conflict a várakozás szerint',
-        payload: problem,
-      });
-    },
-    onError: (error) => {
-      setLastError(error);
-      pushLog({
-        step: 'neg-stale-version',
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    },
-  });
+  const activeDefinition = run ? getScenario(run.scenarioId) : undefined;
+  const hasActiveRun = run?.status === 'running' || run?.status === 'waiting_manual';
+  const activeManualStep = run?.status === 'waiting_manual' && activeDefinition
+    ? activeDefinition.steps[run.currentStepIndex]
+    : null;
 
   return (
-    <div className="stack-pages">
+    <div className="stack-pages demo-workspace">
       <section className="panel">
-        <h2>Demo forgatókönyv</h2>
+        <p className="eyebrow">Release C · Phase 6</p>
+        <h2>Scenario runner és evidence workspace</h2>
         <p className="muted">
-          Az M1 mintafolyamat UI-ból. Aktív id: <span className="mono">{contentId || '—'}</span>.{' '}
-          <Link to="/auth">Auth</Link> · <Link to="/editorial">Editorial</Link> ·{' '}
-          <Link to={contentId ? `/catalog/${contentId}` : '/catalog/search'}>Catalog</Link>
+          Deklaratív, allowlist-alapú futtatás egzakt ellenőrzésekkel. A napló és az export nem tartalmaz tokent,
+          headert, teljes request/response body-t vagy felhasználói azonosítót.
         </p>
-        {!isAuthenticated ? (
-          <MilestoneGate
-            milestone="M2"
-            feature="Tokenes admin demó"
-            detail="Katalógus lépések anonim módon is futtathatók; a többihez bejelentkezés kell."
-          />
-        ) : null}
-
-        <ol className="scenario-list">
-          {LIFECYCLE.map((step) => {
-            const state = done[step.id];
-            return (
-              <li key={step.id} className={state === true ? 'step-ok' : state === false ? 'step-bad' : undefined}>
-                <div>
-                  <strong>{step.title}</strong>
-                  <span className="muted"> — {step.detail}</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={runStep.isPending}
-                  onClick={() => runStep.mutate(step.id)}
-                >
-                  Futtat
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-
-        <div className="row wrap-gap">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setDone({});
-              setLog([]);
-              setLastError(null);
-              setAdminSnapshot(null);
-            }}
-          >
-            Log / checklist törlése
-          </button>
+        <div className="demo-scenario-grid" role="list" aria-label="Forgatókönyvek">
+          {SCENARIOS.map((scenario) => (
+            <div key={scenario.id} role="listitem">
+              <button
+                type="button"
+                className={`scenario-card${selectedId === scenario.id ? ' selected' : ''}`}
+                aria-pressed={selectedId === scenario.id}
+                disabled={busy}
+                onClick={() => setSelectedId(scenario.id)}
+              >
+                <strong>{scenario.id} · {scenario.title}</strong>
+                <span>{scenario.description}</span>
+              </button>
+            </div>
+          ))}
         </div>
-      </section>
-
-      <section className="panel">
-        <h3>Negatív esetek</h3>
-        <p className="muted">
-          Hiányos publish (nincs mediaAssetId), elavult expectedVersion. Viewer 403: Auth oldalon
-          viewer tokennel próbáld az Editorial Create-et.
-        </p>
         <div className="row wrap-gap">
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={!isAuthenticated || negCreate.isPending}
-            onClick={() => negCreate.mutate()}
-          >
-            Create media nélkül
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={!isAuthenticated || !contentId || negPublish.isPending}
-            onClick={() => negPublish.mutate()}
-          >
-            Publish (várható 422)
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={!isAuthenticated || !contentId || negStale.isPending}
-            onClick={() => negStale.mutate()}
-          >
-            Stale version patch
-          </button>
+          <button type="button" disabled={busy || !isAuthenticated || hasActiveRun} onClick={() => void start()}>Új futás indítása</button>
+          {busy ? <button type="button" className="btn-secondary" onClick={() => controllerRef.current?.abort()}>Megszakítás</button> : null}
+          <button type="button" className="btn-secondary" disabled={busy || !run} onClick={clear}>Futás törlése</button>
         </div>
+        {message ? <p role="alert" className="notice notice-warn">{message}</p> : null}
       </section>
 
-      <section className="panel panel-muted">
-        <h3>M5 runbook (narratíva)</h3>
-        <ul className="checklist">
-          <li>Relay leállás publish ACK után – script / jegyzőkönyv, nem ez a UI</li>
-          <li>Index A/B kiesés – Search + Processing panelekkel bemutatható</li>
-          <li>Reindex – operátori parancs; a playground csak követi a státuszt</li>
-        </ul>
-      </section>
-
-      {lastError ? <ProblemPanel error={lastError} title="Utolsó hiba" /> : null}
-      {log.length > 0 ? (
-        <section className="panel">
-          <h3>Lépésnapló</h3>
-          <JsonBlock value={log} />
+      {activeManualStep ? (
+        <section className="panel manual-checkpoint" aria-live="polite">
+          <p className="eyebrow">Manuális checkpoint</p>
+          <h3>{activeManualStep.title}</h3>
+          <p>{activeManualStep.instruction}</p>
+          <button type="button" disabled={busy} onClick={() => void continueManual()}>
+            Elvégeztem, ellenőrzés és folytatás
+          </button>
         </section>
+      ) : null}
+
+      {run && activeDefinition ? (
+        <>
+          <section className="panel" aria-live="polite">
+            <div className="demo-run-heading">
+              <div>
+                <p className="eyebrow">{activeDefinition.id} · Run {run.runId}</p>
+                <h3>{activeDefinition.title}</h3>
+              </div>
+              <span className={`run-status status-${run.status}`}>{STATUS_LABELS[run.status]}</span>
+            </div>
+            <div className="demo-summary">
+              <span>Szerepkör: <strong>{run.roles.join(', ') || '—'}</strong></span>
+              <span>Tartalom: <strong className="mono">{run.contentId ?? '—'}</strong></span>
+              <span>Állapot/verzió: <strong>{run.contentStatus ?? '—'} / {run.contentVersion ?? '—'}</strong></span>
+            </div>
+            <h4>Preflight</h4>
+            <ul className="checklist evidence-checks">
+              {run.preflight.map((check) => (
+                <li key={check.label} className={check.passed ? 'check-pass' : 'check-fail'}>
+                  {check.passed ? 'PASS' : 'FAIL'} · {check.label}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="panel">
+            <h3>Lépés-idővonal</h3>
+            <ol className="scenario-list scenario-timeline">
+              {activeDefinition.steps.map((definitionStep, index) => {
+                const step = run.steps[index];
+                return (
+                  <li key={definitionStep.id} className={`step-${step.state}`}>
+                    <div>
+                      <strong>{index + 1}. {definitionStep.title}</strong>
+                      <p className="muted">{definitionStep.detail}</p>
+                      {step.assertions.length > 0 ? (
+                        <ul className="assertion-list">
+                          {step.assertions.map((assertion) => (
+                            <li key={assertion.label}>{assertion.passed ? '✓' : '✕'} {assertion.label}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {step.note ? <p className="step-note">{step.note}</p> : null}
+                    </div>
+                    <div className="step-evidence">
+                      <span>{stateLabel(step.state)}</span>
+                      {step.httpStatus ? <span>HTTP {step.httpStatus}</span> : null}
+                      {step.problemCode ? <span>{step.problemCode}</span> : null}
+                      {step.durationMs !== null ? <span>{step.durationMs} ms</span> : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          <section className="panel panel-muted">
+            <h3>Biztonságos evidence export</h3>
+            <p className="muted">Determinista, mező-allowlistelt JSON vagy Markdown. Az export a teljes API body-kat nem tárolja.</p>
+            <div className="row wrap-gap">
+              <button type="button" className="btn-secondary" onClick={() => exportRun('json')}>JSON letöltése</button>
+              <button type="button" className="btn-secondary" onClick={() => exportRun('markdown')}>Markdown letöltése</button>
+              {run.contentId ? <Link className="btn-secondary" to={`/contents/${run.contentId}`}>Tartalom megnyitása</Link> : null}
+            </div>
+            {run.scenarioId === 'S05' ? (
+              <p className="row wrap-gap operations-links">
+                <Link to="/operations/reindex">Reindex</Link>
+                <Link to="/operations/quarantine">Karantén</Link>
+                <Link to="/operations/repair">Repair</Link>
+              </p>
+            ) : null}
+          </section>
+        </>
       ) : null}
     </div>
   );

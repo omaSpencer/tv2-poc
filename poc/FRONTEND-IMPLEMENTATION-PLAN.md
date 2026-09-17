@@ -2,14 +2,15 @@
 
 2026-09-16 · A `frontend/` és a `backend/` aktuális forrása alapján.
 
-> Státuszfrissítés (2026-09-17): a Release A, a Release B és a Release C Fázis 5 elkészült és valódi
+> Státuszfrissítés (2026-09-17): a Release A, a Release B és a Release C Fázis 5–6 elkészült és valódi
 > Authentik/full-stack böngészős E2E-vel bizonyított. A Release A az opt-in A/B
 > outage futást, a Release B a teljes szerkesztői workspace-t és konfliktuságat
 > zárta le. A lentebbi audit az indulási baseline-t rögzíti; az aktuális állapot
 > forrása a [TODO.md](TODO.md), a jegyzőkönyvek:
 > [RELEASE-A-EVIDENCE.md](RELEASE-A-EVIDENCE.md) és
 > [RELEASE-B-EVIDENCE.md](RELEASE-B-EVIDENCE.md), valamint
-> [PHASE-5-EVIDENCE.md](PHASE-5-EVIDENCE.md).
+> [PHASE-5-EVIDENCE.md](PHASE-5-EVIDENCE.md) és
+> [PHASE-6-EVIDENCE.md](PHASE-6-EVIDENCE.md).
 
 ## 1. Vezetői összefoglaló
 
@@ -473,6 +474,10 @@ Kilépési feltételek:
 ### Fázis 6 — Vezetett demó és bizonyíték
 
 **Becslés:** 4,25–6 mérnöknap · **Függőség:** Fázis 1–5 releváns részei.
+
+**Állapot (2026-09-17): KÉSZ.** A deklaratív S01–S05 registry, exact assertion
+engine, manual checkpoint, safe session recovery és redaktált JSON/Markdown
+export elkészült; az S01 és a valódi A/B kieséses S04 full-stack futás zöld.
 
 Feladatok:
 

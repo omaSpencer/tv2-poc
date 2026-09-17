@@ -5,9 +5,10 @@ import { StatusBar } from './StatusBar';
 export function AppShell() {
   return (
     <div className="app">
+      <a className="skip-link" href="#main-content">Ugrás a fő tartalomra</a>
       <StatusBar />
       <AppNav />
-      <main className="main">
+      <main id="main-content" className="main" tabIndex={-1}>
         <Outlet />
       </main>
       <footer className="footer muted">

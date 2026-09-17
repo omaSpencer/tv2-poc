@@ -1,50 +1,58 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, RouterProvider, createBrowserRouter, createRoutesFromElements } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { RequirePermission } from './auth/RequirePermission';
 import { AppShell } from './components/AppShell';
-import { AuthCallbackPage } from './pages/AuthCallbackPage';
-import { AuthPage } from './pages/AuthPage';
-import { DemoPage } from './pages/DemoPage';
-import { HomePage } from './pages/HomePage';
-import { CatalogDetailPage } from './features/catalog/routes/CatalogDetailPage';
-import { CatalogSearchPage } from './features/catalog/routes/CatalogSearchPage';
-import { ContentListPage } from './features/contents/routes/ContentListPage';
-import { ContentCreatePage } from './features/contents/routes/ContentCreatePage';
-import { ContentDetailPage } from './features/contents/routes/ContentDetailPage';
-import { ContentEditPage } from './features/contents/routes/ContentEditPage';
-import { OperationsPage } from './features/operations/routes/OperationsPage';
-import { ReindexPage } from './features/operations/routes/ReindexPage';
-import { ReindexProgressPage } from './features/operations/routes/ReindexProgressPage';
-import { QuarantinePage } from './features/operations/routes/QuarantinePage';
-import { RepairPage } from './features/operations/routes/RepairPage';
+
+const AuthCallbackPage = lazy(async () => ({ default: (await import('./pages/AuthCallbackPage')).AuthCallbackPage }));
+const AuthPage = lazy(async () => ({ default: (await import('./pages/AuthPage')).AuthPage }));
+const DemoPage = lazy(async () => ({ default: (await import('./pages/DemoPage')).DemoPage }));
+const HomePage = lazy(async () => ({ default: (await import('./pages/HomePage')).HomePage }));
+const CatalogDetailPage = lazy(async () => ({ default: (await import('./features/catalog/routes/CatalogDetailPage')).CatalogDetailPage }));
+const CatalogSearchPage = lazy(async () => ({ default: (await import('./features/catalog/routes/CatalogSearchPage')).CatalogSearchPage }));
+const ContentListPage = lazy(async () => ({ default: (await import('./features/contents/routes/ContentListPage')).ContentListPage }));
+const ContentCreatePage = lazy(async () => ({ default: (await import('./features/contents/routes/ContentCreatePage')).ContentCreatePage }));
+const ContentDetailPage = lazy(async () => ({ default: (await import('./features/contents/routes/ContentDetailPage')).ContentDetailPage }));
+const ContentEditPage = lazy(async () => ({ default: (await import('./features/contents/routes/ContentEditPage')).ContentEditPage }));
+const OperationsPage = lazy(async () => ({ default: (await import('./features/operations/routes/OperationsPage')).OperationsPage }));
+const ReindexPage = lazy(async () => ({ default: (await import('./features/operations/routes/ReindexPage')).ReindexPage }));
+const ReindexProgressPage = lazy(async () => ({ default: (await import('./features/operations/routes/ReindexProgressPage')).ReindexProgressPage }));
+const QuarantinePage = lazy(async () => ({ default: (await import('./features/operations/routes/QuarantinePage')).QuarantinePage }));
+const RepairPage = lazy(async () => ({ default: (await import('./features/operations/routes/RepairPage')).RepairPage }));
+
+function page(children: ReactNode) {
+  return (
+    <Suspense fallback={<section className="panel" role="status" aria-live="polite">Oldal betöltése…</section>}>
+      {children}
+    </Suspense>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<AppShell />}>
-      <Route index element={<HomePage />} />
-      <Route path="login" element={<AuthPage />} />
+      <Route index element={page(<HomePage />)} />
+      <Route path="login" element={page(<AuthPage />)} />
       <Route path="auth" element={<Navigate to="/login" replace />} />
-      <Route path="auth/callback" element={<AuthCallbackPage />} />
-      <Route path="catalog/search" element={<CatalogSearchPage />} />
-      <Route path="catalog/:id" element={<CatalogDetailPage />} />
+      <Route path="auth/callback" element={page(<AuthCallbackPage />)} />
+      <Route path="catalog/search" element={page(<CatalogSearchPage />)} />
+      <Route path="catalog/:id" element={page(<CatalogDetailPage />)} />
       <Route path="search" element={<Navigate to="/catalog/search" replace />} />
       <Route path="catalog" element={<Navigate to="/catalog/search" replace />} />
-      <Route path="contents" element={<RequirePermission permission="content:read"><ContentListPage /></RequirePermission>} />
-      <Route path="contents/new" element={(
-        <RequirePermission permission="content:write">
-          <ContentCreatePage />
-        </RequirePermission>
+      <Route path="contents" element={page(<RequirePermission permission="content:read"><ContentListPage /></RequirePermission>)} />
+      <Route path="contents/new" element={page(
+        <RequirePermission permission="content:write"><ContentCreatePage /></RequirePermission>,
       )} />
-      <Route path="contents/:id" element={<RequirePermission permission="content:read"><ContentDetailPage /></RequirePermission>} />
-      <Route path="contents/:id/edit" element={<RequirePermission permission="content:write"><ContentEditPage /></RequirePermission>} />
+      <Route path="contents/:id" element={page(<RequirePermission permission="content:read"><ContentDetailPage /></RequirePermission>)} />
+      <Route path="contents/:id/edit" element={page(<RequirePermission permission="content:write"><ContentEditPage /></RequirePermission>)} />
       <Route path="editorial" element={<Navigate to="/contents" replace />} />
-      <Route path="operations" element={<RequirePermission permission="ops:read"><OperationsPage /></RequirePermission>} />
-      <Route path="operations/reindex" element={<RequirePermission permission="ops:write"><ReindexPage /></RequirePermission>} />
-      <Route path="operations/reindex/:runId" element={<RequirePermission permission="ops:read"><ReindexProgressPage /></RequirePermission>} />
-      <Route path="operations/quarantine" element={<RequirePermission permission="ops:read"><QuarantinePage /></RequirePermission>} />
-      <Route path="operations/repair" element={<RequirePermission permission="ops:write"><RepairPage /></RequirePermission>} />
+      <Route path="operations" element={page(<RequirePermission permission="ops:read"><OperationsPage /></RequirePermission>)} />
+      <Route path="operations/reindex" element={page(<RequirePermission permission="ops:write"><ReindexPage /></RequirePermission>)} />
+      <Route path="operations/reindex/:runId" element={page(<RequirePermission permission="ops:read"><ReindexProgressPage /></RequirePermission>)} />
+      <Route path="operations/quarantine" element={page(<RequirePermission permission="ops:read"><QuarantinePage /></RequirePermission>)} />
+      <Route path="operations/repair" element={page(<RequirePermission permission="ops:write"><RepairPage /></RequirePermission>)} />
       <Route path="processing" element={<Navigate to="/operations" replace />} />
-      <Route path="demo" element={<RequireAuth><DemoPage /></RequireAuth>} />
+      <Route path="demo" element={page(<RequireAuth><DemoPage /></RequireAuth>)} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>,
   ),

@@ -252,12 +252,11 @@ Token, header, body, password, endpoint credential és teljes DB URL tilos.
 
 ## 7. Definition of Done
 
-- [ ] Minden negatív lépés exact status/code/fields assertiont használ.
-- [ ] Váratlan hiba soha nem számít passnak.
-- [ ] Minden run új content ID-val indul.
-- [ ] Mutation lost response nem okoz automatikus duplikálást.
-- [ ] Manual fault injection nem fut UI-ból.
-- [ ] Refresh után safe módon folytatható vagy egyértelműen inconclusive.
-- [ ] JSON/Markdown export allowlistelt és secretmentes.
-- [ ] S01–S04 integration, kijelölt full-stack scenario zöld.
-
+- [x] Minden negatív lépés exact status/code/fields assertiont használ.
+- [x] Váratlan hiba soha nem számít passnak.
+- [x] Minden run új content ID-val indul.
+- [x] Mutation lost response nem okoz automatikus duplikálást.
+- [x] Manual fault injection nem fut UI-ból.
+- [x] Refresh után safe módon folytatható vagy egyértelműen inconclusive.
+- [x] JSON/Markdown export allowlistelt és secretmentes.
+- [x] S01–S04 integration, kijelölt full-stack scenario zöld.

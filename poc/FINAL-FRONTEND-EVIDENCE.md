@@ -1,7 +1,8 @@
-# Final frontend evidence – FE-F1–FE-F4
+# Final frontend evidence – FE-F1–FE-F5
 
 2026-09-18 · FE-F2: branch `codex/final-fe-f2`; FE-F3: branch
-`codex/final-fe-f3`; FE-F4: branch `codex/final-fe-f4`; integráció: `main`.
+`codex/final-fe-f3`; FE-F4: branch `codex/final-fe-f4`; FE-F5: branch
+`codex/final-fe-f5`; integráció: `main` (FE-F5 még nem integrált).
 Node **24.20.0**.
 
 Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) lezárt
@@ -539,3 +540,197 @@ OpenAPI, generated contract, Compose és dependency-verzió változatlan.
 
 A koordinátor ezután a BE-F4, az eredeti FE-F4 és a review-javítás commitját
 sorrendben integrálta `main`-re, majd a teljes közös W4 kaput futtatta.
+
+---
+
+## FE-F5 – Production security és minőségkapu
+
+2026-09-18 · Branch `codex/final-fe-f5` · worktree `/private/tmp/tv2-poc-fe-f5`
+· baseline `8dfcfd8` · Node **24.20.0**. Audit-ID-k: **L1** (integrációs gate
+pending), **L14**, **I3**, **I4** (lezárva).
+
+A kliens SPA marad; BFF nincs. A Wave 5 frontend ág a közös
+`FRONTEND-IDENTITY-AND-API-DECISIONS.md` és `SECURITY-REVIEW.md` egyetlen írója.
+
+### Környezet
+
+| Elem | Érték |
+| --- | --- |
+| Node.js | 24.20.0 (`nvm use 24.20.0`) |
+| npm | 11.19.0 |
+| Kapu | `cd poc/frontend && npm run verify` |
+| E2E typecheck | `cd poc/frontend && npm run e2e:typecheck` PASS |
+| Böngészős token-életciklus | Skip, amíg `E2E_AUTHENTIK_SILENT_REDIRECT=true` (BE-F5) |
+
+### Production bundle
+
+| | JS (byte) | CSS (byte) | Legnagyobb JS |
+| --- | ---: | ---: | --- |
+| Integrált W4 | 694 767 | 19 273 | `assets/index-DIILaIi4.js` 343 873 |
+| FE-F5 (`index-Dl7lkAJZ.js`) | 696 633 | 19 273 | `assets/index-Dl7lkAJZ.js` 343 733 |
+| Delta | **+1 866** | **0** | **−140** |
+
+A növekedés a memória-only OIDC (`MemoryStateStore`, silent callback,
+CSP-origin nélküli default) és a production fail-fast env ellenőrzés. A
+`security-headers.conf` a Nginx image-be a build során generálódik, nem a JS
+bundle része.
+
+### L1 – Memória-only OIDC és XSS/CSP (integrációs gate pending)
+
+**Eredmény:** production auth döntés rögzítve: SPA, nem BFF; OIDC `User`,
+access/ID/refresh token memóriában; PKCE state/verifier maradhat
+`sessionStorage`-ban token nélkül; manual-token csak explicit nem-prod profil;
+reload után Authentik `prompt=none` a `/auth/silent-callback` route-on. A
+valódi 5 perces renew + silent reload Playwright **nem futott** ezen az ágon,
+mert a strict redirect allowist a Codex BE-F5 feladata.
+
+Threat model (`SECURITY-REVIEW.md`): a memória-only tárolás a tartós
+tokenlopást szünteti meg; aktív XSS ellen a CSP (`script-src 'self'`, nincs
+`unsafe-eval` / `script-src *`, `connect-src`/`frame-src` self + OIDC origin,
+`frame-ancestors 'none'`) és a dependency hygiene véd.
+
+Fő fájlok:
+
+- `src/auth/memoryStateStore.ts`, `oidc.ts` (`userStore` memória, `stateStore`
+  sessionStorage, `silent_redirect_uri`)
+- `src/auth/AuthProvider.tsx`: bootstrap memória-user → silent restore;
+  `login_required` anonim; dependency hiba `identity_unavailable`; 401
+  single-flight recovery; logout törli a memória-usert és a Query cache-t
+- `src/auth/manualToken.ts`: memória, soha nem Web Storage
+- `src/auth/storageSentinel.ts`: JWT / `access_token`/`id_token`/`refresh_token`
+  mezők; PKCE verifier nem token
+- `src/api/client.ts`: 401 recovery után csak idempotens GET ismétlődik
+- `src/main.tsx`: silent-callback iframe early-exit, nincs SPA mount
+- `src/config/securityHeaders.ts`, `nginx.conf`, `scripts/render-nginx-security.mjs`,
+  `scripts/check-production-posture.mjs`
+- `e2e/support/auth.ts`: `loginAs` a megfigyelt `Authorization` headerből ad
+  tokent a teszt memóriájában; `accessTokenFromSession` törölve
+- `e2e/specs/auth-token-lifecycle.spec.ts`: skip, hacsak
+  `E2E_AUTHENTIK_SILENT_REDIRECT=true`
+
+Tesztek:
+
+- `src/auth/AuthProvider.test.tsx` — login, callback, silent restore,
+  login_required, identity_unavailable, 401 single-flight, logout, redirect-loop
+  megelőzés
+- `src/auth/oidc.test.ts`, `memoryStateStore.test.ts`, `storageSentinel.test.ts`
+- `src/api/client.test.ts` — GET retry, mutation no-resubmit
+- `src/config/securityHeaders.test.ts` — CSP szerződés
+
+L1 **nem kész**, amíg a full-stack silent/renew gate az integrált W5 kapun
+le nem fut.
+
+### L14 – Same-origin docs és `VITE_*` public policy
+
+**Eredmény:** minden `VITE_*` bundle-public; `VITE_BACKEND_ORIGIN` csak a Vite
+dev proxy célja. Production API és docs relatív `/api`. Hiányzó origin nem
+képez `127.0.0.1:3000` production linket; explicit hibás URL fail-fast.
+
+- `src/config/env.ts`: `resolveDocsHref` mindig `/api/docs` alak; invalid
+  `VITE_BACKEND_ORIGIN` throw; production manual-token throw
+- `src/config/devProxy.ts`: hiányzó origin → dokumentált `http://127.0.0.1:3000`
+  csak a **dev proxyhoz**
+- `src/api/client.ts`: `backendDocsUrl` → `resolveDocsHref`
+- Docker ARG: `VITE_API_BASE`, `VITE_OIDC_ISSUER_URL`, `VITE_OIDC_CLIENT_ID`,
+  `VITE_OIDC_REDIRECT_URI`, `VITE_OIDC_POST_LOGOUT_REDIRECT_URI`,
+  `VITE_OIDC_SILENT_REDIRECT_URI`, `VITE_ALLOW_MANUAL_TOKEN`
+- `scripts/check-production-posture.mjs`: a dist JS nem tartalmazhatja a
+  `127.0.0.1:3000` / `localhost:3000` needle-t
+- Tesztek: `src/config/env.test.ts`, `src/config/devProxy.test.ts`,
+  `src/api/client.test.ts`
+
+### I3 – Node/npm runtime pin
+
+**Eredmény:** a frontend package a repo `.nvmrc` szerinti **24.20.0** /
+**11.19.0** toolchaint kényszeríti. A közös `.github/workflows/release-gates.yml`
+nem változott.
+
+- `package.json`: `engines`, `packageManager`, `devEngines` (`onFail: error`)
+- `.npmrc`: `engine-strict=true`
+- `src/config/runtimePin.ts` + `scripts/check-runtime.mjs`
+- Támogatott környezet: `{"event":"runtime_check","node":"24.20.0","npm":"11.19.0",...}`
+- Injektált eltérés:
+  - `RUNTIME_CHECK_NODE=18.20.0` → exit 1, `Nem támogatott Node 18.20.0`
+  - `RUNTIME_CHECK_NPM=10.9.0` → exit 1, `Nem támogatott npm 10.9.0`
+- Tesztek: `src/config/runtimePin.test.ts`
+
+### I4 – Coverage gate
+
+**Eredmény:** Vitest 5.0.1 + `@vitest/coverage-v8@5.0.1`. A `verify` a suite-ot
+egyszer, coverage-del futtatja (`test:coverage`); nincs előtte külön `npm test`.
+Include: `src/**/*.{ts,tsx}`. Exclude indokkal: generated contract, `vite-env.d.ts`,
+`src/main.tsx` (bootstrap / silent iframe; a state machine az oidc/AuthProvider
+tesztekben van), teszt- és `src/test` fájlok.
+
+Mért baseline (Node 24.20.0, `vitest run --coverage`, 52 fájl / 248 teszt):
+
+| Metrika | Baseline | Threshold (lefelé + 2 pont) |
+| --- | ---: | ---: |
+| statements | 71.03% (1550/2182) | 69 |
+| branches | 68.36% (1260/1843) | 66 |
+| functions | 70.48% (406/576) | 68 |
+| lines | 73.43% (1393/1897) | 71 |
+
+A threshold nem auto-update. A worker pool a Vitest default (threads) maradt;
+`maxWorkers: 4` a coverage alatti jsdom-terhelés miatt, nem `vmThreads`.
+`testTimeout: 15_000`. Nincs 10× `vmThreads` összehasonlítás, ezért pool-váltás
+nincs.
+
+### FE-F5 kapu
+
+```text
+node -v
+v24.20.0
+npm -v
+11.19.0
+
+cd poc/frontend && npm run runtime:check
+{"event":"runtime_check","node":"24.20.0","npm":"11.19.0","pinned":{"node":"24.20.0","npm":"11.19.0"}}
+
+RUNTIME_CHECK_NODE=18.20.0 RUNTIME_CHECK_NPM=11.19.0 npm run runtime:check
+exit 1  Nem támogatott Node 18.20.0; elvárt 24.20.0.
+
+cd poc/frontend && npm run verify
+contracts:check  PASS (generated backend.ts unchanged)
+build            PASS
+{"event":"bundle_baseline","javascriptBytes":696633,"cssBytes":19273,
+ "largestJavaScript":{"path":"assets/index-Dl7lkAJZ.js","bytes":343733}}
+{"event":"production_posture","docsHref":"/api/docs","oidcOrigin":null}
+compiler:check   PASS
+lint             PASS (oxlint src e2e, 0 warning)
+test:coverage    PASS  52 files, 248/248
+                 statements 71.03 >= 69
+                 branches   68.36 >= 66
+                 functions  70.48 >= 68
+                 lines      73.43 >= 71
+
+cd poc/frontend && npm run e2e:typecheck
+PASS
+```
+
+### Nem futtatott kapuk (FE-F5)
+
+- Valódi Authentik silent-recovery / 5 perces token-renew Playwright
+  (`e2e/specs/auth-token-lifecycle.spec.ts`) — BE-F5 redirect allowlist
+- Teljes cross-browser/responsive/axe E2E újrafuttatás — W4-en zöld volt;
+  ez az ág a typecheckre és a skippelt lifecycle spec-re szorítkozott
+- Backend test/build, OpenAPI emit, `.github/workflows/release-gates.yml`
+
+### Maradék kockázat (FE-F5)
+
+- Reload utáni session a memóriából eltűnik; a silent iframe csak akkor
+  állítja helyre, ha az Authentik `prompt=none` + `/auth/silent-callback`
+  redirect engedélyezett. E nélkül a felhasználó újra belép.
+- Aktív XSS továbbra is olvashatja a futó oldal memóriájában lévő tokent.
+- A coverage threshold 2 pontos tartalék; v8 százalék kerekítése futtatásonként
+  enyhén változhat, auto-update nincs.
+- `maxWorkers: 4` a coverage-stabilitás miatt; a default pool típusa változatlan.
+
+### Scope (FE-F5)
+
+Nem merge-eltem `main`-re, nem rebase-eltem, nem pusholtam, és nem
+módosítottam a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend forrás,
+Authentik blueprint, backend Compose, OpenAPI, generated contract és a közös
+workflow érintetlen. A FE-F5 checklist a `FINAL-FRONTEND-MILESTONE.md` fájlban
+frissült; a milestone DoD nyitott, amíg L1 integrációs gate és a teljes E2E
+kapu le nem zárul.

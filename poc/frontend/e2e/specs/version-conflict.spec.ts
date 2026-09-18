@@ -23,7 +23,7 @@ test('a párhuzamos szerkesztés konfliktusa adatvesztés nélkül oldható fel'
   const id = await createDraft(pageA, draft);
 
   // A második context ugyanazzal az Authentik munkamenettel indul, de saját
-  // alkalmazás-munkamenetet bootstrapel (az OIDC user sessionStorage-ban él).
+  // alkalmazás-munkamenetet bootstrapel (az OIDC user memóriában él).
   const contextB = await browser.newContext({ storageState: await contextA.storageState() });
   const pageB = await contextB.newPage();
   await loginAs(pageB, 'poc-publisher');

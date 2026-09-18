@@ -165,34 +165,59 @@ export type LoginOptions = {
   expectedPath?: string;
 };
 
+const BEARER = /^Bearer\s+(\S+)$/i;
+
+function observeAccessToken(page: Page, sink: { token?: string }): () => void {
+  const onRequest = (request: { url: () => string; headers: () => Record<string, string> }) => {
+    if (!request.url().includes('/api/')) return;
+    const header = request.headers().authorization;
+    const match = header ? BEARER.exec(header) : null;
+    if (match) sink.token = match[1];
+  };
+  page.on('request', onRequest);
+  return () => page.off('request', onRequest);
+}
+
 /**
  * Végigviszi a teljes PKCE folyamatot és megvárja, amíg a `/me` bootstrap lefut.
- * Visszatéréskor az alkalmazás bejelentkezett állapotban van.
+ * Visszatéréskor az alkalmazás bejelentkezett állapotban van. A megfigyelt
+ * Bearer token csak a tesztfolyamat memóriájában él; storage/DOM/log nem kapja.
  */
 export async function loginAs(
   page: Page,
   identity: E2eIdentity,
   options: LoginOptions = {},
-): Promise<void> {
-  const startPath = options.startPath ?? '/login';
-  await page.goto(startPath);
+): Promise<string> {
+  const observed: { token?: string } = {};
+  const stop = observeAccessToken(page, observed);
+  try {
+    const startPath = options.startPath ?? '/login';
+    await page.goto(startPath);
 
-  if (startPath !== '/login') {
-    // A RequireAuth/RequirePermission guard átirányít a /login?returnTo=... címre.
-    await page.waitForURL(/\/login(\?|$)/, { timeout: 15_000 });
-  }
+    if (startPath !== '/login') {
+      // A RequireAuth/RequirePermission guard átirányít a /login?returnTo=... címre.
+      await page.waitForURL(/\/login(\?|$)/, { timeout: 15_000 });
+    }
 
-  const loginButton = page.getByRole('button', { name: 'Belépés Authentikkal' });
-  await expect(loginButton).toBeEnabled({ timeout: 15_000 });
-  await loginButton.click();
+    const loginButton = page.getByRole('button', { name: 'Belépés Authentikkal' });
+    await expect(loginButton).toBeEnabled({ timeout: 15_000 });
+    await loginButton.click();
 
-  await completeAuthentikForm(page, identity);
+    await completeAuthentikForm(page, identity);
 
-  await expect(profileLink(page)).toBeVisible({ timeout: 20_000 });
+    await expect(profileLink(page)).toBeVisible({ timeout: 20_000 });
 
-  const expectedPath = options.expectedPath ?? (startPath === '/login' ? undefined : startPath);
-  if (expectedPath) {
-    await page.waitForURL((url) => `${url.pathname}${url.search}` === expectedPath, { timeout: 15_000 });
+    const expectedPath = options.expectedPath ?? (startPath === '/login' ? undefined : startPath);
+    if (expectedPath) {
+      await page.waitForURL((url) => `${url.pathname}${url.search}` === expectedPath, { timeout: 15_000 });
+    }
+
+    if (!observed.token) {
+      throw new Error('A belépés után nem jelent meg Authorization fejléc a /api kéréseken.');
+    }
+    return observed.token;
+  } finally {
+    stop();
   }
 }
 

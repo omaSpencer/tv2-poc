@@ -7,27 +7,20 @@ import { isApiProblemError, type MeResponse } from '../api/types';
 import { frontendConfig } from '../config/env';
 import { AuthContext } from './authContext';
 import { meFromState, type AuthContextValue, type AuthState } from './authTypes';
-import { completeSigninCallbackOnce, createOidcManager, returnToFromUser, safeReturnTo } from './oidc';
+import { readManualToken, writeManualToken } from './manualToken';
+import {
+  completeSigninCallbackOnce,
+  createOidcManager,
+  returnToFromUser,
+  safeReturnTo,
+} from './oidc';
 
-const MANUAL_TOKEN_KEY = 'indaplay.poc.manualAccessToken';
-
-function readManualToken(): string | null {
-  if (!frontendConfig.allowManualToken) return null;
-  try {
-    const token = sessionStorage.getItem(MANUAL_TOKEN_KEY)?.trim();
-    return token || null;
-  } catch {
-    return null;
-  }
+function currentManualToken(): string | null {
+  return readManualToken(frontendConfig.allowManualToken);
 }
 
-function writeManualToken(token: string | null): void {
-  try {
-    if (token) sessionStorage.setItem(MANUAL_TOKEN_KEY, token);
-    else sessionStorage.removeItem(MANUAL_TOKEN_KEY);
-  } catch {
-    // Private mode/quota failure must not turn into a credential log or crash.
-  }
+function persistManualToken(token: string | null): void {
+  writeManualToken(frontendConfig.allowManualToken, token);
 }
 
 function safeAuthMessage(error: unknown): string {
@@ -39,6 +32,29 @@ function safeAuthMessage(error: unknown): string {
     return `A bejelentkezés ellenőrzése sikertelen (${error.problem.code}).`;
   }
   return 'A bejelentkezés nem fejezhető be. Próbáld újra később.';
+}
+
+function currentPathname(): string {
+  try {
+    return window.location.pathname;
+  } catch {
+    return '/';
+  }
+}
+
+function isLoginRequired(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'error' in error && typeof error.error === 'string') {
+    if (
+      error.error === 'login_required'
+      || error.error === 'interaction_required'
+      || error.error === 'consent_required'
+      || error.error === 'account_selection_required'
+    ) {
+      return true;
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /login_required|interaction_required/.test(message);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -71,11 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearLocalSession = useCallback(() => {
     setApiAccessToken(null);
-    writeManualToken(null);
+    persistManualToken(null);
     manualModeRef.current = false;
     resetUserCache();
     setState(anonymousState());
   }, [anonymousState, resetUserCache]);
+
+  const dropStaleBearer = useCallback(async () => {
+    setApiAccessToken(null);
+    persistManualToken(null);
+    manualModeRef.current = false;
+    await manager?.removeUser().catch(() => undefined);
+  }, [manager]);
 
   const acceptMe = useCallback((me: MeResponse) => {
     if (subjectRef.current && subjectRef.current !== me.sub) queryClient.clear();
@@ -102,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const acceptOidcUser = useCallback(async (user: User): Promise<boolean> => {
     if (!user.access_token || user.expired === true) return false;
     manualModeRef.current = false;
-    writeManualToken(null);
+    persistManualToken(null);
     setApiAccessToken(user.access_token);
     return validateCurrentToken(meFromState(stateRef.current));
   }, [validateCurrentToken]);
@@ -111,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (recoveryRef.current) return recoveryRef.current;
     const work = (async () => {
       if (!manager || manualModeRef.current) {
+        await dropStaleBearer();
         clearLocalSession();
         return false;
       }
@@ -118,12 +142,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const user = await manager.signinSilent();
         if (!user) {
+          await dropStaleBearer();
           clearLocalSession();
           return false;
         }
         return acceptOidcUser(user);
-      } catch {
-        clearLocalSession();
+      } catch (error) {
+        await dropStaleBearer();
+        if (isLoginRequired(error)) {
+          clearLocalSession();
+          return false;
+        }
+        resetUserCache();
+        setState({
+          kind: 'identity_unavailable',
+          message: safeAuthMessage(error),
+          me: meFromState(stateRef.current),
+        });
         return false;
       }
     })().finally(() => {
@@ -131,24 +166,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     recoveryRef.current = work;
     return work;
-  }, [acceptOidcUser, clearLocalSession, manager]);
+  }, [acceptOidcUser, clearLocalSession, dropStaleBearer, manager, resetUserCache]);
 
   const bootstrap = useCallback(async (): Promise<void> => {
     if (manager) {
       try {
         const user = await manager.getUser();
         if (user && user.expired !== true && await acceptOidcUser(user)) return;
-        if (user?.refresh_token) {
-          const renewed = await recover();
-          if (renewed) return;
-        }
+        const pathname = currentPathname();
+        if (pathname === '/auth/callback' || pathname === '/auth/silent-callback') return;
+        const silentUser = await manager.signinSilent();
+        if (silentUser && await acceptOidcUser(silentUser)) return;
       } catch (error) {
-        setState({ kind: 'identity_unavailable', message: safeAuthMessage(error), me: null });
-        return;
+        await dropStaleBearer();
+        if (!isLoginRequired(error)) {
+          setState({ kind: 'identity_unavailable', message: safeAuthMessage(error), me: null });
+          return;
+        }
       }
     }
 
-    const manualToken = readManualToken();
+    const manualToken = currentManualToken();
     if (manualToken) {
       manualModeRef.current = true;
       setApiAccessToken(manualToken);
@@ -157,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setApiAccessToken(null);
     setState(anonymousState());
-  }, [acceptOidcUser, anonymousState, manager, recover, validateCurrentToken]);
+  }, [acceptOidcUser, anonymousState, dropStaleBearer, manager, validateCurrentToken]);
 
   const retry = useCallback(async (): Promise<void> => {
     setState({ kind: 'bootstrapping' });
@@ -185,15 +223,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ kind: 'renewing', me: meFromState(stateRef.current) });
     });
     const removeExpired = manager.events.addAccessTokenExpired(() => {
-      setApiAccessToken(null);
+      void dropStaleBearer();
       setState({ kind: 'expired' });
     });
-    const removeRenewError = manager.events.addSilentRenewError(() => {
-      setState({
-        kind: 'identity_unavailable',
-        message: 'A munkamenet megújítása sikertelen.',
-        me: meFromState(stateRef.current),
-      });
+    const removeRenewError = manager.events.addSilentRenewError((error) => {
+      void (async () => {
+        await dropStaleBearer();
+        if (isLoginRequired(error)) {
+          clearLocalSession();
+          return;
+        }
+        resetUserCache();
+        setState({
+          kind: 'identity_unavailable',
+          message: 'A munkamenet megújítása sikertelen.',
+          me: meFromState(stateRef.current),
+        });
+      })();
     });
     return () => {
       removeLoaded();
@@ -203,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeRenewError();
       manager.stopSilentRenew();
     };
-  }, [acceptOidcUser, clearLocalSession, manager]);
+  }, [acceptOidcUser, clearLocalSession, dropStaleBearer, manager, resetUserCache]);
 
   const login = useCallback(async (returnTo?: string) => {
     if (!manager) {
@@ -229,10 +275,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!accepted) throw new Error('A kapott access token lejárt vagy hiányzik.');
       return returnTo;
     } catch (error) {
+      await dropStaleBearer();
       setState({ kind: 'identity_unavailable', message: safeAuthMessage(error), me: null });
       throw error;
     }
-  }, [acceptOidcUser, manager]);
+  }, [acceptOidcUser, dropStaleBearer, manager]);
 
   const logout = useCallback(async () => {
     const user = await manager?.getUser().catch(() => null);
@@ -262,7 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     manualModeRef.current = true;
-    writeManualToken(token);
+    persistManualToken(token);
     setApiAccessToken(token);
     await validateCurrentToken();
   }, [clearLocalSession, manager, resetUserCache, validateCurrentToken]);

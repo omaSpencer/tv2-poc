@@ -28,9 +28,10 @@ nem jelölhető késznek.
 | API audience | `poc-backend-api`; a backend ezt ellenőrzi |
 | Redirect URI | `http://127.0.0.1:5173/auth/callback` |
 | Post-logout URI | `http://127.0.0.1:5173/login` |
+| Silent redirect URI | `http://127.0.0.1:5173/auth/silent-callback` |
 | Könyvtár | `oidc-client-ts`, lockfile-ban rögzítve |
-| OIDC state tárolása | `sessionStorage`, nem `localStorage` |
-| Megújítás | Refresh token az `offline_access` scope-pal; automatikus megújítás a lejárat előtt |
+| OIDC user tárolása | Memória (`MemoryStateStore`); a `sessionStorage` csak a redirect PKCE state/verifier |
+| Megújítás | Ugyanazon az oldalon a memóriában lévő refresh token; reload után Authentik `prompt=none` a `/auth/silent-callback` route-on |
 | Alkalmazásjog forrása | Kizárólag `GET /me`; a frontend nem számol jogot token claimből |
 | Kézi token | Csak `VITE_ALLOW_MANUAL_TOKEN=true` mellett, fejlesztői jelzéssel |
 | Tokenmegjelenítés | A normál UI, log, toast és hibapanel soha nem mutat access/refresh/ID tokent |
@@ -43,12 +44,15 @@ A meglévő public provider marad. A strict redirect allowlist három eleme:
 http://127.0.0.1:8765/callback
 http://127.0.0.1:5173/auth/callback
 http://127.0.0.1:5173/login
+http://127.0.0.1:5173/auth/silent-callback
 ```
 
 Az első a meglévő CLI bizonyító kliensé, a második a SPA callbackje, a harmadik a
-post-logout cél. Wildcard, regex, `localhost` alias és tetszőleges port nem
-engedélyezett. A post-logout viselkedést L2-ben ténylegesen igazolni kell; ha az
-IdP nem redirectel, a frontend a helyi sessiont akkor is azonnal törli.
+post-logout cél, a negyedik a hidden iframe silent restore. A silent URI-t a
+BE-F5 Authentik blueprint adja; e frontend ágon a böngészős silent-recovery
+integrációs gate pending. Wildcard, regex, `localhost` alias és tetszőleges port
+nem engedélyezett. A post-logout viselkedést L2-ben ténylegesen igazolni kell; ha
+az IdP nem redirectel, a frontend a helyi sessiont akkor is azonnal törli.
 
 ### 2.2 Frontend env-szerződés
 
@@ -57,13 +61,26 @@ VITE_OIDC_ISSUER_URL=http://127.0.0.1:9000/application/o/poc-backend/
 VITE_OIDC_CLIENT_ID=poc-backend
 VITE_OIDC_REDIRECT_URI=http://127.0.0.1:5173/auth/callback
 VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login
+VITE_OIDC_SILENT_REDIRECT_URI=http://127.0.0.1:5173/auth/silent-callback
 VITE_ALLOW_MANUAL_TOKEN=false
 ```
 
-A négy OIDC-kulcs közül issuer és client ID kötelező az auth bekapcsolásához. A
+Production Docker ARG (publikus; a Codex BE-F5 Compose overlay ezeket a neveket
+köti, nem átnevezhetők): `VITE_API_BASE`, `VITE_OIDC_ISSUER_URL`,
+`VITE_OIDC_CLIENT_ID`, `VITE_OIDC_REDIRECT_URI`,
+`VITE_OIDC_POST_LOGOUT_REDIRECT_URI`, `VITE_OIDC_SILENT_REDIRECT_URI`,
+`VITE_ALLOW_MANUAL_TOKEN`. A `VITE_BACKEND_ORIGIN` nem production ARG.
+
+Minden `VITE_*` érték bundle-public; titok nem lehet benne. A
+`VITE_BACKEND_ORIGIN` kizárólag a Vite fejlesztői proxy célja, nem production
+browser secret és nem a SPA runtime API-címe. Productionben az API és a docs
+link relatív `/api` alapot használ a same-origin ingress miatt.
+
+A OIDC issuer és client ID kötelező az auth bekapcsolásához. A
 redirect értékeknek legyen biztonságos helyi alapértéke, de production buildben
-explicit env szükséges. A frontend induláskor csak a konfiguráció alakját
-ellenőrzi; discovery hálózati hiba külön runtime állapot.
+explicit env szükséges, a silent redirectdel együtt. A frontend induláskor csak a
+konfiguráció alakját ellenőrzi; discovery hálózati hiba külön runtime állapot.
+A manuális token escape hatch productionben build/config hiba.
 
 ### 2.3 Session állapotgép
 
@@ -83,8 +100,9 @@ bootstrapping
 - `403 forbidden`: a session érvényes marad, jogosultsági képernyő jelenik meg.
 - `503 dependency_unavailable`: nincs login loop; újrapróbálható IdP/backend állapot.
 - Subject-váltás vagy logout törli a teljes user-függő TanStack Query cache-t.
-- Több tab közti azonnali kijelentkeztetés nem Fázis 1 követelmény, mert az
-  állapot szándékosan `sessionStorage`-ban él.
+- Több tab közti azonnali kijelentkeztetés nem követelmény: a user memóriában él.
+- Bootstrap: memória-user, majd silent `prompt=none`. `login_required` anonim;
+  dependency hiba `identity_unavailable`. A login oldal nem indít redirect-loopot.
 
 ### 2.4 Authentik L2 elfogadás
 
@@ -227,8 +245,9 @@ részletként.
 | --- | --- |
 | Token claimből számolt permission | Megkettőzné és könnyen elsodorná a backend jogosultsági szabályát |
 | Token `localStorage`-ban | Indokolatlanul tartós és minden tabra kiterjedő hozzáférés |
+| Token `sessionStorage`-ban productionben | XSS után tartós tokenlopás; a PoC SPA memória-only + CSP-t választ |
 | Implicit flow | Nincs PKCE code exchange, modern SPA-hoz nem elfogadható |
-| Új BFF/session-cookie réteg | A PoC resource-server architektúrájához képest túl nagy új scope |
+| Új BFF/session-cookie réteg | A PoC resource-server architektúrájához képest túl nagy új scope; W5 a SPA-t tartja |
 | Offsetes admin lista | Módosuló adatoknál duplikált/kihagyott sorokat adna |
 | Teljes `total` count | A UI nem igényli, a lekérdezést drágítja és gyorsan stale lesz |
 | Audit értékdiffekkel | A jelenlegi audit nem tárol értékeket; új adatvédelmi és tárolási scope lenne |

@@ -13,6 +13,7 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 | Spec | Lefedett kötelező ellenőrzés |
 | --- | --- |
 | `specs/auth-role-guard.spec.ts` | viewer/editor/publisher PKCE belépés, `/me` szerinti navigáció, reload utáni session, 403 megtartott munkamenettel, logout, returnTo open-redirect védelem |
+| `specs/auth-token-lifecycle.spec.ts` | release-only: storage-mentes token, 5 perces megújulás, silent reload, logout; `E2E_AUTHENTIK_SILENT_REDIRECT=true` a BE-F5 redirect után |
 | `specs/content-lifecycle.spec.ts` | v1 → v6 életciklus UUID másolása nélkül, published read-only, no-op verzió, audit sorrend, katalógus megjelenés és eltűnés, editor tiltott lifecycle |
 | `specs/version-conflict.spec.ts` | két browser context 409-e, helyi/szerver diff, kézi reapply, nincs automatikus újraküldés |
 | `specs/search-operations.spec.ts` | anonymous keresés → szűrés → lapozás → detail → vissza, bookmarkolható URL, `returned` vs `estimatedTotalHits`, operations kártyák, A/B fallback és teljes kiesés (`@outage`) |
@@ -25,7 +26,7 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 
 ## Előfeltételek
 
-- Node **24.20.x** (a `package.json` engines mezője ezt köti ki).
+- Node **24.20.0** / npm **11.19.0** (a `package.json` engines mezője ezt köti ki).
 - Docker, futó `--profile full` stack: PostgreSQL, NATS, Meilisearch A és B, Authentik.
 - Első futás előtt:
 
@@ -156,8 +157,10 @@ van, hogy a Vite fájlfigyelője ne tölthesse újra a PKCE oldalt futás közbe
 Minden futás saját, egyedi című tartalmakat hoz létre; seedre nincs szükség és a
 suite nem törli más adatát. A lifecycle és a konfliktus teszt a UI-n keresztül
 dolgozik. A katalógus lapozásához 12 publikált elem kell, ezt a HTTP API-n
-készíti el a fixture (`seedPublishedContents`), mert UI-ból percekig tartana; a
-*vizsgált* viselkedés továbbra is a böngészőben fut.
+készíti el a fixture (`seedPublishedContents`), a Bearer tokent a `loginAs` a
+belépés során megfigyelt Authorization fejlécből adja a tesztfolyamat
+memóriájába; storage-ból, DOM-ból, logból nem olvassuk. A *vizsgált* viselkedés
+továbbra is a böngészőben fut.
 
 A Phase 5 karantén-fixture egy valóban publikált content eseményre mutató,
 payloadmentes DLQ-locatort ír; a replay ugyanazt a tárolt JetStream-üzenetet
@@ -175,8 +178,9 @@ cd poc/backend && ENV_FILE=.env.e2e npm run db:reset
   sem jut el a backendig. Ezt az ágat a `CatalogSearchPage` komponensteszt fedi.
 - A polling háttértab-leállása böngészőből nem determinisztikus; ezt az
   `OperationsPage` komponensteszt bizonyítja.
-- Az access token élettartama 5 perc; a refresh ág valós lejárattal nincs
-  E2E-ben mérve (a reload utáni helyreállás igen).
+- Az access token élettartama 5 perc; a refresh és a silent-reload ág a
+  `auth-token-lifecycle` specre vár, amely a BE-F5 silent redirectig
+  integráció-pending (`E2E_AUTHENTIK_SILENT_REDIRECT`).
 - A kézi screen-reader smoke négy állomása: login oldal és hibaüzenet; create
   form label/mezőhiba; conflict dialog cím/leírás/fókusz; reindex confirm dialog
   és élő progress. A programozott név, live region és keyboard viselkedés

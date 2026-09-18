@@ -123,45 +123,20 @@ export async function waitForCatalogVisibility(
 }
 
 /**
- * A bejelentkezett munkamenet access tokenje az oidc-client-ts sessionStorage
- * bejegyzéséből. Csak tesztadat-seedeléshez használjuk; az alkalmazás kódja
- * továbbra sem tesz tokent a DOM-ba.
- */
-export async function accessTokenFromSession(page: Page): Promise<string> {
-  const token = await page.evaluate(() => {
-    for (let index = 0; index < sessionStorage.length; index += 1) {
-      const key = sessionStorage.key(index);
-      if (!key || !key.startsWith('oidc.user:')) continue;
-      const raw = sessionStorage.getItem(key);
-      if (!raw) continue;
-      try {
-        const parsed = JSON.parse(raw) as { access_token?: unknown };
-        if (typeof parsed.access_token === 'string') return parsed.access_token;
-      } catch {
-        // A hibás bejegyzést átugorjuk; a hiányt a hívó jelzi.
-      }
-    }
-    return null;
-  });
-  if (!token) {
-    throw new Error('Nem található access token a munkamenetben; előbb jelentkezz be a loginAs helperrel.');
-  }
-  return token;
-}
-
-/**
  * Lapozáshoz elegendő publikált tartalmat hoz létre a HTTP API-n keresztül.
  *
  * A katalógus lapozás vizsgálatához 10+ publikált elem kell; ezt UI-n keresztül
  * felvinni percekig tartana, ezért a *tesztadat* API-n készül. A vizsgált
  * viselkedés (lapozás, szűrés, detail, vissza) továbbra is a böngészőben fut.
+ * A Bearer tokent a `loginAs` a belépés során megfigyelt Authorization
+ * fejlécből adja; storage-ból nem olvassuk.
  */
 export async function seedPublishedContents(
   page: Page,
   options: { count: number; term: string; category?: DraftValues['category'] },
+  accessToken: string,
 ): Promise<string[]> {
-  const token = await accessTokenFromSession(page);
-  const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
   const titles: string[] = [];
 
   for (let index = 1; index <= options.count; index += 1) {

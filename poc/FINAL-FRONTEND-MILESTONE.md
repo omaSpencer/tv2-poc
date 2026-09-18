@@ -2,7 +2,8 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; FE-F1–FE-F4 lezárva.** Ez a milestone a final audit mind a **21 frontend
+**Státusz: folyamatban; FE-F1–FE-F4 lezárva; FE-F5 L14/I3/I4 lezárva, L1
+integrációs gate pending.** Ez a milestone a final audit mind a **21 frontend
 találatát** lezárja: 2 Medium, 14 Low és 5 Info tételt. A munka öt külön
 fázisban halad; egy fázis végén a frontendnek önmagában kiadható állapotban kell
 maradnia.
@@ -164,31 +165,35 @@ támogatott nyelvi scope-pal összhangban.
 **Cél:** lezárni a production üzembe álláshoz szükséges token-, konfiguráció-,
 runtime- és tesztelési döntéseket.
 
-- [ ] **L1 – OIDC token storage production döntés.** Threat model alapján
-  válasszunk: BFF + secure/httpOnly cookie, vagy indokolt in-memory tokenkezelés
-  refresh-stratégiával. A `sessionStorage` csak explicit PoC/dev profilban
-  maradhat; production buildben a választott megoldás és XSS/CSP védelem legyen
-  tesztelve. Ez architekturális feladat, nem lokális storage-átnevezés.
-- [ ] **L14 – `VITE_BACKEND_ORIGIN` dokumentáció és validáció.** A komment mondja
-  ki, hogy minden `VITE_` érték bundle-public. Production build ne essen vissza
-  csendben `127.0.0.1:3000` docs linkre; hiányzó kötelező origin build/startup
-  hibát vagy dokumentált same-origin viselkedést adjon.
-- [ ] **I3 – Node engine kikényszerítése.** A CI és helyi setup ugyanazt a pinelt
-  Node 24 runtime-ot használja; package manager/engine strict beállítás hibázzon
-  támogatott tartományon kívül.
-- [ ] **I4 – Frontend coverage gate.** Kerüljön be coverage riport és a mért
-  baseline-ra épülő regressziós küszöb. A `vmThreads` csak külön méréssel és
-  stabilitási ellenőrzéssel kerüljön be; a gyorsulás nem írhatja felül a
-  determinisztikusságot.
+- [ ] **L1 – OIDC token storage production döntés.** SPA marad, BFF nincs;
+  memória-only OIDC + silent `/auth/silent-callback` + CSP implementálva és
+  unit/component/build szinten tesztelve. A valódi Playwright silent-recovery
+  és 5 perces renew gate **integrációs pending** a BE-F5 Authentik redirect
+  allowlistig (`E2E_AUTHENTIK_SILENT_REDIRECT=true`). L1 ettől a feltételtől
+  nem jelölhető késznek.
+- [x] **L14 – `VITE_BACKEND_ORIGIN` dokumentáció és validáció.** Minden `VITE_*`
+  bundle-public. A kulcs csak a Vite dev proxy célja; production same-origin
+  `/api` docs link, nincs `127.0.0.1:3000` fallback; explicit hibás URL fail-fast.
+- [x] **I3 – Node engine kikényszerítése.** `engines`/`packageManager`/`devEngines`
+  Node **24.20.0** / npm **11.19.0**, `.npmrc` `engine-strict=true`,
+  `runtime:check` injektált eltérő verzión hibázik. A közös workflow-t ez az
+  ág nem módosítja.
+- [x] **I4 – Frontend coverage gate.** `@vitest/coverage-v8@5.0.1`, `verify` egyszer
+  coverage-del fut, globális threshold a mért baseline-ból lefelé kerekítve,
+  2 pontos tartalékkal. A worker pool a default maradt (`vmThreads` nem került be).
 
 ### FE-F5 lezárási kapu
 
-- [ ] Production profilban a token nem kerül sessionStorage-ba.
-- [ ] A választott auth architektúra login, refresh/recovery, logout és 401 tesztje zöld.
-- [ ] Production build hibás/hiányzó origin konfigurációval nem készít félrevezető linket.
-- [ ] A támogatott Node-verzió CI-ban és helyben kikényszerített.
-- [ ] Typecheck, lint, contract check, coverage, unit/component és böngészős E2E zöld.
-- [ ] `FINAL-FRONTEND-EVIDENCE.md` mind a 21 audit-ID-t eredménnyel felsorolja.
+- [x] Production profilban a token nem kerül sessionStorage-ba.
+- [x] A választott auth architektúra login, refresh/recovery, logout és 401
+      unit/component tesztje zöld. A böngészős silent/renew gate pending (L1).
+- [x] Production build hibás/hiányzó origin konfigurációval nem készít félrevezető linket.
+- [x] A támogatott Node-verzió a frontend package-ben és `runtime:check`-kel
+      kikényszerített. A közös CI workflow-t a koordinátor köti be.
+- [ ] Typecheck, lint, contract check, coverage, unit/component zöld; a böngészős
+      token-életciklus E2E a BE-F5 redirect után az integrációs kapun fut.
+- [x] `FINAL-FRONTEND-EVIDENCE.md` mind a 21 audit-ID-t eredménnyel felsorolja
+      (L1: integrációs gate pending).
 
 ## Milestone Definition of Done
 

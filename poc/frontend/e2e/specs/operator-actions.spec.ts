@@ -9,7 +9,6 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { loginAs } from '../support/auth';
 import {
-  accessTokenFromSession,
   createDraft,
   publishableDraft,
   publishFromDetail,
@@ -25,7 +24,7 @@ import { operatorStatus, seedQuarantine, waitForTerminalStatus } from '../suppor
 test.describe.serial('Operátori műveletek', () => {
   test('a reindex idempotens, kizárja a párhuzamos futást, reload után is követhető és célba ér', async ({ page }) => {
     test.setTimeout(300_000);
-    await loginAs(page, 'poc-publisher');
+    const token = await loginAs(page, 'poc-publisher');
     await page.goto('/operations/reindex');
 
     await expect(page.getByRole('heading', { level: 2, name: 'Teljes keresőindex-újraépítés' })).toBeVisible();
@@ -40,7 +39,6 @@ test.describe.serial('Operátori műveletek', () => {
     await page.waitForURL(/\/operations\/reindex\/[0-9a-fA-F-]{36}$/);
     const runId = page.url().split('/').at(-1)!;
 
-    const token = await accessTokenFromSession(page);
     const headers = {
       authorization: `Bearer ${token}`,
       'content-type': 'application/json',

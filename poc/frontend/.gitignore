@@ -31,3 +31,7 @@ dist-ssr
 /e2e/.report
 /playwright-report
 /test-results
+
+# Coverage and generated production posture files
+/coverage
+/.generated

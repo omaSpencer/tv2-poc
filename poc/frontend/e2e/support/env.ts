@@ -47,6 +47,7 @@ export type E2eConfig = {
   clientId: string;
   redirectUri: string;
   postLogoutRedirectUri: string;
+  silentRedirectUri: string;
   /** A három tesztidentitás közös jelszava (`AUTHENTIK_POC_USER_PASSWORD`). */
   userPassword: string;
   /** Indítsa-e a Playwright a Vite dev szervert (`webServer`). */
@@ -120,6 +121,7 @@ function buildConfig(): E2eConfig {
     clientId: read('E2E_OIDC_CLIENT_ID', 'poc-backend'),
     redirectUri: read('E2E_OIDC_REDIRECT_URI', `${baseUrl}/auth/callback`),
     postLogoutRedirectUri: read('E2E_OIDC_POST_LOGOUT_REDIRECT_URI', `${baseUrl}/login`),
+    silentRedirectUri: read('E2E_OIDC_SILENT_REDIRECT_URI', `${baseUrl}/auth/silent-callback`),
     userPassword: read('E2E_USER_PASSWORD') || read('AUTHENTIK_POC_USER_PASSWORD'),
     startFrontend: readBoolean('E2E_START_FRONTEND', true),
     docker: {
@@ -148,6 +150,7 @@ export function frontendServerEnv(config: E2eConfig = e2eConfig): Record<string,
     VITE_OIDC_CLIENT_ID: config.clientId,
     VITE_OIDC_REDIRECT_URI: config.redirectUri,
     VITE_OIDC_POST_LOGOUT_REDIRECT_URI: config.postLogoutRedirectUri,
+    VITE_OIDC_SILENT_REDIRECT_URI: config.silentRedirectUri,
     // A valódi PKCE folyamatot mérjük; a manual token escape hatch marad kikapcsolva.
     VITE_ALLOW_MANUAL_TOKEN: 'false',
   };

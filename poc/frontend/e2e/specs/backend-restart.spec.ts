@@ -1,7 +1,6 @@
 /** P7-09 – a futó operátori művelet valós backend-crash utáni recoveryje. */
 import { expect, test, type Page } from '@playwright/test';
 import { loginAs } from '../support/auth';
-import { accessTokenFromSession } from '../support/content';
 import { crashOwnedBackend, startOwnedBackend, stopOwnedBackend } from '../support/backend-process';
 import { waitForTerminalStatus } from '../support/operator-actions';
 
@@ -37,14 +36,13 @@ test.describe('Backend restart recovery @backend-restart', () => {
   });
 
   test('a megszakadt futás aborted lesz, utána új teljes reindex sikeresen indul', async ({ page }) => {
-    await loginAs(page, 'poc-publisher');
+    const token = await loginAs(page, 'poc-publisher');
     await page.goto('/operations/reindex');
     await expect(page.getByText('Akadályok: nincs')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Backend crash recovery ellenőrzése');
     await page.getByRole('button', { name: 'Teljes reindex indítása' }).click();
     await page.waitForURL(/\/operations\/reindex\/[0-9a-fA-F-]{36}$/);
     const interruptedRunId = page.url().split('/').at(-1)!;
-    const token = await accessTokenFromSession(page);
     await waitForState(page, interruptedRunId, token, 'running', 30_000);
 
     await crashOwnedBackend();

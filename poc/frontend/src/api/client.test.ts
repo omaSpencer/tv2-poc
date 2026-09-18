@@ -200,3 +200,13 @@ describe('api request timeout', () => {
     expect(isApiTimeoutError(new Error('aborted'))).toBe(false);
   });
 });
+
+describe('backend docs URL', () => {
+  it('uses the same-origin /api prefix and never a localhost fallback', async () => {
+    const { backendDocsUrl } = await import('./client');
+    expect(backendDocsUrl('/docs')).toBe('/api/docs');
+    expect(backendDocsUrl('/docs')).not.toContain('127.0.0.1:3000');
+    expect(backendDocsUrl('/docs')).not.toContain('localhost:3000');
+  });
+});
+

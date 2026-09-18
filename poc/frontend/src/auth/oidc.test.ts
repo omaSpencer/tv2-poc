@@ -1,6 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
 import { User } from 'oidc-client-ts';
-import { clearSigninCallbackCache, completeSigninCallbackOnce, returnToFromUser, safeReturnTo } from './oidc';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AUTH_SILENT_CALLBACK_PATH } from '../config/env';
+import { MemoryStateStore } from './memoryStateStore';
+import {
+  clearSigninCallbackCache,
+  completeSigninCallbackOnce,
+  createOidcManager,
+  handleSilentCallback,
+  isLoginRequiredError,
+  isOidcCallbackPath,
+  isSilentCallbackPath,
+  returnToFromUser,
+  safeReturnTo,
+} from './oidc';
+import { browserWebStorageLeaksTokenMaterial } from './storageSentinel';
 
 function user(state?: unknown): User {
   return new User({
@@ -87,6 +100,61 @@ describe('OIDC helpers', () => {
     resolveSecond(secondUser);
     await expect(second).resolves.toBe(secondUser);
     await expect(secondWaiter).resolves.toBe(secondUser);
+  });
+});
+
+const oidcConfig = {
+  kind: 'configured' as const,
+  issuerUrl: 'https://identity.example/application/o/poc-backend/',
+  clientId: 'poc-backend',
+  redirectUri: 'http://127.0.0.1:5173/auth/callback',
+  postLogoutRedirectUri: 'http://127.0.0.1:5173/login',
+  silentRedirectUri: `http://127.0.0.1:5173${AUTH_SILENT_CALLBACK_PATH}`,
+};
+
+describe('OIDC memory store and silent callback', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('stores the OIDC user in memory, not in browser storage', async () => {
+    const userStore = new MemoryStateStore();
+    const manager = createOidcManager(oidcConfig, userStore);
+    expect(manager.settings.userStore).toBe(userStore);
+    expect(manager.settings.silent_redirect_uri).toBe(oidcConfig.silentRedirectUri);
+    await manager.storeUser(user({ returnTo: '/' }));
+    expect(browserWebStorageLeaksTokenMaterial()).toEqual([]);
+    expect(await manager.getUser()).toMatchObject({ access_token: 'secret-access-token' });
+    expect(await userStore.getAllKeys()).not.toHaveLength(0);
+  });
+
+  it('classifies login_required as an anonymous IdP result', () => {
+    expect(isLoginRequiredError({ error: 'login_required' })).toBe(true);
+    expect(isLoginRequiredError(new Error('login_required'))).toBe(true);
+    expect(isLoginRequiredError(new TypeError('Failed to fetch'))).toBe(false);
+    expect(isOidcCallbackPath('/auth/callback')).toBe(true);
+    expect(isSilentCallbackPath(AUTH_SILENT_CALLBACK_PATH)).toBe(true);
+    expect(isOidcCallbackPath('/login')).toBe(false);
+  });
+
+  it('runs signinSilentCallback without mounting the application tree', async () => {
+    const signinSilentCallback = vi.fn().mockResolvedValue(undefined);
+    const createManager = vi.fn(() => ({ signinSilentCallback }) as unknown as ReturnType<typeof createOidcManager>);
+    await handleSilentCallback({
+      oidc: { kind: 'unconfigured', reason: 'missing' },
+      allowManualToken: false,
+      apiBase: '/api',
+    }, createManager);
+    expect(createManager).not.toHaveBeenCalled();
+
+    await handleSilentCallback({
+      oidc: oidcConfig,
+      allowManualToken: false,
+      apiBase: '/api',
+    }, createManager);
+    expect(createManager).toHaveBeenCalledTimes(1);
+    expect(signinSilentCallback).toHaveBeenCalledTimes(1);
   });
 });
 

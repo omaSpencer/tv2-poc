@@ -23,14 +23,22 @@ publikus felületen. Addig az alkalmi angol/magyar keverés regresszió.
 
 ## Előfeltétel és identity konfiguráció
 
-Futó backend a `VITE_BACKEND_ORIGIN` címen (alap: `http://127.0.0.1:3000`).
-Lásd [../backend/README.md](../backend/README.md).
+Futó backend a `VITE_BACKEND_ORIGIN` címen (alap: `http://127.0.0.1:3000`). Ez a
+kulcs **csak a Vite fejlesztői proxy célja**: minden `VITE_*` érték bekerül a
+böngészőbe küldött bundle-be, ezért titkot nem tartalmazhat, és productionben
+nem ez a runtime API-cím. A SPA mindig same-origin `/api` hívást használ (dev
+proxy vagy production Nginx ingress). Lásd [../backend/README.md](../backend/README.md).
 
 Az Authentik Authorization Code + PKCE beállításai a `.env.example` fájlban
 vannak. Fejlesztésben az issuer/client páros együtt kötelező; production buildben
-a callback és post-logout URL-t is explicit meg kell adni. A manuális Bearer mező
-alapból és a normál build DOM-jában sincs jelen; kizárólag
-`VITE_ALLOW_MANUAL_TOKEN=true` mellett használható helyi hibakeresésre.
+a callback, post-logout és silent-callback URL-t is explicit meg kell adni. A
+manuális Bearer mező alapból és a normál build DOM-jában sincs jelen; kizárólag
+`VITE_ALLOW_MANUAL_TOKEN=true` nem-production profilban használható, production
+buildben a bekapcsolása hiba.
+
+A Node/npm toolchain a `.nvmrc` szerinti **24.20.0** / **npm 11.19.0**. A
+`package.json` `engines`/`packageManager` mezője és a `npm run runtime:check`
+ezt kikényszeríti.
 
 ## Indítás
 
@@ -52,6 +60,7 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | `/` | Kezdőlap / térkép | — |
 | `/login` | Authentik belépés, session és `/me` | M2 |
 | `/auth/callback` | OIDC callback feldolgozás | M2 |
+| `/auth/silent-callback` | Hidden iframe `prompt=none` session-helyreállítás | M2 |
 | `/contents` | Cursoros szerkesztői lista URL-szűrőkkel | M1+M2 |
 | `/contents/new` | Validált piszkozat-létrehozás | M1+M2 |
 | `/contents/:id` | Áttekintő, lifecycle akciók és audit-idővonal | M1+M2 |
@@ -64,9 +73,11 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 
 A vezetett `/demo` futás a saját, verziózott run-state-jében őrzi meg a hozzá
 tartozó content UUID-t; nincs alkalmazásszintű „aktív content” session. Az OIDC
-sessiont az `oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a
+`User`, access/ID/refresh token memóriában él; a redirecthez szükséges PKCE
+state/verifier a `sessionStorage`-ban maradhat token nélkül. A raw access tokent a
 React komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen
-forrása a backend `GET /me` válasza.
+forrása a backend `GET /me` válasza. Teljes oldal-újratöltés után a sessiont a
+`/auth/silent-callback` silent flow állítja helyre.
 
 ## Parancsok
 
@@ -77,8 +88,10 @@ forrása a backend `GET /me` válasza.
 | `npm run compiler:check` | Ellenőrzi, hogy a build tartalmaz React Compiler memoizációt |
 | `npm run preview` | A buildelt bundle helyi előnézete |
 | `npm run lint` | oxlint a `src` és az `e2e` fán |
+| `npm run runtime:check` | Node 24.20.0 / npm 11.19.0 pin |
 | `npm run test` | Vitest unit- és component tesztek |
-| `npm run verify` | Contract drift + build + React Compiler + lint + tesztek |
+| `npm run test:coverage` | Ugyanaz a suite coverage thresholddal |
+| `npm run verify` | Runtime + contract drift + build + React Compiler + lint + coverage |
 | `npm run e2e` | Playwright full-stack E2E (futó stacket igényel) |
 | `npm run e2e:install` | A Playwright Chromium, Firefox és WebKit letöltése |
 | `npm run e2e:a11y` | Axe + keyboard/fókusz smoke a kritikus route-okon |
@@ -86,7 +99,7 @@ forrása a backend `GET /me` válasza.
 | `npm run e2e:cross-browser` | Firefox/WebKit publikus és keyboard smoke |
 | `npm run e2e:report` | Az utolsó E2E futás HTML riportja |
 
-A `verify` a gyors kapu: mockolt, külső függőség nélküli. Az `e2e` a valódi
+A `verify` a gyors kapu: mockolt, külső függőség nélküli, coverage küszöbbel. Az `e2e` a valódi
 Authentik + backend + Meilisearch A/B stacket használja, runbook:
 [e2e/README.md](e2e/README.md).
 

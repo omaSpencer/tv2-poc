@@ -4,18 +4,34 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.20.0 <25"
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "packageManager": "npm@11.19.0",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.20.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": "11.19.0",
+      "onFail": "error"
+    }
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs && node scripts/render-nginx-security.mjs && node scripts/check-production-posture.mjs",
     "compiler:check": "node scripts/check-react-compiler.mjs",
     "contracts:generate": "openapi-typescript ../contracts/backend.openapi.json -o src/api/generated/backend.ts",
     "contracts:check": "node scripts/check-contracts.mjs",
     "lint": "oxlint src e2e",
     "preview": "vite preview",
+    "runtime:check": "node scripts/check-runtime.mjs",
     "test": "vitest run",
-    "verify": "npm run contracts:check && npm run build && npm run compiler:check && npm run lint && npm run test",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run runtime:check && npm run contracts:check && npm run build && npm run compiler:check && npm run lint && npm run test:coverage",
     "e2e": "npm run e2e:typecheck && playwright test",
     "e2e:backend-restart": "npm run e2e:typecheck && playwright test -c playwright.restart.config.ts",
     "e2e:ui": "playwright test --ui",
@@ -45,6 +61,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "5.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "30.0.1",
     "msw": "^2.15.0",

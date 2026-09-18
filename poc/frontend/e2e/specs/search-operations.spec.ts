@@ -20,8 +20,8 @@ let seededTitles: string[] = [];
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await loginAs(page, 'poc-publisher');
-  seededTitles = await seedPublishedContents(page, { count: SEED_COUNT, term: TERM, category: 'sorozat' });
+  const token = await loginAs(page, 'poc-publisher');
+  seededTitles = await seedPublishedContents(page, { count: SEED_COUNT, term: TERM, category: 'sorozat' }, token);
   // A projekció aszinkron: megvárjuk, amíg az utolsó elem is megjelenik az indexben.
   await waitForCatalogVisibility(page, seededTitles[seededTitles.length - 1], 'visible', 90_000);
   await context.close();

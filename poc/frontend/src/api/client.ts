@@ -1,3 +1,4 @@
+import { resolveDocsHref } from '../config/env';
 import { ApiProblemError, ApiTimeoutError, type ProblemDocument } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || '/api';
@@ -197,8 +198,7 @@ async function executeRequest<T>(
 }
 
 export function backendDocsUrl(path = '/docs'): string {
-  const origin = (import.meta.env.VITE_BACKEND_ORIGIN as string | undefined) || 'http://127.0.0.1:3000';
-  return `${origin.replace(/\/$/, '')}${path}`;
+  return resolveDocsHref(path, API_BASE);
 }
 
 export function apiBaseLabel(): string {

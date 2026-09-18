@@ -63,7 +63,8 @@ generált contractból jön.
 - `AppPermission` egyedüli forrása: `MeResponse['permissions'][number]`
   (`src/api/types.ts` ← `src/api/generated/backend.ts`)
 - A lokális `demoFixture.AppPermission` (amelyből hiányzott az `ops:write`) törölve
-- `ROLE_PERMISSIONS` egyetlen frontend modulban: `src/auth/permissions.ts`
+- `ROLE_PERMISSIONS` egyetlen frontend modulban: `src/auth/permissions.ts`; az
+  E2E `IDENTITY_PROFILES` is közvetlenül ezt használja, nem ismétli a listákat
 - Publisher: `content:read`, `content:write`, `content:publish`, `ops:read`,
   `ops:write` — megegyezik az E2E `IDENTITY_PROFILES['poc-publisher']`
   szerződésével

@@ -3,7 +3,7 @@ import type { MeResponse } from '../api/types';
 import { ROLE_PERMISSIONS, can } from './permissions';
 
 describe('role permission matrix', () => {
-  it('matches the E2E publisher contract, including ops:write', () => {
+  it('keeps the publisher contract complete, including ops:write', () => {
     expect(ROLE_PERMISSIONS.publisher).toEqual([
       'content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write',
     ]);

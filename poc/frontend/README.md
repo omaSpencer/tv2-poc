@@ -45,10 +45,11 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | `/operations` | Processing dashboard, `ops:read` guarddal | M3 |
 | `/demo` | Életciklus lépésenként + negatív esetek | M2+ |
 
-Az aktív content UUID a demó screenek között megmarad. Az OIDC sessiont az
-`oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a React
-komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen forrása a
-backend `GET /me` válasza.
+A vezetett `/demo` futás a saját, verziózott run-state-jében őrzi meg a hozzá
+tartozó content UUID-t; nincs alkalmazásszintű „aktív content” session. Az OIDC
+sessiont az `oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a
+React komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen
+forrása a backend `GET /me` válasza.
 
 ## Parancsok
 

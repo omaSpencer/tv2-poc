@@ -16,6 +16,7 @@ export type OidcMock = {
   kid: string;
   jwksHits: () => number;
   discoveryHits: () => number;
+  setDiscoveryIssuer: (issuer: string) => void;
   setKeys: (keys: JWK[]) => void;
   stopJwks: () => void;
   /** Answer JWKS with an HTTP error status (R08) instead of an empty key set. */
@@ -162,6 +163,7 @@ export async function createOidcMock(options?: {
     kid,
     jwksHits: () => jwksHits,
     discoveryHits: () => discoveryHits,
+    setDiscoveryIssuer: value => { issuerOverride = value; },
     setKeys: next => { keys = next; },
     stopJwks: () => { jwksDown = true; },
     failJwksWithStatus: status => { jwksStatus = status; },

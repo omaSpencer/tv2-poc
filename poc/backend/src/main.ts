@@ -4,11 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { SwaggerModule } from '@nestjs/swagger';
 import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
-import { ConfigurationError, disabledIntegrationNames, type AppConfig } from './config.js';
+import { disabledIntegrationNames, type AppConfig } from './config.js';
 import { createOpenApiDocument } from './openapi-document.js';
 import { publicRateLimit } from './rate-limit.js';
 import { identityBoundary } from './identity/identity.boundary.js';
 import { TokenVerifier } from './identity/token-verifier.js';
+import { startupFailure } from './startup-failure.js';
 
 async function bootstrap() {
   // Dynamic import keeps config/module evaluation inside the sanitized error boundary.
@@ -51,9 +52,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch(error => {
-  const failure = error instanceof ConfigurationError
-    ? { event: 'startup_failed', code: 'invalid_configuration', keys: error.keys }
-    : { event: 'startup_failed', code: 'bootstrap_failed' };
-  process.stderr.write(JSON.stringify(failure) + '\n');
+  process.stderr.write(JSON.stringify(startupFailure(error)) + '\n');
   process.exitCode = 1;
 });

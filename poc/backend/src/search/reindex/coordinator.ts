@@ -6,6 +6,7 @@ import { pino, type Logger } from 'pino';
 import type { SearchIndexAlias } from '../../contracts/search.js';
 import { ADVISORY_LOCK_CLASS, ADVISORY_LOCK_OBJECT, type ReindexErrorCode } from '../../contracts/reindex.js';
 import { DatabaseService } from '../../database.js';
+import { localTimeoutStatement } from '../../database/local-timeout.js';
 import { JetStreamAdapter } from '../../messaging/jetstream.adapter.js';
 import { SearchRegistry } from '../search.registry.js';
 import { SearchState } from '../worker.state.js';
@@ -285,8 +286,8 @@ export class ReindexCoordinator {
     await this.control.setPhase(alias, 'verifying');
     await client.query('begin');
     try {
-      await client.query(`set local lock_timeout = '${timeout}ms'`);
-      await client.query(`set local statement_timeout = '${timeout}ms'`);
+      await client.query(localTimeoutStatement('lock_timeout', timeout));
+      await client.query(localTimeoutStatement('statement_timeout', timeout));
       await client.query('select pg_advisory_xact_lock($1, $2)', [
         ADVISORY_LOCK_CLASS.writeBarrier, ADVISORY_LOCK_OBJECT.writeBarrier,
       ]);

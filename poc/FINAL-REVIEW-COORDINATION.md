@@ -92,7 +92,7 @@ eltávolítottuk. A normál fejlesztői dependency volume-ok megmaradtak.
 | Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
 | Cursor | Frontend FE-F2: M2, L3, L4, L5, L9 | `codex/final-fe-f2` | `/private/tmp/tv2-poc-fe-f2` | kiosztásra kész |
-| Codex | Backend BE-F2: S3, S5, S6, C2, O2 | `codex/final-be-f2` | `/private/tmp/tv2-poc-be-f2` | kiosztásra kész |
+| Codex | Backend BE-F2: S3, S5, S6, C2, O2 | `codex/final-be-f2` | `/private/tmp/tv2-poc-be-f2` | átadás kész; teljes verify zöld |
 | Codex | koordináció, Cursor-review, integrációs kapu | `main` | repository checkout | folyamatban |
 
 Feladatlapok: [Cursor / frontend FE-F2](agent-prompts/W2-CURSOR-FRONTEND.md) és

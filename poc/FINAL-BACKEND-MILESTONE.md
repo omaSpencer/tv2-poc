@@ -83,30 +83,30 @@ alapállapotának egyértelművé tétele.
 **Cél:** a konfigurációs és dependency-hibák pontos, titokmentes és
 karbantartható kezelése.
 
-- [ ] **S3 – Raw SQL timeout helper.** A `SET LOCAL lock_timeout` összeállítása
+- [x] **S3 – Raw SQL timeout helper.** A `SET LOCAL lock_timeout` összeállítása
   kerüljön egyetlen helperbe, amely a formázás előtt `Number.isSafeInteger`,
   pozitív tartomány és felső korlát alapján ellenőriz. Legyen negatív unit teszt.
-- [ ] **S5 – OIDC issuer normalizálás/diagnosztika.** A trailing slash kezelésére
+- [x] **S5 – OIDC issuer normalizálás/diagnosztika.** A trailing slash kezelésére
   legyen egyetlen dokumentált szabály. Eltéréskor stabil, titokmentes hibakód és
   diagnosztizálható logmező keletkezzen; teljes issuer URL ne kerüljön logba.
-- [ ] **S6 – Hasznos, de titokmentes bootstrap-hiba.** A `bootstrap_failed`
+- [x] **S6 – Hasznos, de titokmentes bootstrap-hiba.** A `bootstrap_failed`
   maradjon stabil külső kód, a strukturált log pedig legfeljebb biztonságos
   hibatípust/hibakategóriát tartalmazzon. Üzenet, URL, token és credential nem.
-- [ ] **C2 – `dependencyRead` hibaklasszifikáció.** Csak ismert kapcsolat- és
+- [x] **C2 – `dependencyRead` hibaklasszifikáció.** Csak ismert kapcsolat- és
   dependency-hibák legyenek `dependency_unavailable`; programozási hiba
   `internal_error` ágon menjen tovább és legyen naplózható/tesztelhető.
-- [ ] **O2 – Path nélküli request-log szerződés.** A tudatos anti-leak döntés
+- [x] **O2 – Path nélküli request-log szerződés.** A tudatos anti-leak döntés
   kerüljön a runbookba: mit lehet correlation ID alapján visszakeresni, és milyen
   diagnosztikai korlátot vállalunk. Ha változik a policy, csak normalizált route
   template logolható, nyers URL/query nem.
 
 ### BE-F2 lezárási kapu
 
-- [ ] A timeout helper érvényes és hibás határértékei teszteltek.
-- [ ] Issuer trailing-slash és valódi mismatch teszteset külön ágon fut.
-- [ ] Dependency outage és mesterséges programhiba eltérő problem code-ot ad.
-- [ ] A bootstrap- és request-log tesztje igazolja, hogy titok nem szivárog.
-- [ ] A teljes korábbi backend tesztkészlet zöld.
+- [x] A timeout helper érvényes és hibás határértékei teszteltek.
+- [x] Issuer trailing-slash és valódi mismatch teszteset külön ágon fut.
+- [x] Dependency outage és mesterséges programhiba eltérő problem code-ot ad.
+- [x] A bootstrap- és request-log tesztje igazolja, hogy titok nem szivárog.
+- [x] A teljes korábbi backend tesztkészlet zöld.
 
 ---
 

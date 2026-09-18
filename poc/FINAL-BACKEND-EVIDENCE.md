@@ -1,7 +1,7 @@
 # Final backend evidence
 
 2026-09-18 · A `FINAL-BACKEND-MILESTONE.md` fázisainak bizonyítékai.
-Fázisonként bővül; jelenleg a **BE-F1** zárása szerepel benne.
+Fázisonként bővül; jelenleg a **BE-F1–BE-F2** zárása szerepel benne.
 
 ## Futtatókörnyezet és annak korlátai
 
@@ -284,3 +284,61 @@ Amit a frontendnek érdemes kezelnie: a publikus catalog hívások `429` ága
    mozgatni az ingress konfigurációjával; rossz érték hamisítható kliens-IP-t
    jelent.
 3. **Image digest.** A base image tag szerint pinelt, digest szerint nem (E01).
+
+---
+
+## BE-F2 – Trust boundary, hibák és operációs diagnosztika
+
+### S3 – Raw SQL timeout helper · **lezárva**
+
+A `database/local-timeout.ts` egyetlen, zárt helperben engedi a
+`lock_timeout`/`statement_timeout` neveket. Formázás előtt safe integer,
+`1..3 600 000 ms` tartományt ellenőriz; ezt használja a content write barrier,
+a snapshot reader és a reindex verify barrier. A unit teszt lefedi az alsó/felső
+határt, továbbá a nulla, negatív, tört, `NaN`, végtelen és túl nagy értékeket.
+
+### S5 – OIDC issuer normalizálás és diagnosztika · **lezárva**
+
+Az egyetlen canonical szabály pontosan egy trailing slash; origin/path/case nem
+normalizálódik. A discovery ugyanígy hasonlít, majd ezt a canonical issuert adja
+a JWT-verifikációnak. Valódi eltérés fail-closed `503 dependency_unavailable`.
+Az `OidcDiscoveryError.category` zárt kategória (`issuer_mismatch` stb.), és a
+token log csak ezt adja át; teljes issuer/JWKS URL-t nem. Integrációs teszt külön
+bizonyítja a slash-drift elfogadását és az origin/path mismatch elutasítását.
+
+### S6 – Titokmentes bootstrap-hiba · **lezárva**
+
+A külső eseménykód változatlanul `bootstrap_failed`. Mellette csak allowlistes
+`category` jelenhet meg: listen address/permission, dependency connection vagy
+`unknown`. Nyers hibaüzenet, stack, URL, token, DSN és credential nincs a
+kimenetben; a regressziós teszt sentinel DSN-nel bizonyítja ezt. A konfigurációs
+ág továbbra is csak a hibás kulcsneveket közli.
+
+### C2 – Dependency-read hibaklasszifikáció · **lezárva**
+
+Az operátori read helper a már típusos `ApiError` és
+`OperatorActionExecutionError` hibákat megőrzi, és csak az ismert kapcsolat-
+hibakódokat alakítja `dependency_unavailable` válasszá. Tetszőleges `TypeError`
+változatlanul a globális filterhez jut, amely `500 internal_error` választ ad.
+A két ág külön unit tesztben bizonyított.
+
+### O2 – Path nélküli request-log szerződés · **lezárva**
+
+A request log engedélyezett mezői pontosan: `event`, `correlationId`, `method`,
+`status`. A teszt érzékeny query/header/body sentinel mellett ellenőrzi, hogy
+path, query, Authorization és body nem kerül a logba. A backend README rögzíti
+a correlation-ID alapú audit/outbox/relay visszakeresést, valamint azt a vállalt
+korlátot, hogy a HTTP-log önmagában nem azonosít route-ot vagy queryt.
+
+## BE-F2 – futtatott kapuk
+
+| Parancs | Eredmény |
+| --- | --- |
+| Célzott Wave 2 + identity teszt | **26/26 pass** |
+| `npm run build` | pass |
+| `npm run lint` | pass – 0 warning, 0 error (125 fájl) |
+| `npm run openapi:check` | pass – contract drift nincs |
+| `npm test` | **25 fájl, 275/275 pass, 0 skip** |
+| `npm run verify` | **exit 0**, Node 24.20.0, élő PostgreSQL/NATS/Meilisearch |
+
+Frontend/OpenAPI contract nem változott ebben a fázisban.

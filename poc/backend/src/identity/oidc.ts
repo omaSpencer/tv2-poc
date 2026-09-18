@@ -14,6 +14,26 @@ const discoverySchema = z.object({
 
 export type DiscoveryDocument = z.infer<typeof discoverySchema>;
 
+export type OidcDiscoveryFailure =
+  | 'network'
+  | 'http_status'
+  | 'invalid_json'
+  | 'invalid_document'
+  | 'issuer_mismatch'
+  | 'jwks_mismatch';
+
+export class OidcDiscoveryError extends ApiError {
+  constructor(readonly category: OidcDiscoveryFailure, detail: string) {
+    super('dependency_unavailable', detail);
+    this.name = 'OidcDiscoveryError';
+  }
+}
+
+/** Issuers are compared and verified with exactly one trailing slash. */
+export function canonicalIssuer(value: string): string {
+  return `${value.replace(/\/+$/, '')}/`;
+}
+
 @Injectable()
 export class OidcDiscovery {
   private cached: DiscoveryDocument | null = null;
@@ -22,7 +42,7 @@ export class OidcDiscovery {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 
   get issuer(): string {
-    return this.config.getOrThrow<string>('OIDC_ISSUER_URL');
+    return canonicalIssuer(this.config.getOrThrow<string>('OIDC_ISSUER_URL'));
   }
 
   get audience(): string {
@@ -57,35 +77,35 @@ export class OidcDiscovery {
   }
 
   private async fetchOnce(): Promise<DiscoveryDocument> {
-    const issuer = this.issuer.replace(/\/$/, '');
-    const url = `${issuer}/.well-known/openid-configuration`;
+    const issuer = this.issuer;
+    const url = `${issuer.slice(0, -1)}/.well-known/openid-configuration`;
     let response: Response;
     try {
       response = await fetch(url, { signal: AbortSignal.timeout(this.httpTimeoutMs) });
     } catch {
-      throw new ApiError('dependency_unavailable', 'The identity provider is currently unavailable.');
+      throw new OidcDiscoveryError('network', 'The identity provider is currently unavailable.');
     }
     if (!response.ok) {
-      throw new ApiError('dependency_unavailable', 'The identity provider is currently unavailable.');
+      throw new OidcDiscoveryError('http_status', 'The identity provider is currently unavailable.');
     }
     let body: unknown;
     try {
       body = await response.json();
     } catch {
-      throw new ApiError('dependency_unavailable', 'The identity provider is currently unavailable.');
+      throw new OidcDiscoveryError('invalid_json', 'The identity provider is currently unavailable.');
     }
     const parsed = discoverySchema.safeParse(body);
     if (!parsed.success) {
-      throw new ApiError('dependency_unavailable', 'The identity provider discovery document is invalid.');
+      throw new OidcDiscoveryError('invalid_document', 'The identity provider discovery document is invalid.');
     }
-    if (parsed.data.issuer !== this.issuer) {
-      throw new ApiError('dependency_unavailable', 'The identity provider issuer does not match configuration.');
+    if (canonicalIssuer(parsed.data.issuer) !== issuer) {
+      throw new OidcDiscoveryError('issuer_mismatch', 'The identity provider issuer does not match configuration.');
     }
     const configuredJwks = this.configuredJwksUri;
     if (configuredJwks && configuredJwks !== parsed.data.jwks_uri) {
-      throw new ApiError('dependency_unavailable', 'The configured JWKS URI does not match discovery.');
+      throw new OidcDiscoveryError('jwks_mismatch', 'The configured JWKS URI does not match discovery.');
     }
-    this.cached = parsed.data;
-    return parsed.data;
+    this.cached = { ...parsed.data, issuer };
+    return this.cached;
   }
 }

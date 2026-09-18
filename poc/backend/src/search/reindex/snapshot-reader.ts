@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import type { ContentCategory } from '../../schema.js';
 import type { SearchProjectionV1 } from '../../contracts/search.js';
+import { localTimeoutStatement } from '../../database/local-timeout.js';
 
 type SnapshotRow = {
   id: string;
@@ -28,7 +29,7 @@ export class SnapshotReader {
   ): Promise<SnapshotMetadata> {
     await client.query('begin isolation level repeatable read read only');
     try {
-      await client.query(`set local statement_timeout = '${this.timeoutMs}ms'`);
+      await client.query(localTimeoutStatement('statement_timeout', this.timeoutMs));
       const initial = await client.query<{ high_water: string; expected_documents: number }>(`
         select
           coalesce((select max(outbox_sequence) from outbox_event), 0)::text as high_water,

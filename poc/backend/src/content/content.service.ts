@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { sql } from 'drizzle-orm';
 import { CONSTRAINTS, type ContentRow, type ContentStatus } from '../schema.js';
 import { DatabaseService, isConnectionFailure, uniqueViolation, type Transaction } from '../database.js';
+import { localTimeoutStatement } from '../database/local-timeout.js';
 import {
   ApiError, contentNotFound, slugConflict, validationFailed, versionConflict,
 } from '../contracts/errors.js';
@@ -253,9 +254,7 @@ export class ContentService {
 
   private async acquireWriteBarrier(tx: Transaction): Promise<void> {
     const waitMs = this.config?.get<number>('CONTENT_WRITE_BARRIER_WAIT_MS') ?? 5000;
-    // Config validation guarantees a positive integer; embedding it avoids the
-    // PostgreSQL SET statement's lack of bind-parameter support.
-    await tx.execute(sql.raw(`set local lock_timeout = '${waitMs}ms'`));
+    await tx.execute(sql.raw(localTimeoutStatement('lock_timeout', waitMs)));
     await tx.execute(sql`select pg_advisory_xact_lock_shared(
       ${ADVISORY_LOCK_CLASS.writeBarrier}, ${ADVISORY_LOCK_OBJECT.writeBarrier}
     )`);

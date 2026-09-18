@@ -161,6 +161,26 @@ describe('M2-T03 discovery mismatch', () => {
       applyIdentityEnv({ issuer: idp.issuer, audience: idp.audience }, url);
     }
   });
+
+  it('accepts discovery issuer drift limited to a trailing slash', async () => {
+    const slashDrift = await createOidcMock();
+    try {
+      slashDrift.setDiscoveryIssuer(slashDrift.issuer.replace(/\/$/, ''));
+      applyIdentityEnv({ issuer: slashDrift.issuer, audience: slashDrift.audience }, url);
+      const nested = await createIdentityApp({ issuer: slashDrift.issuer, audience: slashDrift.audience });
+      try {
+        const token = await slashDrift.signAccessToken({ sub: 'slash-drift', groups: [ROLE_GROUPS.publisher] });
+        const response = await nested.request('GET', '/me', { token });
+        expect(response.status).toBe(200);
+        expect(response.body.sub).toBe('slash-drift');
+      } finally {
+        await nested.close();
+      }
+    } finally {
+      await slashDrift.close();
+      applyIdentityEnv({ issuer: idp.issuer, audience: idp.audience }, url);
+    }
+  });
 });
 
 describe('M2-T04 /me', () => {

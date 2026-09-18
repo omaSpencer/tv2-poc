@@ -24,6 +24,7 @@ import { QuarantineService } from '../search/quarantine.service.js';
 import { ReindexCoordinator } from '../search/reindex/coordinator.js';
 import { ReindexControlRepository } from '../search/reindex/control.repository.js';
 import { OperatorActionExecutionError } from './operator-action.error.js';
+import { dependencyRead } from './dependency-read.js';
 import { OperatorActionRepository } from './operator-action.repository.js';
 import { OperatorActionRunner } from './operator-action.runner.js';
 import { toOperatorActionView, type OperatorActionView } from './operator-action.view.js';
@@ -65,7 +66,7 @@ export class OperatorActionsController {
     for (const key of params.keys()) if (key !== 'index' && key !== 'allowSearchOutage') fields.push(key);
     if (fields.length > 0) throw validationFailed(fields);
     const requestedIndex = index[0] as 'a' | 'b';
-    const [view, active] = await this.dependencyRead(() => Promise.all([
+    const [view, active] = await dependencyRead(() => Promise.all([
       this.reindex.preflight(requestedIndex, outage[0] === 'true'),
       this.actions.activeReindex(),
     ]));
@@ -95,7 +96,7 @@ export class OperatorActionsController {
   ): Promise<OperatorActionView> {
     const key = parseIdempotencyKey(rawKey);
     const body = normalizeStartReindexBody(rawBody);
-    const preflight = await this.dependencyRead(() => this.reindex.preflight(body.index, body.allowSearchOutage));
+    const preflight = await dependencyRead(() => this.reindex.preflight(body.index, body.allowSearchOutage));
     if (preflight.confirmationRequired && body.confirmTarget !== preflight.confirmationTarget) {
       throw new ApiError('target_confirmation_required', 'The exact target database name is required.');
     }
@@ -135,7 +136,7 @@ export class OperatorActionsController {
   @ApiResponse({ status: 503, ...problemResponse('dependency_unavailable') })
   async quarantineList(@Req() req: Request) {
     const query = parseQuarantineListQuery(new URL(req.originalUrl, 'http://internal.invalid').searchParams);
-    const result = await this.dependencyRead(() => this.quarantine.list(query));
+    const result = await dependencyRead(() => this.quarantine.list(query));
     return {
       items: result.items,
       nextCursor: result.nextBeforeSequence === null ? null : encodeQuarantineCursor(result.nextBeforeSequence),
@@ -154,7 +155,7 @@ export class OperatorActionsController {
   async quarantineDetail(@Param('sequence') rawSequence: string) {
     const sequence = this.sequence(rawSequence);
     try {
-      return await this.dependencyRead(() => this.quarantine.inspect(sequence));
+      return await dependencyRead(() => this.quarantine.inspect(sequence));
     } catch (error) {
       if (error instanceof OperatorActionExecutionError && error.code === 'quarantine_not_found') {
         throw new ApiError('quarantine_not_found', 'No quarantine record exists for the given sequence.');
@@ -228,7 +229,7 @@ export class OperatorActionsController {
     target: OperatorActionTarget,
     context: OperationContext,
   ): Promise<OperatorActionView> {
-    const { action } = await this.dependencyRead(() => this.actions.admit({
+    const { action } = await dependencyRead(() => this.actions.admit({
       id,
       kind,
       requestFingerprint: operatorRequestFingerprint(kind, reason, target),
@@ -243,7 +244,7 @@ export class OperatorActionsController {
 
   private async action(id: string) {
     if (!z.uuid().safeParse(id).success) throw validationFailed(['id']);
-    const action = await this.dependencyRead(() => this.actions.get(id));
+    const action = await dependencyRead(() => this.actions.get(id));
     if (!action) throw new ApiError('operation_not_found', 'No operator action exists for the given id.');
     return action;
   }
@@ -255,7 +256,7 @@ export class OperatorActionsController {
   }
 
   private async reindexControl(index: 'a' | 'b', runId: string) {
-    const rows = await this.dependencyRead(() => this.control.all());
+    const rows = await dependencyRead(() => this.control.all());
     const row = rows.find(candidate => candidate.indexAlias === index && candidate.runId === runId);
     if (!row) return null;
     return {
@@ -272,12 +273,4 @@ export class OperatorActionsController {
     };
   }
 
-  private async dependencyRead<T>(operation: () => Promise<T>): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error instanceof ApiError || error instanceof OperatorActionExecutionError) throw error;
-      throw new ApiError('dependency_unavailable', 'An operational dependency is currently unavailable.');
-    }
-  }
 }

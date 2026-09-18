@@ -419,3 +419,18 @@ A publikus perem limitje `429 rate_limited` problem dokumentumot ad
 Bejövő `X-Correlation-Id` csak `[A-Za-z0-9._-]{1,128}` alakban használható, egyébként
 a szerver UUID-t generál. A log soha nem tartalmaz tokent, jelszót vagy teljes
 adatbázis-URL-t; ezt a smoke 5.6 esete sentinel értékekkel ellenőrzi.
+
+### Kérésnapló és operátori visszakeresés
+
+A `http_request` bejegyzés tudatosan csak az `event`, `correlationId`, `method`
+és `status` mezőket tartalmazza. Nyers útvonal, query, header, body és hibaobjektum
+nem kerül bele, ezért token, keresőkifejezés vagy személyes adat sem szivárog a
+kérésnaplón keresztül. Incidensnél az operátor a kliens problem válaszában kapott
+`correlationId` alapján keresi össze a HTTP-bejegyzést, valamint az azonosítót
+hordozó audit/outbox/relay eseményeket.
+
+Ennek vállalt korlátja, hogy pusztán a HTTP-kérésnaplóból nem állapítható meg a
+konkrét route vagy query. Ha nincs alkalmazásszintű audit/outbox esemény, a
+`correlationId`, HTTP-metódus, státusz és időablak alapján lehet szűkíteni; ennél
+részletesebb vizsgálathoz kontrollált reprodukció szükséges. Később is csak
+normalizált route template vehető fel, nyers URL vagy query nem.

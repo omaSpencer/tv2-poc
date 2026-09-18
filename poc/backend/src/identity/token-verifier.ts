@@ -12,7 +12,7 @@ import type { Logger } from 'pino';
 import { pino } from 'pino';
 import { ApiError } from '../contracts/errors.js';
 import type { Actor } from './actor.js';
-import { OidcDiscovery } from './oidc.js';
+import { OidcDiscovery, OidcDiscoveryError } from './oidc.js';
 import { rolesFromTokenClaims } from './roles.js';
 
 /**
@@ -219,6 +219,10 @@ export class TokenVerifier {
     try {
       document = await this.discovery.document();
     } catch (error) {
+      if (error instanceof OidcDiscoveryError) {
+        this.log.warn({ event: 'token_rejected', reason: 'idp_unavailable', discovery: error.category });
+        throw error;
+      }
       if (error instanceof ApiError && error.code === 'dependency_unavailable') {
         this.log.warn({ event: 'token_rejected', reason: 'idp_unavailable' });
         throw error;

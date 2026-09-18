@@ -72,31 +72,31 @@ duplikált helyi igazságforrásokat.
 **Cél:** render-, lazy chunk-, auth callback- és hálózati hiba után legyen
 determinista helyreállás, párhuzamos mellékhatások nélkül.
 
-- [ ] **M2 – Root error boundary / router `errorElement`.** Renderhibára legyen
+- [x] **M2 – Root error boundary / router `errorElement`.** Renderhibára legyen
   emberi hibaoldal, correlation/technikai részletek biztonságos megjelenítésével
   és „újratöltés” akcióval. Lazy chunk invalidáció esetén egyszeri teljes reload
   történhet loop-védelemmel.
-- [ ] **L3 – Signin callback promise cache takarítása.** A URL/code kulcsú entry
+- [x] **L3 – Signin callback promise cache takarítása.** A URL/code kulcsú entry
   success és failure után is `finally` ágban ürüljön; StrictMode/idempotencia
   maradjon tesztelt, és az authorization code ne éljen a session végéig.
-- [ ] **L4 – Catalog visibility probe single-flight.** Hidden→visible váltás ne
+- [x] **L4 – Catalog visibility probe single-flight.** Hidden→visible váltás ne
   indíthasson második probe-ot aktív kérés alatt; az egyetlen futó kérés
   eredménye pontosan egyszer módosítsa a budgetet.
-- [ ] **L5 – Pure React state updaterek.** A `setHistory` updater ne hívjon
+- [x] **L5 – Pure React state updaterek.** A `setHistory` updater ne hívjon
   `setCursor`-t; a következő state számítása legyen pure és StrictMode alatt is
   pontosan egy logikai navigációt eredményezzen.
-- [ ] **L9 – Központi request timeout.** Az `apiRequest` kapjon ésszerű default
+- [x] **L9 – Központi request timeout.** Az `apiRequest` kapjon ésszerű default
   timeoutot AbortSignal-kompozícióval úgy, hogy a caller saját cancelje továbbra
   is működjön. A timeout külön, stabil UI-hibává képezhető le; streaming kivétel
   esetén explicit opt-out kell.
 
 ### FE-F2 lezárási kapu
 
-- [ ] Renderhiba és szimulált stale lazy chunk esetén a felhasználó helyre tud állni.
-- [ ] Callback cache success/failure és StrictMode tesztje zöld.
-- [ ] Visibility-váltogatás alatt egyszerre legfeljebb egy probe fut.
-- [ ] A lapozási state StrictMode tesztben determinisztikus.
-- [ ] Függő request timeoutol, a caller abort és a timeout egymást nem rontja el.
+- [x] Renderhiba és szimulált stale lazy chunk esetén a felhasználó helyre tud állni.
+- [x] Callback cache success/failure és StrictMode tesztje zöld.
+- [x] Visibility-váltogatás alatt egyszerre legfeljebb egy probe fut.
+- [x] A lapozási state StrictMode tesztben determinisztikus.
+- [x] Függő request timeoutol, a caller abort és a timeout egymást nem rontja el.
 
 ---
 

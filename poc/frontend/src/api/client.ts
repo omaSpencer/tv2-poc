@@ -104,6 +104,28 @@ function composeRequestSignal(caller?: AbortSignal, timeoutMs: number | false = 
   };
 }
 
+async function fetchRequestBody(
+  path: string,
+  init: RequestInit,
+  caller: AbortSignal | undefined,
+  timeoutMs: number | false,
+): Promise<{ response: Response; rawText: string }> {
+  const composed = composeRequestSignal(caller, timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE}${path}`, { ...init, signal: composed.signal });
+    // Keep the timeout/caller signal alive through body consumption as well as
+    // header arrival. A stalled response body is still a stalled API request.
+    const rawText = await response.text();
+    return { response, rawText };
+  } catch (error) {
+    if (caller?.aborted) throw error;
+    if (composed.timedOut()) throw new ApiTimeoutError();
+    throw error;
+  } finally {
+    composed.cleanup();
+  }
+}
+
 /**
  * Single fetch boundary: base URL, optional Bearer, correlation id, problem+json parse,
  * default timeout and caller AbortSignal composition.
@@ -132,28 +154,16 @@ async function executeRequest<T>(
   if (options.correlationId) headers.set('X-Correlation-Id', options.correlationId);
   if (options.idempotencyKey) headers.set('Idempotency-Key', options.idempotencyKey);
 
-  const composed = composeRequestSignal(options.signal, resolveTimeoutMs(options.timeoutMs));
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, {
+  const { response, rawText } = await fetchRequestBody(path, {
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: composed.signal,
-    });
-  } catch (error) {
-    if (options.signal?.aborted) throw error;
-    if (composed.timedOut()) throw new ApiTimeoutError();
-    throw error;
-  } finally {
-    composed.cleanup();
-  }
+    }, options.signal, resolveTimeoutMs(options.timeoutMs));
 
   const correlationId = response.headers.get('X-Correlation-Id') ?? options.correlationId ?? '';
   if (correlationId) lastCorrelationId = correlationId;
 
   const contentType = response.headers.get('content-type') ?? '';
-  const rawText = await response.text();
   let parsed: unknown = undefined;
   if (rawText.length > 0) {
     try {

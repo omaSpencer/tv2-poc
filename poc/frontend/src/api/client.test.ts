@@ -129,6 +129,27 @@ describe('api request timeout', () => {
     await rejection;
   });
 
+  it('keeps the timeout active while the response body is still pending', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: () => new Promise<string>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        }, { once: true });
+      }),
+    } as Response));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = apiRequest('/admin/example');
+    const rejection = expect(pending).rejects.toBeInstanceOf(ApiTimeoutError);
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('propagates a caller abort instead of a timeout', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('fetch', hangingFetch());

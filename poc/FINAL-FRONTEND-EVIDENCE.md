@@ -217,7 +217,8 @@ másik setter; next/previous/filter reset StrictMode alatt egy logikai lépés.
 
 ### L9 – Központi request timeout
 
-**Eredmény:** `apiRequest` 15 000 ms default timeout, caller `AbortSignal`
+**Eredmény:** `apiRequest` 15 000 ms default timeout a response body teljes
+kiolvasásáig, caller `AbortSignal`
 támogatással; timeout = `ApiTimeoutError` / `request_timeout`; caller abort =
 `AbortError`; timer/listener cleanup auth-retry után is; `timeoutMs: false`
 opt-out létezik, de semelyik hívó nem használja.
@@ -226,8 +227,8 @@ opt-out létezik, de semelyik hívó nem használja.
 - `src/api/types.ts`: `ApiTimeoutError`, `isApiTimeoutError`
 - UI: `ProblemPanel`, `CatalogSearchError` magyar timeout üzenet, nyers
   message nélkül
-- Tesztek: fake clock timeout; caller abort; siker a határ előtt; auth retry
-  listener/timer cleanup
+- Tesztek: fake clock timeout a fetch és a függő response body alatt; caller
+  abort; siker a határ előtt; auth retry listener/timer cleanup
 
 ### FE-F2 kapu
 

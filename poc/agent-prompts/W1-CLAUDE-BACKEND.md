@@ -1,8 +1,8 @@
 # W1 prompt – Claude / backend BE-F1
 
 Dolgozz kizárólag a `/private/tmp/tv2-poc-be-f1` worktree-ben, a
-`codex/final-be-f1` branchen. A kiinduló commit:
-`bcc903e`.
+`codex/final-be-f1` branchen. A branch elő van készítve; induláskor ellenőrizd,
+hogy a worktree tiszta, és ne válts más branchre.
 
 Olvasd el teljesen a `poc/FINAL-BACKEND-MILESTONE.md` dokumentumot, majd
 implementáld kizárólag a **BE-F1 – Publikus perem és futtatási hardening** fázist:

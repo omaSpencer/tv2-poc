@@ -1,8 +1,8 @@
 # W1 prompt – Cursor / frontend FE-F1
 
 Dolgozz kizárólag a `/private/tmp/tv2-poc-fe-f1` worktree-ben, a
-`codex/final-fe-f1` branchen. A kiinduló commit:
-`bcc903e`.
+`codex/final-fe-f1` branchen. A branch elő van készítve; induláskor ellenőrizd,
+hogy a worktree tiszta, és ne válts más branchre.
 
 Olvasd el teljesen a `poc/FINAL-FRONTEND-MILESTONE.md` dokumentumot, majd
 implementáld kizárólag a **FE-F1 – Holtkód és szerződéskonszolidáció** fázist:

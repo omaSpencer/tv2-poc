@@ -39,7 +39,7 @@ test.describe('Backend restart recovery @backend-restart', () => {
   test('a megszakadt futás aborted lesz, utána új teljes reindex sikeresen indul', async ({ page }) => {
     await loginAs(page, 'poc-publisher');
     await page.goto('/operations/reindex');
-    await expect(page.getByText('Blokkolók: nincs')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Akadályok: nincs')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Backend crash recovery ellenőrzése');
     await page.getByRole('button', { name: 'Teljes reindex indítása' }).click();
     await page.waitForURL(/\/operations\/reindex\/[0-9a-fA-F-]{36}$/);
@@ -60,7 +60,7 @@ test.describe('Backend restart recovery @backend-restart', () => {
     await expect(page.getByText('Hibakód').locator('xpath=following-sibling::dd[1]')).toHaveText('aborted');
 
     await page.getByRole('link', { name: 'Új teljes futás' }).click();
-    await expect(page.getByText('Blokkolók: nincs')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Akadályok: nincs')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Recovery utáni teljes újrafuttatás');
     await page.getByRole('button', { name: 'Teljes reindex indítása' }).click();
     await page.waitForURL(/\/operations\/reindex\/[0-9a-fA-F-]{36}$/);

@@ -150,7 +150,7 @@ describe('reindex preflight freshness', () => {
     mocks.fetchReindexPreflight.mockImplementation(async () => current);
     renderReindex();
     await flushFakeQueryUpdates();
-    expect(screen.getByText('Blokkolók: nincs')).toBeTruthy();
+    expect(screen.getByText('Akadályok: nincs')).toBeTruthy();
 
     current = response(preflight({
       canStartNormally: false,
@@ -160,7 +160,7 @@ describe('reindex preflight freshness', () => {
     // Observer updates can restart the 8s interval; wait three beats for the new payload.
     await act(async () => { await vi.advanceTimersByTimeAsync(REINDEX_PREFLIGHT_POLL_MS * 3); });
     await flushFakeQueryUpdates();
-    expect(screen.getByText('Blokkolók: active_run')).toBeTruthy();
+    expect(screen.getByText('Akadályok: már fut egy újraindexelés')).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Tervezett karbantartás' } });
     expect(screen.getByRole('button', { name: 'Teljes reindex indítása' }).hasAttribute('disabled')).toBe(true);
@@ -246,7 +246,7 @@ describe('reindex preflight freshness', () => {
       })),
     );
     renderReindex();
-    await screen.findByText('Blokkolók: nincs');
+    await screen.findByText('Akadályok: nincs');
     fireEvent.click(screen.getByRole('radio', { name: 'Index B' }));
     await waitFor(() => expect(mocks.fetchReindexPreflight).toHaveBeenCalledWith('b', false));
     fireEvent.click(screen.getByRole('checkbox'));

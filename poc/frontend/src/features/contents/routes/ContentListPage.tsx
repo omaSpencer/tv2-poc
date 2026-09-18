@@ -80,7 +80,7 @@ export function ContentListPage() {
     <div className="stack-pages">
       <section className="panel content-heading">
         <div>
-          <p className="eyebrow">Szerkesztői workspace</p>
+          <p className="eyebrow">Szerkesztői munkatér</p>
           <h2>Tartalmak</h2>
           <p className="muted">Stabil, cursoros lista. A szűrők az URL-ben megmaradnak.</p>
         </div>

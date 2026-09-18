@@ -2,6 +2,24 @@ import type { SafeRunContext, ScenarioDefinition } from './types';
 
 type Evidence = ReturnType<typeof buildEvidence>;
 
+const RUN_STATUS_LABELS: Record<SafeRunContext['status'], string> = {
+  running: 'Fut',
+  waiting_manual: 'Kézi lépésre vár',
+  passed: 'Sikeres',
+  failed: 'Sikertelen',
+  cancelled: 'Megszakítva',
+  inconclusive: 'Nem eldönthető',
+};
+
+const STEP_STATE_LABELS: Record<SafeRunContext['steps'][number]['state'], string> = {
+  pending: 'Várakozik',
+  running: 'Fut',
+  passed: 'Sikeres',
+  failed: 'Sikertelen',
+  manual: 'Kézi lépés',
+  inconclusive: 'Nem eldönthető',
+};
+
 export function buildEvidence(definition: ScenarioDefinition, run: SafeRunContext) {
   return {
     schemaVersion: 1,
@@ -52,12 +70,12 @@ export function assertEvidenceSafe(value: unknown): void {
     }
     if (!current || typeof current !== 'object') {
       if (typeof current === 'string' && /bearer\s+[a-z0-9._~-]+/i.test(current)) {
-        throw new Error('Az evidence Bearer értéket tartalmaz.');
+        throw new Error('A bizonyíték Bearer értéket tartalmaz.');
       }
       return;
     }
     for (const [key, child] of Object.entries(current)) {
-      if (FORBIDDEN_KEYS.has(key)) throw new Error(`Tiltott evidence mező: ${key}`);
+      if (FORBIDDEN_KEYS.has(key)) throw new Error(`Tiltott bizonyítékmező: ${key}`);
       visit(child);
     }
   }
@@ -80,23 +98,23 @@ export function evidenceMarkdown(definition: ScenarioDefinition, run: SafeRunCon
   const lines = [
     `# ${evidence.scenario.id} – ${evidence.scenario.title}`,
     '',
-    `- Run ID: \`${evidence.run.runId}\``,
-    `- Állapot: **${evidence.run.status}**`,
+    `- Futásazonosító: \`${evidence.run.runId}\``,
+    `- Állapot: **${RUN_STATUS_LABELS[evidence.run.status]}**`,
     `- Indult: ${evidence.run.startedAt}`,
     `- Befejeződött: ${cell(evidence.run.completedAt)}`,
     `- Szerepkörök: ${evidence.run.roles.join(', ') || '—'}`,
     `- Jogosultságok: ${evidence.run.permissions.join(', ') || '—'}`,
     '',
-    '## Preflight',
+    '## Előellenőrzés',
     '',
-    ...evidence.run.preflight.map((item) => `- ${item.passed ? 'PASS' : 'FAIL'} – ${item.label}`),
+    ...evidence.run.preflight.map((item) => `- ${item.passed ? 'Siker' : 'Hiba'} – ${item.label}`),
     '',
     '## Lépések',
     '',
-    '| Lépés | Állapot | HTTP | Problem | Verzió | Idő (ms) | Korreláció |',
+    '| Lépés | Állapot | HTTP | Hibakód | Verzió | Idő (ms) | Korreláció |',
     '|---|---|---:|---|---:|---:|---|',
     ...evidence.run.steps.map((step) =>
-      `| ${cell(step.title)} | ${step.state} | ${cell(step.httpStatus)} | ${cell(step.problemCode)} | ${cell(step.contentVersion)} | ${cell(step.durationMs)} | ${cell(step.correlationId)} |`,
+      `| ${cell(step.title)} | ${STEP_STATE_LABELS[step.state]} | ${cell(step.httpStatus)} | ${cell(step.problemCode)} | ${cell(step.contentVersion)} | ${cell(step.durationMs)} | ${cell(step.correlationId)} |`,
     ),
     '',
   ];

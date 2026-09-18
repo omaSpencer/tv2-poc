@@ -29,7 +29,7 @@ export function RepairPage() {
   return (
     <div className="stack-pages operations-page">
       <OperationsNav />
-      <section className="panel"><p className="eyebrow">Konvergáló javítás</p><h2>Tartalom keresőprojekciójának javítása</h2><p className="muted">Az aktuális PostgreSQL-állapot az igazságforrás; a művelet nem fogad payloadot.</p></section>
+      <section className="panel"><p className="eyebrow">Konvergáló javítás</p><h2>Tartalom keresőprojekciójának javítása</h2><p className="muted">Az aktuális PostgreSQL-állapot az igazságforrás; a művelet nem fogad eseménytörzset.</p></section>
       <form className="panel form-stack" onSubmit={event => { event.preventDefault(); if (canSubmit) mutation.mutate(); }}>
         <label>Tartalom UUID<input value={contentId} required onChange={event => { setContentId(event.target.value); setActionId(null); key.current = createIdempotencyKey(); }} /></label>
         <label>Célindex<select value={target} onChange={event => { setTarget(event.target.value as 'a' | 'b' | 'both'); key.current = createIdempotencyKey(); }}><option value="both">A és B</option><option value="a">A</option><option value="b">B</option></select></label>

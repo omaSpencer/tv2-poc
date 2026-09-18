@@ -1,4 +1,4 @@
-import { isApiProblemError, type ProcessingStatus } from '../../api/types';
+import { isApiProblemError, type ProcessingStatus, type ReindexPreflightView } from '../../api/types';
 
 export type StatusTone = 'ok' | 'warning' | 'danger' | 'neutral';
 
@@ -120,3 +120,16 @@ export const OPERATOR_ACTION_KIND_LABELS: Record<'reindex' | 'quarantine_replay'
   quarantine_replay: 'Karantén-visszajátszás',
   content_repair: 'Tartalomjavítás',
 };
+
+type ReindexBlocker = ReindexPreflightView['blockers'][number];
+
+export const REINDEX_BLOCKER_LABELS: Record<ReindexBlocker, string> = {
+  active_run: 'már fut egy újraindexelés',
+  other_index_unavailable: 'a másik index nem elérhető',
+  search_disabled: 'a keresés ki van kapcsolva',
+};
+
+export function availabilityLabel(value: boolean | null): string {
+  if (value === null) return 'ismeretlen';
+  return value ? 'igen' : 'nem';
+}

@@ -62,7 +62,7 @@ export function evaluateAssertions(
     }
     if (expected.kind === 'processing') {
       return result(
-        `${expected.routeEligible} route-olható / ${expected.reachable} elérhető index`,
+        `${expected.routeEligible} forgalomképes / ${expected.reachable} elérhető index`,
         data?.routeEligible === expected.routeEligible && data.reachable === expected.reachable,
       );
     }

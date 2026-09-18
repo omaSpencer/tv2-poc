@@ -56,8 +56,8 @@ export function OperationsPage() {
       <section className="panel operations-heading">
         <div>
           <p className="eyebrow">Csak olvasható megfigyelés</p>
-          <h2>Operációs dashboard</h2>
-          <p className="muted">Outbox, relay, broker, durable consumerek és A/B keresőindexek egy nézetben.</p>
+          <h2>Operációs áttekintő</h2>
+          <p className="muted">Kimenő eseménytár, továbbító, üzenetközvetítő, tartós fogyasztók és A/B keresőindexek egy nézetben.</p>
         </div>
         <div className="operations-refresh">
           <button type="button" className="btn-secondary" disabled={isFetching || !canRetry} onClick={() => void refetch()}>
@@ -73,7 +73,7 @@ export function OperationsPage() {
         <section className="panel ops-callout ops-callout-warning" role="alert">
           <div>
             <h2>Elavult adatok</h2>
-            <p>A legutóbbi frissítés sikertelen volt; az utolsó sikeres snapshot maradt a képernyőn.</p>
+            <p>A legutóbbi frissítés sikertelen volt; az utolsó sikeres pillanatkép maradt a képernyőn.</p>
           </div>
           {canRetry ? (
             <button type="button" className="btn-secondary" disabled={isFetching} onClick={() => void refetch()}>
@@ -99,7 +99,7 @@ export function OperationsPage() {
       {statusQuery.isPending && !status ? (
         <section className="panel" role="status">
           <h2>Operációs adatok betöltése…</h2>
-          <p className="muted">A dashboard az első feldolgozási snapshotra vár.</p>
+          <p className="muted">Az áttekintő az első feldolgozási pillanatképre vár.</p>
         </section>
       ) : null}
 

@@ -37,6 +37,43 @@ test.describe('Accessibility release gate', () => {
     await expect(page.getByRole('button', { name: 'Vissza' })).toBeVisible();
     await expect(page.locator('#main-content')).not.toContainText('nincs-ilyen-oldal');
     await expectNoHighImpactViolations(page);
+    await page.getByRole('button', { name: 'Vissza' }).click();
+    await expect(page).toHaveURL('/');
+    await expect(page.getByRole('heading', { name: 'TV2 digitális platform POC' })).toBeVisible();
+  });
+
+  test('a piszkos szerkesztői űrlap belső navigációját a felhasználó döntése vezérli', async ({ page }) => {
+    test.setTimeout(120_000);
+    await loginAs(page, 'poc-publisher', {
+      startPath: '/contents/new',
+      expectedPath: '/contents/new',
+    });
+    await page.getByLabel(/^Cím/).fill(uniqueTitle('Nem mentett navigáció'));
+
+    const cancelled = new Promise<void>((resolve) => {
+      page.once('dialog', async (dialog) => {
+        expect(dialog.message()).toBe('A nem mentett módosítások elvesznek. Biztosan elhagyod az oldalt?');
+        await dialog.dismiss();
+        resolve();
+      });
+    });
+    await page.getByRole('navigation', { name: 'Elsődleges navigáció' })
+      .getByRole('link', { name: 'Katalógus' })
+      .click();
+    await cancelled;
+    await expect(page).toHaveURL(/\/contents\/new$/);
+
+    const accepted = new Promise<void>((resolve) => {
+      page.once('dialog', async (dialog) => {
+        await dialog.accept();
+        resolve();
+      });
+    });
+    await page.getByRole('navigation', { name: 'Elsődleges navigáció' })
+      .getByRole('link', { name: 'Katalógus' })
+      .click();
+    await accepted;
+    await expect(page).toHaveURL(/\/catalog\/search$/);
   });
 
   test('create, confirm dialog, operations és demo szemantikus kapuja zöld', async ({ page }) => {
@@ -57,7 +94,7 @@ test.describe('Accessibility release gate', () => {
     await expect(page.getByRole('button', { name: 'Visszavonás' })).toBeFocused();
 
     await page.goto('/operations');
-    await expect(page.getByRole('heading', { name: 'Operációs dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Operációs áttekintő' })).toBeVisible();
     await expectNoHighImpactViolations(page);
 
     await page.goto('/demo');

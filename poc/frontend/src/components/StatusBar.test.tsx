@@ -111,7 +111,7 @@ describe('StatusBar health polling and ready correlationId', () => {
     healthMocks.fetchReady.mockImplementation(() => ready.promise);
     renderStatusBar();
 
-    expect(screen.getByText('ready correlationId')).toBeTruthy();
+    expect(screen.getByText('Készenléti correlation ID')).toBeTruthy();
     expect(screen.getByText('—')).toBeTruthy();
 
     await act(async () => {

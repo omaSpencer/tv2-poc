@@ -29,7 +29,7 @@ test.describe.serial('Operátori műveletek', () => {
     await page.goto('/operations/reindex');
 
     await expect(page.getByRole('heading', { level: 2, name: 'Teljes keresőindex-újraépítés' })).toBeVisible();
-    await expect(page.getByText('Blokkolók: nincs')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Akadályok: nincs')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Phase 5 teljes stack ellenőrzés');
 
     const submitted = page.waitForRequest(request => (
@@ -151,7 +151,7 @@ test.describe('Reindex kiesési engedély @operator-outage', () => {
     stopSearchInstance('b');
     await page.goto('/operations/reindex');
 
-    await expect(page.getByText(/Blokkolók: .*other_index_unavailable/)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Akadályok: .*másik index nem elérhető/)).toBeVisible({ timeout: 60_000 });
     const submit = page.getByRole('button', { name: 'Teljes reindex indítása' });
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Kontrollált reindex a tartalék index kiesése mellett');
     await expect(submit).toBeDisabled();

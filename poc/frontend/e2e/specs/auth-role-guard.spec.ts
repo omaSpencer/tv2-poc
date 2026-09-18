@@ -58,11 +58,11 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
     await expect(nav(page).getByRole('link', { name: 'Operáció' })).toBeVisible();
 
     await page.goto('/operations');
-    await expect(page.getByRole('heading', { level: 2, name: 'Operációs dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Operációs áttekintő' })).toBeVisible();
 
     await page.reload();
     await expect(profileLink(page)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'Operációs dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Operációs áttekintő' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Nincs jogosultság' })).toHaveCount(0);
   });
 

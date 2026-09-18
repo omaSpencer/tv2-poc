@@ -114,11 +114,11 @@ export function DemoPage() {
   return (
     <div className="stack-pages demo-workspace">
       <section className="panel">
-        <p className="eyebrow">Release C · Phase 6</p>
+        <p className="eyebrow">C kiadás · 6. fázis</p>
         <h2>Forgatókönyv-futtató és bizonyítéktér</h2>
         <p className="muted">
-          Deklaratív, allowlist-alapú futtatás egzakt ellenőrzésekkel. A napló és az export nem tartalmaz tokent,
-          headert, teljes request/response body-t vagy felhasználói azonosítót.
+          Deklaratív, engedélyezési listára épülő futtatás egzakt ellenőrzésekkel. A napló és az export nem tartalmaz tokent,
+          fejlécet, teljes kérés- vagy választörzset, illetve felhasználói azonosítót.
         </p>
         <div className="demo-scenario-grid" role="list" aria-label="Forgatókönyvek">
           {SCENARIOS.map((scenario) => (
@@ -170,7 +170,7 @@ export function DemoPage() {
               <span>Tartalom: <strong className="mono">{run.contentId ?? '—'}</strong></span>
               <span>Állapot/verzió: <strong>{run.contentStatus ?? '—'} / {run.contentVersion ?? '—'}</strong></span>
             </div>
-            <h4>Preflight</h4>
+            <h4>Előellenőrzés</h4>
             <ul className="checklist evidence-checks">
               {run.preflight.map((check) => (
                 <li key={check.label} className={check.passed ? 'check-pass' : 'check-fail'}>
@@ -212,8 +212,8 @@ export function DemoPage() {
           </section>
 
           <section className="panel panel-muted">
-            <h3>Biztonságos evidence export</h3>
-            <p className="muted">Determinista, mező-allowlistelt JSON vagy Markdown. Az export a teljes API body-kat nem tárolja.</p>
+            <h3>Biztonságos bizonyítékexport</h3>
+            <p className="muted">Determinisztikus, mezőszintű engedélyezési listára épülő JSON vagy Markdown. Az export nem tárol teljes API-választörzseket.</p>
             <div className="row wrap-gap">
               <button type="button" className="btn-secondary" onClick={() => exportRun('json')}>JSON letöltése</button>
               <button type="button" className="btn-secondary" onClick={() => exportRun('markdown')}>Markdown letöltése</button>
@@ -221,7 +221,7 @@ export function DemoPage() {
             </div>
             {run.scenarioId === 'S05' ? (
               <p className="row wrap-gap operations-links">
-                <Link to="/operations/reindex">Reindex</Link>
+                <Link to="/operations/reindex">Újraindexelés</Link>
                 <Link to="/operations/quarantine">Karantén</Link>
                 <Link to="/operations/repair">Javítás</Link>
               </p>

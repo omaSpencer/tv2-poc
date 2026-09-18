@@ -10,6 +10,15 @@ import { publisherFixture } from './test/fixtures/api';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { DemoPage } from './pages/DemoPage';
+import statusBarSource from './components/StatusBar.tsx?raw';
+import contentListSource from './features/contents/routes/ContentListPage.tsx?raw';
+import registrySource from './features/demo/registry.ts?raw';
+import engineSource from './features/demo/engine.ts?raw';
+import exportSource from './features/demo/export.ts?raw';
+import demoPageSource from './pages/DemoPage.tsx?raw';
+import operationsSource from './features/operations/routes/OperationsPage.tsx?raw';
+import quarantineSource from './features/operations/routes/QuarantinePage.tsx?raw';
+import reindexSource from './features/operations/routes/ReindexPage.tsx?raw';
 
 vi.mock('./features/demo/persistence', async (loadOriginal) => {
   const original = await loadOriginal<typeof import('./features/demo/persistence')>();
@@ -32,6 +41,26 @@ const ENGLISH_PRODUCT_COPY = [
   'Permissionök',
 ];
 
+const FORBIDDEN_SOURCE_COPY = [
+  'API base',
+  'ready correlationId',
+  'Szerkesztői workspace',
+  'Operációs dashboard',
+  'Blokkolók:',
+  'backend ready',
+  'keresési feature aktív',
+  'Scenario runner',
+  'evidence export',
+  'fallback alatt',
+  'fault injection',
+  'Dry-run',
+  'Payload nélküli vizsgálat',
+  'Replay indítása',
+  'Run ID:',
+  '## Preflight',
+  "'PASS' : 'FAIL'",
+];
+
 const publisherAuth: AuthContextValue = {
   state: { kind: 'authenticated', me: publisherFixture },
   me: publisherFixture,
@@ -52,6 +81,21 @@ function assertNoEnglishProductCopy(root: HTMLElement = document.body) {
 }
 
 describe('Hungarian-only UI', () => {
+  it('keeps audited routed production sources free of known mixed-language copy', () => {
+    const routedSources = [
+      statusBarSource,
+      contentListSource,
+      registrySource,
+      engineSource,
+      exportSource,
+      demoPageSource,
+      operationsSource,
+      quarantineSource,
+      reindexSource,
+    ].join('\n');
+    for (const phrase of FORBIDDEN_SOURCE_COPY) expect(routedSources).not.toContain(phrase);
+  });
+
   it('keeps html lang=hu and Hungarian copy on critical routes', () => {
     expect(indexHtml).toContain('<html lang="hu">');
     expect(indexHtml).not.toContain('playground');

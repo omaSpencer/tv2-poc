@@ -86,7 +86,7 @@ describe('Phase 5 operator pages', () => {
       '/operations/reindex',
     );
 
-    await screen.findByText('Blokkolók: nincs');
+    await screen.findByText('Akadályok: nincs');
     fireEvent.click(screen.getByRole('checkbox'));
     const confirmation = await screen.findByLabelText(/Pontos adatbázisnév megerősítése/);
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Tervezett karbantartás' } });
@@ -142,9 +142,9 @@ describe('Phase 5 operator pages', () => {
     fireEvent.click(await screen.findByRole('button', { name: /#41/ }));
     await screen.findByRole('heading', { name: 'Karantén #41' });
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Projection újrapróbálás' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Replay indítása' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Visszajátszás indítása' }));
 
-    expect(await screen.findByRole('heading', { name: 'Replay állapota' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Visszajátszás állapota' })).toBeTruthy();
     expect(mocks.replayQuarantine).toHaveBeenCalledWith(41, { reason: 'Projection újrapróbálás' }, expect.any(String));
     expect(container.textContent).not.toContain('event payload');
   });

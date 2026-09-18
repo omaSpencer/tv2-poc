@@ -71,17 +71,17 @@ export async function runPreflight(
   if (definition.preflight.backendReady) {
     try {
       const response = await fetchReady();
-      checks.push({ label: 'backend ready', passed: response.status === 200 && response.data.status === 'ok' });
+      checks.push({ label: 'a backend készen áll', passed: response.status === 200 && response.data.status === 'ok' });
     } catch {
-      checks.push({ label: 'backend ready', passed: false });
+      checks.push({ label: 'a backend készen áll', passed: false });
     }
   }
   if (definition.preflight.searchEnabled) {
     try {
       const response = await fetchProcessingStatus();
-      checks.push({ label: 'keresési feature aktív', passed: response.status === 200 && Boolean(response.data.indexes) });
+      checks.push({ label: 'a keresési funkció aktív', passed: response.status === 200 && Boolean(response.data.indexes) });
     } catch {
-      checks.push({ label: 'keresési feature aktív', passed: false });
+      checks.push({ label: 'a keresési funkció aktív', passed: false });
     }
   }
   run.preflight = checks;
@@ -159,7 +159,7 @@ export async function advanceRun(
       } else {
         Object.assign(result, {
           state: 'passed', completedAt: now(), durationMs: elapsed(startedAt), assertions: [],
-          note: 'Manuálisan megerősített runbook-pont.',
+          note: 'Kézzel megerősített üzemeltetési pont.',
         } satisfies Partial<SafeStepResult>);
       }
 

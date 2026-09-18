@@ -36,7 +36,7 @@ describe('DemoPage Phase 6 workspace', () => {
     );
     expect(screen.getByRole('heading', { name: /Forgatókönyv-futtató és bizonyítéktér/i })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(5);
-    expect(screen.getByRole('button', { name: /S01 · Publisher életciklus/i }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /S01 · Kiadói életciklus/i }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 });

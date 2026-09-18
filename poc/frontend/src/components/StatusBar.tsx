@@ -62,11 +62,11 @@ export function StatusBar() {
         <h1><Link to="/" className="brand-link">API kipróbálófelület</Link></h1>
       </div>
       <dl className="status-grid">
-        <div><dt>API base</dt><dd className="mono">{apiBaseLabel()}</dd></div>
-        <div><dt>live</dt><dd><span className={pillClass(liveOk)}>{liveOk === null ? '…' : liveOk ? 'ok' : 'leállt'}</span></dd></div>
-        <div><dt>ready</dt><dd><span className={pillClass(readyOk)}>{readyOk === null ? '…' : readyOk ? 'ok' : 'nem kész'}</span></dd></div>
-        <div><dt>identity</dt><dd><span className={pillClass(identityOk)}>{identityLabel}</span></dd></div>
-        <div><dt>ready correlationId</dt><dd className="mono truncate">{readyCorrelationId}</dd></div>
+        <div><dt>API-alapcím</dt><dd className="mono">{apiBaseLabel()}</dd></div>
+        <div><dt>Élő állapot</dt><dd><span className={pillClass(liveOk)}>{liveOk === null ? '…' : liveOk ? 'rendben' : 'leállt'}</span></dd></div>
+        <div><dt>Készenlét</dt><dd><span className={pillClass(readyOk)}>{readyOk === null ? '…' : readyOk ? 'rendben' : 'nem kész'}</span></dd></div>
+        <div><dt>Identitás</dt><dd><span className={pillClass(identityOk)}>{identityLabel}</span></dd></div>
+        <div><dt>Készenléti correlation ID</dt><dd className="mono truncate">{readyCorrelationId}</dd></div>
         <div><dt>OpenAPI</dt><dd><a href={backendDocsUrl('/docs')} target="_blank" rel="noreferrer">/docs</a></dd></div>
       </dl>
     </header>

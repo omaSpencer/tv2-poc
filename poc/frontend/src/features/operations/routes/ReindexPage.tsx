@@ -8,6 +8,7 @@ import { reindexPreflightPollInterval } from '../reindexPreflightPoll';
 import { OperationsNav } from '../components/OperationsNav';
 import { activeActionStorageKey, createIdempotencyKey } from '../idempotency';
 import { operationsKeys } from '../queryKeys';
+import { availabilityLabel, REINDEX_BLOCKER_LABELS } from '../viewModel';
 
 export function ReindexPage() {
   const navigate = useNavigate();
@@ -81,8 +82,8 @@ export function ReindexPage() {
           <section className={status.blockers.length ? 'ops-callout ops-callout-warning' : 'ops-callout'} aria-live="polite">
             <div>
               <h3>Élő előellenőrzés</h3>
-              <p>Másik index: {status.otherIndex.toUpperCase()} · ready: {String(status.otherIndexReady)} · elérhető: {String(status.otherIndexReachable)}</p>
-              <p>Blokkolók: {status.blockers.length ? status.blockers.join(', ') : 'nincs'}</p>
+              <p>Másik index: {status.otherIndex.toUpperCase()} · készen áll: {availabilityLabel(status.otherIndexReady)} · elérhető: {availabilityLabel(status.otherIndexReachable)}</p>
+              <p>Akadályok: {status.blockers.length ? status.blockers.map(blocker => REINDEX_BLOCKER_LABELS[blocker]).join(', ') : 'nincs'}</p>
             </div>
           </section>
         ) : <p role="status">Előellenőrzés…</p>}

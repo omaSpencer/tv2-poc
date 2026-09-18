@@ -94,12 +94,12 @@ test.describe('Publikus katalógus', () => {
   });
 });
 
-test.describe('Operációs dashboard', () => {
+test.describe('Operációs áttekintő', () => {
   test('a publisher minden feldolgozási kártyát és az A/B állapotot látja', async ({ page }) => {
     await loginAs(page, 'poc-publisher');
     await page.goto('/operations');
 
-    await expect(page.getByRole('heading', { level: 2, name: 'Operációs dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Operációs áttekintő' })).toBeVisible();
     for (const card of ['Outbox', 'Relay', 'Broker', 'Karantén']) {
       await expect(page.getByRole('heading', { level: 2, name: card })).toBeVisible();
     }

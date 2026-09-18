@@ -47,7 +47,7 @@ test('a tartalomlista a viewporthoz illő nézetet használja', async ({ page })
 test('az operations dashboard a támogatott viewporton sem csúszik ki', async ({ page }) => {
   await loginAs(page, 'poc-publisher');
   await page.goto('/operations');
-  await expect(page.getByRole('heading', { level: 2, name: 'Operációs dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Operációs áttekintő' })).toBeVisible();
   const cards = page.locator('.operations-consumer-cards');
   const table = page.locator('.operations-consumer-table');
   if ((page.viewportSize()?.width ?? 0) <= 720) {
@@ -63,6 +63,6 @@ test('az operations dashboard a támogatott viewporton sem csúszik ki', async (
 test('a scenario workspace hosszú tartalommal sem okoz vízszintes túlcsordulást', async ({ page }) => {
   await loginAs(page, 'poc-publisher', { startPath: '/demo', expectedPath: '/demo' });
   await expect(page.getByRole('heading', { name: 'Forgatókönyv-futtató és bizonyítéktér' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /S04 · Kereső fallback és kiesés/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /S04 · Kereső tartalék üzem és kiesés/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

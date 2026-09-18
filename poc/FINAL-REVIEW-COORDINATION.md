@@ -22,16 +22,16 @@ Definition of Done forrásai; ez a fájl kizárólag az agent-tulajdonlást, az
 - Konfliktus, bizonytalan architekturális döntés vagy scope-bővülés esetén az
   agent megáll és döntési kérdést ad át; nem választ önkényesen új topológiát.
 
-## Aktuális hullám – W1
+## Lezárt hullám – W1
 
 | Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
-| Claude | Backend BE-F1: S1, S2, S4, S7, O1 | `codex/final-be-f1` | `/private/tmp/tv2-poc-be-f1` | kiadható |
-| Cursor | Frontend FE-F1: M1, L7, L8, L11 | `codex/final-fe-f1` | `/private/tmp/tv2-poc-fe-f1` | kiadható |
-| Codex fő agent | koordináció, baseline, integráció, közös kapu | `main` | repository checkout | folyamatban |
-| Codex reviewer | W1 átfedés-, contract- és tesztterv audit | nincs írás | megosztott olvasás | folyamatban |
+| Claude | Backend BE-F1: S1, S2, S4, S7, O1 | `codex/final-be-f1` | `/private/tmp/tv2-poc-be-f1` | integrálva (`f4b4154`) |
+| Cursor | Frontend FE-F1: M1, L7, L8, L11 | `codex/final-fe-f1` | `/private/tmp/tv2-poc-fe-f1` | integrálva (`fa65ee2`) |
+| Codex fő agent | review-javítás, production ingress, integráció, közös kapu | `main` | repository checkout | kész |
+| Codex reviewer | W1 átfedés-, contract- és scope audit | nincs írás | megosztott olvasás | kész |
 
-Kiadandó feladatlapok: [Claude / backend BE-F1](agent-prompts/W1-CLAUDE-BACKEND.md)
+Átadott feladatlapok: [Claude / backend BE-F1](agent-prompts/W1-CLAUDE-BACKEND.md)
 és [Cursor / frontend FE-F1](agent-prompts/W1-CURSOR-FRONTEND.md).
 
 ### W1 koordinátori döntések
@@ -62,14 +62,30 @@ Minden implementáló agent válasza tartalmazza:
 
 ## Koordinátori integrációs kapu
 
-- [ ] Az agent commitja csak a kiosztott audit-ID-ket és szükséges teszteket érinti.
-- [ ] A milestone checklist és a megfelelő evidence minden lezárt ID-re frissült.
-- [ ] Nincs elveszett vagy gyengített korábbi teszt/invariáns.
-- [ ] Backend contractváltozás esetén az OpenAPI snapshot és a frontend generated
+- [x] Az agent commitja csak a kiosztott audit-ID-ket és szükséges teszteket érinti.
+- [x] A milestone checklist és a megfelelő evidence minden lezárt ID-re frissült.
+- [x] Nincs elveszett vagy gyengített korábbi teszt/invariáns.
+- [x] Backend contractváltozás esetén az OpenAPI snapshot és a frontend generated
   contract drift ellenőrzött.
-- [ ] A branch saját typecheck/lint/teszt kapuja zöld.
-- [ ] A két W1 branch együtt, tiszta integrációs állapotban is zöld.
-- [ ] Csak ezután jelölhető a fázis késznek és osztható ki BE-F2/FE-F2.
+- [x] A branch saját typecheck/lint/teszt kapuja zöld.
+- [x] A két W1 branch együtt, tiszta integrációs állapotban is zöld.
+- [x] Csak ezután jelölhető a fázis késznek és osztható ki BE-F2/FE-F2.
+
+## W1 integrációs eredmény – 2026-09-18
+
+| Kapu | Eredmény |
+| --- | --- |
+| Backend teljes verify, Node 24.20.0 | PASS – 24 fájl, 267/267 teszt, 0 skip |
+| Frontend teljes verify | PASS – 34 fájl, 149/149 teszt |
+| Frontend E2E typecheck | PASS |
+| OpenAPI → frontend generated contract | PASS – `429` és `rate_limited` integrálva |
+| Production backend image | PASS – nem-root, healthy, live/ready 200 |
+| Production web/ingress image | PASS – nem-root, healthy, SPA/deep-link/API 200 |
+| Same-origin/CORS contract | PASS – `/api` prefix levágva, CORS header nincs |
+| Dependency host exposure | PASS – mind a hat tényleges publikáció `127.0.0.1`, minden service healthy |
+
+A smoke-hoz létrehozott izolált Compose projektet és tesztvolume-ot a mérés után
+eltávolítottuk. A normál fejlesztői dependency volume-ok megmaradtak.
 
 ## W1 baseline – 2026-09-18
 

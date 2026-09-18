@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { DEFAULT_SEARCH_INDEX_UID, SEARCH_INDEX_UID_PATTERN } from './contracts/search.js';
 
 const flag = z.enum(['off', 'on']).default('off');
-const optional = z.string().min(1).optional();
+// Compose represents an omitted optional mapping as an empty string. Treat it
+// as absent so disabled integrations can share one production overlay; an
+// enabled integration is still rejected by REQUIRED_KEYS below.
+const optional = z.preprocess(value => value === '' ? undefined : value, z.string().min(1).optional());
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.coerce.number().int().min(0).max(65535),

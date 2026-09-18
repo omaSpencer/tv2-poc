@@ -184,7 +184,7 @@ sosem volt és nem is lehet opció.
 | Környezet | Ki továbbít | Szerződés |
 | --- | --- | --- |
 | Fejlesztés | Vite dev proxy (`poc/frontend/vite.config.ts`) | A böngésző `http://127.0.0.1:5173/api/...` útra kér; a proxy levágja az `/api` prefixet és a `VITE_BACKEND_ORIGIN` (alap: `http://127.0.0.1:3000`) felé továbbít |
-| Production (célállapot; még nincs repóban implementálva) | Reverse proxy / ingress | Egy origin szolgálja ki az SPA-t és az API-t. Az `/api/*` útvonal a backendre megy, az `/api` prefix levágásával, a `Host`, `X-Forwarded-For` és `X-Forwarded-Proto` headerök továbbításával. Minden más út az SPA-ra megy |
+| Production | Nginx (`poc/frontend/nginx.conf`, az `app` Compose profil `web` service-e) | Egy origin szolgálja ki az SPA-t és az API-t. Az `/api/*` útvonal a privát backendre megy, az `/api` prefix levágásával; minden más út az SPA-ra megy |
 
 Az ingress-szerződés kötelező elemei:
 
@@ -194,8 +194,10 @@ Az ingress-szerződés kötelező elemei:
 - **Kliens IP.** A proxy írja a saját `X-Forwarded-For` bejegyzését, és a
   backend `RATE_LIMIT_TRUSTED_PROXY_HOPS` értéke pontosan ennyi megbízható
   hopot engedélyez (production overlay: `1`). Lásd lent.
-- **TLS.** A TLS a proxyn terminál; a backend továbbra is `127.0.0.1`-en
-  publikált HTTP listener.
+- **Kitettség és TLS.** Csak a `web` service publikál loopback host-portot; a
+  backend kizárólag a Compose hálózaton, `backend:3000` címen érhető el. A helyi
+  smoke HTTP-t használ; valódi productionben a TLS-terminátor ennek az ingressnek
+  az elején áll, és a backend továbbra sem kap publikus host-portot.
 
 Külön-originű (cross-origin) deployment **nem a jelenlegi döntés**. Ha valaha
 mégis kell, az nem ennek a fájlnak a felpuhítása, hanem külön, explicit
@@ -263,9 +265,14 @@ docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app --profile full up -d --wait
 docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app ps
-curl -s 127.0.0.1:3000/health/live
-curl -s 127.0.0.1:3000/health/ready
+curl -s 127.0.0.1:8080/ingress-health
+curl -s 127.0.0.1:8080/api/health/live
+curl -s 127.0.0.1:8080/api/health/ready
 ```
+
+A `web` image a frontend production bundle-t és az Nginx ingress-t együtt
+szállítja, `nginx` felhasználóként, read-only fájlrendszerrel. A backendnek csak
+`expose: 3000` bejegyzése van, host `ports` bejegyzése nincs.
 
 Az overlay egyben a Meilisearch production posture (S7): mindkét példány
 `MEILI_ENV=production`, kötelező, nem repóban tárolt master kulccsal. A helyi

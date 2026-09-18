@@ -6,8 +6,8 @@
 #
 # It deliberately introduces a separate `app` profile instead of extending the
 # existing `full` profile. `full` is what CI starts for dependencies while the
-# backend runs on the host; putting a backend container in it would collide on
-# the host port and change what the release gate measures.
+# backend runs on the host; adding the application images there would change
+# what the release gate measures and build on every dependency-only startup.
 #
 # Add `--profile full` to the command above to bring the dependencies up in the
 # same posture; with this overlay Meilisearch then runs in production mode with
@@ -20,6 +20,29 @@
 name: ${COMPOSE_PROJECT_NAME:-indaplay-poc}
 
 services:
+  web:
+    profiles: ["app"]
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.20.0-alpine3.23}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:1.29.5-alpine3.23}
+        VITE_API_BASE: /api
+    image: ${FRONTEND_IMAGE:-indaplay-poc-frontend:local}
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    ports:
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
   backend:
     profiles: ["app"]
     build:
@@ -35,8 +58,9 @@ services:
       - no-new-privileges:true
     environment:
       NODE_ENV: production
-      # Inside the container the listener must bind every interface; the host
-      # publication below is still loopback-only (S4).
+      # Inside the container the listener must bind every interface. There is
+      # no backend host publication; only the web ingress reaches this port on
+      # the Compose network.
       HOST: 0.0.0.0
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -61,8 +85,8 @@ services:
       MEILI_A_KEY: ${MEILI_A_KEY:-}
       MEILI_B_URL: ${BACKEND_MEILI_B_URL:-}
       MEILI_B_KEY: ${MEILI_B_KEY:-}
-    ports:
-      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3000}:3000"
+    expose:
+      - "3000"
     depends_on:
       postgres:
         condition: service_healthy

@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: BE-F1 folyamatban lezárás alatt, BE-F2–BE-F5 tervezett.** Ez a milestone a final audit mind a **25 backend
+**Státusz: folyamatban; BE-F1 lezárva.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 
@@ -45,12 +45,12 @@ alapállapotának egyértelművé tétele.
   `GET /catalog/search` és `GET /catalog/contents/:id` route-okra. A választott
   hely (NestJS vagy reverse proxy) legyen dokumentálva; legyen teszt a limitre,
   a `429` válaszra és arra, hogy normál forgalom nem sérül.
-- [ ] **S2 – Explicit CORS/same-origin döntés.** Rögzíteni kell a támogatott
+- [x] **S2 – Explicit CORS/same-origin döntés.** Rögzíteni kell a támogatott
   browser-topológiát. Cross-origin SPA esetén szűk origin-, method- és
   header-allowlist szükséges; same-origin proxy esetén az API maradjon CORS
   nélkül, és ezt a runbook bizonyítsa. Wildcard origin nem elfogadott.
-  **Részleges:** a döntés és a backend CORS-negatív contract tesztelt, de a
-  production ingress konfiguráció és a same-origin `/api` smoke még hiányzik.
+  A nem-root Nginx/SPA image, az `/api` prefix-levágás, a privát backend és a
+  same-origin Docker smoke bizonyított. Evidence: `FINAL-BACKEND-EVIDENCE.md`.
 - [x] **S4 – Dependency-portok loopbackre kötése.** A fejlesztői Compose-ban a
   PostgreSQL, NATS, mindkét Meilisearch és Authentik host-portja alapból csak
   `127.0.0.1`-en legyen elérhető. A konténerek közti hálózat maradjon működőképes.
@@ -69,13 +69,12 @@ alapállapotának egyértelművé tétele.
 
 - [x] A publikus route-ok limitje automatikus tesztben bizonyított.
 - [x] A browser-topológia és CORS-döntés a README/runbook része.
-- [ ] A hostról a dependency-k csak loopbacken érhetők el. *(A renderelt Compose
-  konfiguráció mind a hat portra `host_ip: 127.0.0.1`-et ad; a jelenleg futó,
-  korábbi konfigurációból létrehozott konténereket merge után kontrolláltan újra
-  kell létrehozni, majd host-oldali port-próbával ellenőrizni.)*
+- [x] A hostról a dependency-k csak loopbacken érhetők el. *(A konténerek
+  kontrollált újralétrehozása után mind a hat tényleges portkötés `127.0.0.1`,
+  és minden dependency healthy.)*
 - [x] A backend image buildel, nem rootként indul, és a live/ready ellenőrzés zöld.
 - [x] Backend typecheck, lint, unit/integrációs tesztek és OpenAPI check zöld.
-  *(Node 24.20.0, 24 tesztfájl, 264/264 pass, 0 skip.)*
+  *(Node 24.20.0, 24 tesztfájl, 267/267 pass, 0 skip.)*
 
 ---
 

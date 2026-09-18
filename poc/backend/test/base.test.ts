@@ -75,6 +75,9 @@ describe('M0 application base', () => {
   });
   it('accepts validated config and rejects unavailable integrations', () => {
     expect(validateConfig(base).PORT).toBe(0);
+    expect(validateConfig({ ...base, NATS_URL: '', MEILI_A_URL: '', MEILI_B_URL: '' }).NATS_URL).toBeUndefined();
+    expect(() => validateConfig({ ...base, FEATURE_OUTBOX_RELAY: 'on', NATS_URL: '' }))
+      .toThrow(ConfigurationError);
     expect(validateConfig({
       ...base,
       FEATURE_OUTBOX_RELAY: 'on',

@@ -55,6 +55,35 @@ describe('S4 dependency host exposure', () => {
   });
 });
 
+describe('S2 production same-origin ingress', () => {
+  it('serves the SPA and strips /api before proxying to the private backend', async () => {
+    const nginx = await read('../frontend/nginx.conf');
+    expect(nginx).toContain('try_files $uri $uri/ /index.html;');
+    expect(nginx).toContain('location /api/');
+    expect(nginx).toContain('proxy_pass http://backend:3000/;');
+    expect(nginx).toContain('proxy_set_header X-Forwarded-For $remote_addr;');
+  });
+
+  it('publishes only the web ingress and keeps the backend private', async () => {
+    const overlay = await read('compose.prod.yaml');
+    const backendStart = overlay.indexOf('\n  backend:\n');
+    const web = overlay.slice(overlay.indexOf('\n  web:\n'), backendStart);
+    const backend = overlay.slice(backendStart, overlay.indexOf('\n  meilisearch-a:\n'));
+    expect(web).toContain('"${HOST_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"');
+    expect(web).toContain('condition: service_healthy');
+    expect(backend).toContain('expose:');
+    expect(backend).not.toContain('ports:');
+  });
+
+  it('builds both runtime images as unprivileged users', async () => {
+    const frontendDockerfile = await read('../frontend/Dockerfile');
+    expect(frontendDockerfile).toContain('ARG NGINX_IMAGE=nginx:1.29.5-alpine3.23');
+    expect(frontendDockerfile).toContain('ENV VITE_API_BASE=${VITE_API_BASE}');
+    expect(frontendDockerfile).toContain('USER nginx');
+    expect(frontendDockerfile).toContain('HEALTHCHECK');
+  });
+});
+
 describe('S7 Meilisearch posture', () => {
   it('keeps the local profile in development mode by default', async () => {
     const compose = await read('compose.yaml');
@@ -118,9 +147,11 @@ describe('O1 application image', () => {
     expect(backend).toContain('read_only: true');
     expect(backend).toContain('cap_drop: ["ALL"]');
     expect(backend).toContain('no-new-privileges:true');
-    // The container listener binds every interface; the host publication does not.
+    // The container listener binds every interface but is reachable only from
+    // the Compose network; the web ingress owns the sole host publication.
     expect(backend).toContain('HOST: 0.0.0.0');
-    expect(backend).toContain('"${HOST_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3000}:3000"');
+    expect(backend).toContain('expose:');
+    expect(backend).not.toContain('ports:');
   });
 
   it('is not started by the plain dependency profile', async () => {

@@ -13,10 +13,10 @@ Fázisonként bővül; jelenleg a **BE-F1** zárása szerepel benne.
 | Meilisearch A/B | Két Compose szolgáltatás, élő integrációs tesztekkel |
 | Docker daemon | Docker Desktop; image build, nem-root futtatás és health smoke lefutott |
 
-A koordinátori review-körben a teljes tesztkészlet **skip nélkül**, az image és
-a konténer smoke pedig valódi Docker daemonon futott. A production ingress
-hiánya és a merge előtti, régi Compose-konfigurációból futó konténerek újraindítása
-továbbra is külön nyitott tétel.
+A koordinátori review-körben a teljes tesztkészlet **skip nélkül**, a backend és
+web image, a same-origin ingress és a konténer smoke pedig valódi Docker daemonon
+futott. A fejlesztői dependency stacket az új loopback konfigurációval
+kontrolláltan újralétrehoztuk.
 
 ---
 
@@ -55,7 +55,7 @@ rövidebb lánc esetén visszaesve a transport peer címére.
 
 ```
 npx vitest run test/rate-limit.test.ts test/integration/public-edge.test.ts test/container-posture.test.ts
-→ Test Files 3 passed (3) · Tests 31 passed (31)
+→ Test Files 3 passed (3) · Tests 35 passed (35)
 ```
 
 - `test/rate-limit.test.ts` – a limitált route-halmaz megegyezik a `ROUTE_MATRIX`
@@ -93,7 +93,7 @@ O(1). Több példány előtt megosztott számláló vagy ingress-limit szükség
 
 ---
 
-### S2 – Explicit CORS/same-origin döntés · **részleges: döntés és backend contract kész, production ingress proof nyitott**
+### S2 – Explicit CORS/same-origin döntés · **lezárva**
 
 **Döntés.** A támogatott topológia same-origin ingress. A böngésző relatív
 `/api/...` útra kér, azt fejlesztésben a Vite dev proxy, productionben a reverse
@@ -102,12 +102,11 @@ nélkül marad**: nincs `enableCors`, nincs `Access-Control-*` header, preflight
 nincs válasz. Wildcard origin nem opció. Külön-originű deployment csak későbbi,
 explicit allowlistes döntésként jöhet szóba.
 
-**Változtatott fájlok.** `poc/backend/README.md` („Böngésző-topológia és CORS”,
-az ingress-szerződés kötelező elemeivel: prefix, kliens-IP/`X-Forwarded-For`
-hopszám, TLS-termináció), `poc/FRESH-CHECKOUT-RUNBOOK.md`,
-`poc/backend/test/integration/public-edge.test.ts`. Frontend forrás nem változott;
-a meglévő `vite.config.ts` proxy és a `VITE_API_BASE=/api` alapérték már ezt a
-topológiát valósítja meg.
+**Változtatott fájlok.** `poc/frontend/Dockerfile`, `.dockerignore` és
+`nginx.conf` – nem-root SPA image és `/api` reverse proxy;
+`poc/backend/compose.prod.yaml` – loopbacken publikált `web`, hálózaton belüli
+backend; `poc/backend/README.md`, `poc/FRESH-CHECKOUT-RUNBOOK.md`, valamint a
+statikus és integrációs regressziós tesztek.
 
 **Bizonyíték**
 
@@ -122,15 +121,22 @@ S2 same-origin contract (3 eset, pass)
 Futó listener ellen `Origin: https://evil.example` header mellett a válasz
 egyetlen `access-control-*` headert sem tartalmazott.
 
-**Nyitott rész.** A repó nem tartalmaz production ingress/reverse-proxy
-konfigurációt vagy olyan smoke tesztet, amely az SPA és az `/api` valódi
-same-origin kiszolgálását, valamint a prefix levágását bizonyítja. A fenti teszt
-csak a backend CORS-nélküliségét igazolja; S2 teljes lezárásához az ingress réteg
-és annak smoke-ja szükséges.
+**Production ingress smoke – izolált Compose projekt**
+
+```
+web image    → nginx:1.29.5-alpine3.23, USER nginx, healthy
+backend      → USER node, healthy, host-port nélkül
+GET /                         → 200 (SPA)
+GET /catalog/search           → 200 (SPA deep-link fallback)
+GET /api/health/live          → 200 (prefix levágva, backend válasz)
+Origin: https://evil.example  → nincs Access-Control-* header
+web host publication          → 127.0.0.1:18080
+backend port                  → 3000/tcp, PublishedPort nincs
+```
 
 ---
 
-### S4 – Dependency-portok loopbackre kötése · **lezárva (konfiguráció), runtime próba pending**
+### S4 – Dependency-portok loopbackre kötése · **lezárva**
 
 **Változtatott fájlok.** `poc/backend/compose.yaml` – mind a hat publikált port
 `${HOST_BIND_ADDRESS:-127.0.0.1}` előtaggal; `poc/backend/.env.example`;
@@ -154,10 +160,11 @@ konténerek közti feloldás érintetlen (`AUTHENTIK_POSTGRESQL__HOST:
 authentik-postgres`, `AUTHENTIK_REDIS__HOST: authentik-redis` változatlan; a
 `container-posture.test.ts` ezt is állítja).
 
-**Pending.** A futó, hosszú életű Compose-konténerek még a módosítás előtti
-konfigurációból származnak, ezért jelenleg `0.0.0.0`/`::` címeken publikálnak.
-A branch merge-je után kontrollált újralétrehozás és host-oldali port-próba kell;
-ezt a review nem végezte el, mert a fejlesztői dependency stacket megszakítaná.
+**Runtime bizonyíték.** A meglévő dependency konténereket a volume-ok megtartása
+mellett `--force-recreate --wait` paranccsal újralétrehoztuk. Mindegyik healthy;
+a tényleges Docker portkötések: PostgreSQL `127.0.0.1:55433`, NATS
+`127.0.0.1:4222/8222`, Meilisearch `127.0.0.1:7700/7701`, Authentik
+`127.0.0.1:9000`. `0.0.0.0` és `::` publikáció nincs.
 
 ---
 
@@ -210,8 +217,8 @@ argumentum, se `ENV` nem hordoz hitelesítő adatot. Az `app` profil külön ove
 docker compose -f compose.yaml --profile full config --services
   → authentik-*, meilisearch-a, meilisearch-b, nats, postgres (backend NINCS köztük)
 docker compose -f compose.yaml -f compose.prod.yaml --profile app config
-  → backend: image indaplay-poc-backend:local, read_only: true,
-    no-new-privileges:true, host_ip 127.0.0.1 published 3000
+  → web: read_only, USER nginx, host_ip 127.0.0.1 published 8080
+  → backend: read_only, USER node, expose 3000, host publication nélkül
   → BACKEND_DATABASE_URL nélkül: required variable BACKEND_DATABASE_URL is missing a value
 
 docker build -t indaplay-poc-backend:review-ee72910 . → pass
@@ -247,10 +254,10 @@ a `USER node` és `CMD` sorrendjét, a `HEALTHCHECK` meglétét, a `.dockerignor
 | `npm run build` (tsc) | pass |
 | `npm run lint` (oxlint, 121 fájl) | pass – 0 warning, 0 error |
 | `npm run openapi:check` | pass (a snapshot az új `429` válaszokkal újragenerálva) |
-| `npm test` (teljes Vitest) | 24 fájl pass · **264 teszt pass, 0 skip** |
+| `npm test` (teljes Vitest) | 24 fájl pass · **267 teszt pass, 0 skip** |
 | `npm run verify` | **exit 0** (Node 24.20.0, élő PostgreSQL/NATS/Meilisearch) |
 | `docker compose config` validálás | pass |
-| `docker build` / konténer smoke | **pass** – `USER node`, Docker `healthy`, live/ready 200 |
+| `docker build` / konténer smoke | **pass** – backend `USER node`, web `USER nginx`, mindkettő `healthy`; same-origin live/ready 200 |
 | Hiányzó `DATABASE_URL` image-ből | **pass** – exit 1, strukturált `invalid_configuration` |
 
 ## Frontend contract hatás
@@ -277,7 +284,3 @@ Amit a frontendnek érdemes kezelnie: a publikus catalog hívások `429` ága
    mozgatni az ingress konfigurációjával; rossz érték hamisítható kliens-IP-t
    jelent.
 3. **Image digest.** A base image tag szerint pinelt, digest szerint nem (E01).
-4. **S2 production proof.** A döntés és a backend CORS-contract kész, de a
-   production ingress konfigurációja és same-origin `/api` smoke-ja még hiányzik.
-5. **S4 runtime aktiválás.** Merge után a régi Compose-konténereket kontrolláltan
-   újra kell létrehozni, majd ellenőrizni, hogy csak loopbacken publikálnak.

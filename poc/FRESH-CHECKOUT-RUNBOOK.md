@@ -55,13 +55,12 @@ tesztek a konténereket `afterEach` helyreállítással kezelik.
 
 ## Publikus perem és futtatási posture (BE-F1)
 
-A böngésző-topológia célállapota **same-origin**: a böngésző relatív `/api/...`
-útra kér, azt fejlesztésben a Vite dev proxy továbbítja a backendnek az `/api`
-prefix levágásával. Productionben ugyanez a kötelező ingress-szerződés, de a
-reverse proxy konfigurációja és smoke-ja még nincs a repóban, ezért ez nem
-tekinthető bizonyított production útvonalnak. A backend CORS nélkül fut, és
-preflightra sem válaszol; wildcard origin nem elfogadott. A teljes szerződés és
-a külön-originű opció feltételei:
+A böngésző-topológia **same-origin**: a böngésző relatív `/api/...` útra kér.
+Fejlesztésben a Vite dev proxy, productionben az `app` profil `web` Nginx
+service-e vágja le az `/api` prefixet és továbbít a host-portra ki nem tett
+backendnek. Ugyanez az origin szolgálja ki az SPA-t és a deep linkeket. A backend
+CORS nélkül fut, és preflightra sem válaszol; wildcard origin nem elfogadott. A
+teljes szerződés és a külön-originű opció feltételei:
 [backend/README.md](backend/README.md) „Böngésző-topológia és CORS".
 
 A publikus catalog route-ok alkalmazásszintű limitet kapnak
@@ -88,13 +87,15 @@ docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app --profile full up -d --wait
 docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app ps
-curl -s 127.0.0.1:3000/health/live
-curl -s 127.0.0.1:3000/health/ready
+curl -s 127.0.0.1:8080/ingress-health
+curl -s 127.0.0.1:8080/api/health/live
+curl -s 127.0.0.1:8080/api/health/ready
 ```
 
 Az overlay mindkét Meilisearch példányt `MEILI_ENV=production` módban, kötelező
-és nem repóban tárolt master kulccsal indítja. A konténer nem rootként fut, és
-`HEALTHCHECK`-ként a saját `/health/live` végpontját kérdezi.
+és nem repóban tárolt master kulccsal indítja. A backend és a web konténer sem
+rootként fut. A host csak a web `8080` portját kapja meg; a backend kizárólag a
+Compose hálózaton érhető el.
 
 ## Release artifactok
 

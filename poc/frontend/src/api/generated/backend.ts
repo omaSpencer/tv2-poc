@@ -498,7 +498,7 @@ export interface components {
             title: string;
             status: number;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unauthenticated" | "forbidden" | "content_not_found" | "not_found" | "version_conflict" | "content_already_published" | "content_not_published" | "content_not_editable" | "slug_conflict" | "idempotency_conflict" | "reindex_already_running" | "quarantine_schema_invalid" | "payload_too_large" | "validation_failed" | "target_confirmation_required" | "operation_not_found" | "quarantine_not_found" | "internal_error" | "dependency_unavailable" | "search_unavailable";
+            code: "invalid_json" | "invalid_request" | "unauthenticated" | "forbidden" | "content_not_found" | "not_found" | "version_conflict" | "content_already_published" | "content_not_published" | "content_not_editable" | "slug_conflict" | "idempotency_conflict" | "reindex_already_running" | "quarantine_schema_invalid" | "payload_too_large" | "rate_limited" | "validation_failed" | "target_confirmation_required" | "operation_not_found" | "quarantine_not_found" | "internal_error" | "dependency_unavailable" | "search_unavailable";
             detail: string;
             instance: string;
             correlationId: string;
@@ -1612,6 +1612,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDocument"];
                 };
             };
+            /** @description rate_limited: the public edge limit for this route was exceeded */
+            429: {
+                headers: {
+                    /** @description Whole seconds until the current limit window resets. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
         };
     };
     CatalogSearchController_search: {
@@ -1651,6 +1662,17 @@ export interface operations {
             /** @description validation_failed with the offending query parameter names */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDocument"];
+                };
+            };
+            /** @description rate_limited: the public edge limit for this route was exceeded */
+            429: {
+                headers: {
+                    /** @description Whole seconds until the current limit window resets. */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

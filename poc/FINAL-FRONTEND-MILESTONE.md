@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: tervezett.** Ez a milestone a final audit mind a **21 frontend
+**Státusz: folyamatban; FE-F1 lezárva.** Ez a milestone a final audit mind a **21 frontend
 találatát** lezárja: 2 Medium, 14 Low és 5 Info tételt. A munka öt külön
 fázisban halad; egy fázis végén a frontendnek önmagában kiadható állapotban kell
 maradnia.

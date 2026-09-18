@@ -194,6 +194,90 @@ Feladatlapok: [Codex / backend BE-F3](agent-prompts/W3-CODEX-BACKEND.md) és
 A W3 közös kapuja zöld; a W4 kiosztható. A hullámban kizárólag Codex és Cursor
 vett részt, Claude nem kapott feladatot vagy review-szerepet.
 
+## Tervezett hullám – W4
+
+A W4-ban csak két szereplő vesz részt: Codex és Cursor. A közös baseline a W3
+integrációs kapuját lezáró tiszta `main`, commit: `98dc729`. A két implementáció
+külön worktree-ben, párhuzamosan készül; Claude nem kap tulajdont,
+review-feladatot vagy kapuszerepet.
+
+| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| --- | --- | --- | --- | --- |
+| Codex | Backend BE-F4: C3, C4, C5, C9, D1; frontend review és integráció | `codex/final-be-f4` | `/private/tmp/tv2-poc-be-f4` | indítható `98dc729`-ről |
+| Cursor | Frontend FE-F4: L12, L13, I1, I5; backend read-only review | `codex/final-fe-f4` | `/private/tmp/tv2-poc-fe-f4` | indítható `98dc729`-ről |
+
+Feladatlapok: [Codex / backend BE-F4](agent-prompts/W4-CODEX-BACKEND.md) és
+[Cursor / frontend FE-F4](agent-prompts/W4-CURSOR-FRONTEND.md).
+
+### W4 rögzített döntések és határok
+
+- A JetStream dedupe-ablak nem exactly-once garancia. Külön rövid ablakú
+  topology harness bizonyítja az azonos msgID-jú második stream sequence-et,
+  külön worker harness a backend consumer aktuális aggregátumállapotra
+  konvergálását; egyik sem vár két perc faliórát.
+- A retention check konstans számú broker round-trippal dolgozik és bizonytalan
+  stream-state esetén fail-closed. A verifier memóriaigénye oldalméret + fix
+  diagnosztikai minta szerint korlátos; a write-freeze külön mért időablak. A
+  W4 célként vállalt PoC-plafon 1000 publikált dokumentum, amely csak a W4
+  teljes verifier/reindex mérése után nevezhető bizonyítottnak; efölött új
+  kapacitásmérés szükséges.
+- Az admin `ILIKE` kereséshez `pg_trgm` GIN stratégia és eldobható, legalább
+  10 000 soros, a production repository OR/filter/order/limit alakját mérő
+  `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` evidence készül. A friss telepítés
+  mellett a `0005`-ről induló forward upgrade és az ismételt migrate no-op is
+  kapu. A publikus request/response contract nem változik.
+- A frontend magyar-only marad; W4-ben nem készül i18n runtime. A technikai
+  tokenek maradhatnak, a felhasználói mondatok, akciók és accessibility labelek
+  magyarok.
+- Az `unstable_usePrompt` helyett a pinelt router stabil `useBlocker` API-jára
+  épülő saját adapter készül. Az error toast perzisztens, a success timeout
+  hover/focus alatt szünetel, az ismeretlen route pedig shellen belüli 404.
+- A backend ág kizárólag backend forrást, tesztet, migrációt és backend
+  evidence/dokumentációt ír. A frontend ág kizárólag frontend forrást,
+  tesztet/E2E-t és frontend evidence/dokumentációt ír. Generated contract és a
+  koordinációs dokumentum egyik implementációs ágon sem változik.
+
+### W4 review- és integrációs sorrend
+
+1. Codex és Cursor párhuzamosan implementál a `98dc729` baseline-ról.
+2. Cursor átadja az FE-F4 commitot; Codex scope-, timer/focus-, router-history-,
+   dirty-guard-, axe- és nyelvi review-t futtat rajta.
+3. Codex átadja a BE-F4 commitot; Cursor az FE-F4 lezárása után, írás nélkül
+   ellenőrzi a duplicate-konvergenciát, a retention fail-closed ágat, a verifier
+   memória/freeze bizonyítékát és az EXPLAIN reprodukálhatóságát.
+4. Találatot mindig az eredeti ág tulajdonosa javít; keresztágas írás nincs.
+5. Integrációs sorrend: BE-F4, majd FE-F4. Ezután migráció friss adatbázison,
+   OpenAPI/generated contract drift, backend teljes verify, frontend verify,
+   E2E typecheck és releváns accessibility/navigációs Playwright szelet fut.
+6. W5 csak akkor osztható ki, ha mindkét evidence teljes, nincs nyitott
+   review-találat, a teljesítménymérés reprodukálható és a közös kapu zöld.
+
+### W4 közös kapu
+
+- [ ] BE-F4 mind az öt, FE-F4 mind a négy audit-ID-je evidence-szel lezárt.
+- [ ] Rövid ablakú izolált topologyban azonos msgID két külön stream sequence-et
+  kap az ablak két oldalán; a duplikált envelope mindkét indexen a DB aktuális
+  állapotára konvergál, és az event contract ezt explicit kimondja.
+- [ ] A retention check round-tripja nem nő a sequence range hosszával, belső
+  résnél vagy bizonytalan state-nél fail-closed.
+- [ ] A verifier memóriája korlátos, explicit mismatch countjai pontosak, capped
+  ID-mintája jelzi a truncationt; az 1000 publikált dokumentumos teljes mérés
+  batch/sample maximuma, verify ideje és write-freeze ideje evidence-ben van.
+- [ ] Relay grace timeout után nincs párhuzamos második loop vagy idő előtti
+  broker-close; az orphan rendeződése után restartolható.
+- [ ] A trigram index friss migrációból és feltöltött `0005` forward upgrade-ből
+  létrejön, az ismételt migráció no-op, és a production alakú 10k-s admin query
+  plan evidence reprodukálható.
+- [ ] A toast bezárható és fókuszbiztos; error perzisztens, success timeoutja
+  hover/focus alatt szünetel; axe zöld.
+- [ ] Ismeretlen route shellen belüli 404-et ad, a dirty guard belső/browser
+  navigációja stabil adapteren keresztül, kettős prompt nélkül működik.
+- [ ] A magyar-only döntés dokumentált, a routolt production UI termékcopyja és
+  accessibility labeljei egységesek.
+- [ ] Backend `npm run verify`, frontend `npm run verify` és
+  `npm run e2e:typecheck` Node 24.20.0-n zöld; OpenAPI/generated contract drift
+  nincs, a releváns Playwright kapu zöld.
+
 ## W1 baseline – 2026-09-18
 
 Runtime: Node `24.20.0`. A dependency stack a Compose healthcheckek szerint

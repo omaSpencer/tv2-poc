@@ -134,27 +134,27 @@ terheljék szükségtelenül a backendet, és ne adjanak elavult döntési alapo
 **Cél:** a hiba- és navigációs élmény legyen hozzáférhető, kiszámítható és a
 támogatott nyelvi scope-pal összhangban.
 
-- [ ] **L12 – Állítható/bezárható értesítések.** Minden toast kapjon elérhető
+- [x] **L12 – Állítható/bezárható értesítések.** Minden toast kapjon elérhető
   bezárás gombot; error üzenet legyen hosszabb vagy perzisztens. A fókuszt ne
   lopja el, screen reader bejelentése és pause/hover/focus viselkedése legyen
   dokumentált és tesztelt.
-- [ ] **L13 – Saját 404 route.** Ismeretlen út ne redirecteljen csendben a
+- [x] **L13 – Saját 404 route.** Ismeretlen út ne redirecteljen csendben a
   főoldalra. Mutasson „az oldal nem található” nézetet biztonságos visszalépési
   és főoldal-linkkel.
-- [ ] **I1 – `unstable_usePrompt` izolálása.** A router-specifikus unstable API
+- [x] **I1 – `unstable_usePrompt` izolálása.** A router-specifikus unstable API
   egyetlen adapter mögött legyen, contract teszttel a dirty guard fő eseteire.
   Ha van stabil, azonos szemantikájú API az aktuális verzióban, migráljunk rá.
-- [ ] **I5 – Nyelvi stratégia.** Explicit döntés szükséges: a termék magyar-only
+- [x] **I5 – Nyelvi stratégia.** Explicit döntés szükséges: a termék magyar-only
   marad egységes magyar szöveggel, vagy i18n keretrendszert és kulcsalapú
   szövegeket vezetünk be. Production többnyelvű követelmény esetén az i18n
   bevezetése e finding lezárásának része; alkalmi magyar/angol keverés nem maradhat.
 
 ### FE-F4 lezárási kapu
 
-- [ ] Toast billentyűzettel és assistive technologyval bezárható.
-- [ ] Ismeretlen route saját 404 nézetet ad és megőrzi az alkalmazás shellt.
-- [ ] Dirty navigation belső route-váltásra és browser kilépésre tesztelt.
-- [ ] A nyelvi döntés dokumentált, a látható UI a választott scope-on belül egységes.
+- [x] Toast billentyűzettel és assistive technologyval bezárható.
+- [x] Ismeretlen route saját 404 nézetet ad és megőrzi az alkalmazás shellt.
+- [x] Dirty navigation belső route-váltásra és browser kilépésre tesztelt.
+- [x] A nyelvi döntés dokumentált, a látható UI a választott scope-on belül egységes.
 - [ ] Axe/component és a releváns böngészős E2E ellenőrzések zöldek.
 
 ---

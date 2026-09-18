@@ -8,6 +8,7 @@ import { operationsKeys } from '../queryKeys';
 import { operatorActionPollInterval } from '../useOperatorAction';
 import { StatusBadge } from '../components/StatusBadge';
 import { activeActionStorageKey } from '../idempotency';
+import { OPERATOR_ACTION_STATE_LABELS, PHASE_LABELS } from '../viewModel';
 
 const PHASES = ['draining', 'importing', 'swapping', 'catching_up', 'verifying', 'ready'] as const;
 
@@ -43,9 +44,9 @@ export function ReindexProgressPage() {
       {query.error ? <ProblemPanel error={query.error} title="A reindex futása nem tölthető be" /> : null}
       {!run ? <section className="panel" role="status">A futás betöltődik…</section> : (
         <section className="panel operator-action-panel" aria-live="polite">
-          <div className="section-heading-row"><div><p className="eyebrow">Index {(run.target as { index?: string }).index?.toUpperCase()}</p><h2>Reindex folyamat</h2></div><StatusBadge tone={tone}>{run.state}</StatusBadge></div>
+          <div className="section-heading-row"><div><p className="eyebrow">Index {(run.target as { index?: string }).index?.toUpperCase()}</p><h2>Reindex folyamat</h2></div><StatusBadge tone={tone}>{OPERATOR_ACTION_STATE_LABELS[run.state]}</StatusBadge></div>
           <ol className="phase-stepper">
-            {PHASES.map(phase => <li key={phase} aria-current={run.progress?.phase === phase ? 'step' : undefined}>{phase}</li>)}
+            {PHASES.map(phase => <li key={phase} aria-current={run.progress?.phase === phase ? 'step' : undefined}>{PHASE_LABELS[phase]}</li>)}
           </ol>
           <dl className="kv compact-kv">
             <div><dt>Importált / várt</dt><dd>{run.progress?.importedDocuments ?? 0} / {run.progress?.expectedDocuments ?? '—'}</dd></div>

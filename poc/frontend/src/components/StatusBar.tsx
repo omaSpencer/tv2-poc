@@ -48,9 +48,9 @@ export function StatusBar() {
       ? false
       : null;
   const labels = {
-    bootstrapping: '…', unconfigured: 'not configured', anonymous: 'anonymous',
-    authenticating: 'redirecting', loading_me: 'loading', authenticated: 'authenticated',
-    renewing: 'renewing', expired: 'expired', identity_unavailable: 'unavailable',
+    bootstrapping: '…', unconfigured: 'nincs beállítva', anonymous: 'nincs belépve',
+    authenticating: 'átirányítás', loading_me: 'betöltés', authenticated: 'bejelentkezve',
+    renewing: 'megújítás', expired: 'lejárt', identity_unavailable: 'nem elérhető',
   } as const;
   const identityLabel = me?.roles.join('+') || labels[state.kind];
   const readyCorrelationId = ready.data?.correlationId || '—';
@@ -59,12 +59,12 @@ export function StatusBar() {
     <header className="status-bar">
       <div className="brand-block">
         <p className="eyebrow">IndaPlay / TV2 PoC</p>
-        <h1><Link to="/" className="brand-link">API playground</Link></h1>
+        <h1><Link to="/" className="brand-link">API kipróbálófelület</Link></h1>
       </div>
       <dl className="status-grid">
         <div><dt>API base</dt><dd className="mono">{apiBaseLabel()}</dd></div>
-        <div><dt>live</dt><dd><span className={pillClass(liveOk)}>{liveOk === null ? '…' : liveOk ? 'ok' : 'down'}</span></dd></div>
-        <div><dt>ready</dt><dd><span className={pillClass(readyOk)}>{readyOk === null ? '…' : readyOk ? 'ok' : 'not ready'}</span></dd></div>
+        <div><dt>live</dt><dd><span className={pillClass(liveOk)}>{liveOk === null ? '…' : liveOk ? 'ok' : 'leállt'}</span></dd></div>
+        <div><dt>ready</dt><dd><span className={pillClass(readyOk)}>{readyOk === null ? '…' : readyOk ? 'ok' : 'nem kész'}</span></dd></div>
         <div><dt>identity</dt><dd><span className={pillClass(identityOk)}>{identityLabel}</span></dd></div>
         <div><dt>ready correlationId</dt><dd className="mono truncate">{readyCorrelationId}</dd></div>
         <div><dt>OpenAPI</dt><dd><a href={backendDocsUrl('/docs')} target="_blank" rel="noreferrer">/docs</a></dd></div>

@@ -12,7 +12,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (state.kind === 'identity_unavailable') {
     return (
       <section className="panel panel-error" role="alert">
-        <h2>Az identity szolgáltatás nem elérhető</h2>
+        <h2>Az identitásszolgáltatás nem elérhető</h2>
         <p>{state.message}</p>
         <button type="button" onClick={() => void retry()}>Újrapróbálás</button>
       </section>

@@ -154,7 +154,7 @@ describe('Phase 5 operator pages', () => {
     mocks.fetchOperatorAction.mockResolvedValue(response(action('content_repair')));
     renderPage(<RepairPage />, '/operations/repair');
 
-    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: CONTENT_ID_V7 } });
+    fireEvent.change(screen.getByLabelText('Tartalom UUID'), { target: { value: CONTENT_ID_V7 } });
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Keresőprojekció javítása' } });
     fireEvent.click(screen.getByRole('button', { name: 'Javítás indítása' }));
 
@@ -169,11 +169,11 @@ describe('Phase 5 operator pages', () => {
     renderPage(<RepairPage />, '/operations/repair');
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Keresőprojekció javítása' } });
     const submit = () => screen.getByRole('button', { name: 'Javítás indítása' });
-    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: 'not-a-uuid' } });
+    fireEvent.change(screen.getByLabelText('Tartalom UUID'), { target: { value: 'not-a-uuid' } });
     expect(submit().hasAttribute('disabled')).toBe(true);
-    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: '00000000-0000-0000-0000-000000000000' } });
+    fireEvent.change(screen.getByLabelText('Tartalom UUID'), { target: { value: '00000000-0000-0000-0000-000000000000' } });
     expect(submit().hasAttribute('disabled')).toBe(true);
-    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: CONTENT_ID_V7 } });
+    fireEvent.change(screen.getByLabelText('Tartalom UUID'), { target: { value: CONTENT_ID_V7 } });
     expect(submit().hasAttribute('disabled')).toBe(false);
   });
 });

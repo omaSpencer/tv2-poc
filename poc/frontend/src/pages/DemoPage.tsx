@@ -16,7 +16,7 @@ const STATUS_LABELS: Record<SafeRunContext['status'], string> = {
 
 function stateLabel(state: SafeRunContext['steps'][number]['state']): string {
   return {
-    pending: 'Várakozik', running: 'Fut', passed: 'PASS', failed: 'FAIL', manual: 'Kézi lépés', inconclusive: 'Nem eldönthető',
+    pending: 'Várakozik', running: 'Fut', passed: 'Siker', failed: 'Hiba', manual: 'Kézi lépés', inconclusive: 'Nem eldönthető',
   }[state];
 }
 
@@ -51,7 +51,7 @@ export function DemoPage() {
 
   async function start(): Promise<void> {
     if (!me || !isAuthenticated) {
-      setMessage('A scenario futtatásához bejelentkezett identitás szükséges.');
+      setMessage('A forgatókönyv futtatásához bejelentkezett identitás szükséges.');
       return;
     }
     controllerRef.current?.abort();
@@ -115,7 +115,7 @@ export function DemoPage() {
     <div className="stack-pages demo-workspace">
       <section className="panel">
         <p className="eyebrow">Release C · Phase 6</p>
-        <h2>Scenario runner és evidence workspace</h2>
+        <h2>Forgatókönyv-futtató és bizonyítéktér</h2>
         <p className="muted">
           Deklaratív, allowlist-alapú futtatás egzakt ellenőrzésekkel. A napló és az export nem tartalmaz tokent,
           headert, teljes request/response body-t vagy felhasználói azonosítót.
@@ -146,7 +146,7 @@ export function DemoPage() {
 
       {activeManualStep ? (
         <section className="panel manual-checkpoint" aria-live="polite">
-          <p className="eyebrow">Manuális checkpoint</p>
+          <p className="eyebrow">Kézi ellenőrzőpont</p>
           <h3>{activeManualStep.title}</h3>
           <p>{activeManualStep.instruction}</p>
           <button type="button" disabled={busy} onClick={() => void continueManual()}>
@@ -160,7 +160,7 @@ export function DemoPage() {
           <section className="panel" aria-live="polite">
             <div className="demo-run-heading">
               <div>
-                <p className="eyebrow">{activeDefinition.id} · Run {run.runId}</p>
+                <p className="eyebrow">{activeDefinition.id} · Futás {run.runId}</p>
                 <h3>{activeDefinition.title}</h3>
               </div>
               <span className={`run-status status-${run.status}`}>{STATUS_LABELS[run.status]}</span>
@@ -174,7 +174,7 @@ export function DemoPage() {
             <ul className="checklist evidence-checks">
               {run.preflight.map((check) => (
                 <li key={check.label} className={check.passed ? 'check-pass' : 'check-fail'}>
-                  {check.passed ? 'PASS' : 'FAIL'} · {check.label}
+                  {check.passed ? 'Siker' : 'Hiba'} · {check.label}
                 </li>
               ))}
             </ul>
@@ -223,7 +223,7 @@ export function DemoPage() {
               <p className="row wrap-gap operations-links">
                 <Link to="/operations/reindex">Reindex</Link>
                 <Link to="/operations/quarantine">Karantén</Link>
-                <Link to="/operations/repair">Repair</Link>
+                <Link to="/operations/repair">Javítás</Link>
               </p>
             ) : null}
           </section>

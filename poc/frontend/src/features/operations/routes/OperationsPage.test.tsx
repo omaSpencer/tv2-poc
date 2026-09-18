@@ -93,7 +93,7 @@ describe('OperationsPage', () => {
     expect(screen.getByRole('heading', { name: 'Relay' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Broker' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Karantén' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Durable consumerek' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Tartós fogyasztók' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Index A' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Index B' })).toBeTruthy();
     expect(screen.getAllByText('search-index-a').length).toBeGreaterThan(0);
@@ -108,7 +108,7 @@ describe('OperationsPage', () => {
     renderOperations();
 
     expect(await screen.findByRole('heading', { name: 'Keresési állapot nem elérhető' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Consumeradatok nem kérhetők le' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'A fogyasztói adatok nem kérhetők le' })).toBeTruthy();
     expect(screen.getByText('Ez a konfiguráció nem jelent karanténadatot.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'A/B indexállapot nem elérhető' })).toBeTruthy();
   });
@@ -117,7 +117,7 @@ describe('OperationsPage', () => {
     mocks.fetchProcessingStatus.mockResolvedValue(response(makeStatus({ consumers: [] })));
     renderOperations();
 
-    expect(await screen.findByText('Nincs jelentett consumer. Ez önmagában nem jelent egészséges állapotot.')).toBeTruthy();
+    expect(await screen.findByText('Nincs jelentett tartós fogyasztó. Ez önmagában nem jelent egészséges állapotot.')).toBeTruthy();
   });
 
   it('retains the latest successful snapshot and marks it stale after a refresh failure', async () => {

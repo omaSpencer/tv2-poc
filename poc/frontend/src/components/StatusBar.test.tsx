@@ -255,7 +255,7 @@ describe('StatusBar health polling and ready correlationId', () => {
     renderStatusBar();
     await flushFakeQueryUpdates();
     expect(healthMocks.fetchReady).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('not ready')).toBeTruthy();
+    expect(screen.getByText('nem kész')).toBeTruthy();
 
     await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
     expect(healthMocks.fetchReady).toHaveBeenCalledTimes(2);

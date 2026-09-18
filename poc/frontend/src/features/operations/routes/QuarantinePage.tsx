@@ -41,7 +41,7 @@ export function QuarantinePage() {
   return (
     <div className="stack-pages operations-page">
       <OperationsNav />
-      <section className="panel"><p className="eyebrow">Payloadmentes inspect</p><h2>Karantén</h2><p className="muted">A lista csak locator- és hibametaadatot mutat; esemény-payloadot soha.</p></section>
+      <section className="panel"><p className="eyebrow">Payload nélküli vizsgálat</p><h2>Karantén</h2><p className="muted">A lista csak locator- és hibametaadatot mutat; esemény-payloadot soha.</p></section>
       {list.error ? <ProblemPanel error={list.error} title="A karantén nem tölthető be" /> : null}
       <section className="panel">
         <h2>Rekordok</h2>
@@ -50,7 +50,7 @@ export function QuarantinePage() {
           {items.map(item => (
             <button type="button" className="operator-list-item" key={item.sequence} onClick={() => { setSelected(item.sequence); setActionId(null); setReason(''); key.current = createIdempotencyKey(); }}>
               <span>#{item.sequence} · {item.errorCode ?? 'hibás séma'}</span>
-              <span>{item.schemaValid ? item.failedAt : 'schemaValid=false'}</span>
+              <span>{item.schemaValid ? item.failedAt : 'séma hibás'}</span>
             </button>
           ))}
         </div>

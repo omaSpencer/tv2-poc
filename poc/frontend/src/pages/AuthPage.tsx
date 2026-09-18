@@ -9,12 +9,12 @@ function stateLabel(kind: string): string {
     bootstrapping: 'Munkamenet ellenőrzése',
     unconfigured: 'OIDC nincs konfigurálva',
     anonymous: 'Nincs bejelentkezve',
-    authenticating: 'Átirányítás az identity providerhez',
+    authenticating: 'Átirányítás az identitásszolgáltatóhoz',
     loading_me: 'Jogosultságok betöltése',
     authenticated: 'Bejelentkezve',
     renewing: 'Munkamenet megújítása',
     expired: 'Lejárt munkamenet',
-    identity_unavailable: 'Identity szolgáltatás nem elérhető',
+    identity_unavailable: 'Identitásszolgáltatás nem elérhető',
   };
   return labels[kind] ?? kind;
 }

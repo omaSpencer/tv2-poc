@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 export function HomePage() {
   return (
     <section className="panel">
-      <h2>Demo playground</h2>
+      <h2>Demófelület</h2>
       <p>
         Böngészős kliens a NestJS PoC API kipróbálásához. A screenek a{' '}
         <code className="mono">MILESTONES.md</code> demóútvonalát követik. A backend M0–M5
@@ -21,10 +21,10 @@ export function HomePage() {
           <Link to="/catalog/search">Katalógus</Link> – publikus keresés és részlet
         </li>
         <li>
-          <Link to="/operations">Operations</Link> – M3–M5 outbox / lag / indexállapot
+          <Link to="/operations">Operáció</Link> – M3–M5 outbox / lag / indexállapot
         </li>
         <li>
-          <Link to="/demo">Demo</Link> – mintafolyamat lépésenként
+          <Link to="/demo">Demó</Link> – mintafolyamat lépésenként
         </li>
       </ol>
       <p className="muted">

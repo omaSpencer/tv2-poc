@@ -6,7 +6,7 @@ import { ProblemPanel } from '../../../components/ProblemPanel';
 import { useNotifications } from '../../../components/notificationContext';
 import { createContent } from '../api';
 import { ContentForm } from '../components/ContentForm';
-import { useDirtyGuard } from '../components/useDirtyGuard';
+import { useDirtyNavigationGuard } from '../../../navigation/useDirtyNavigationGuard';
 import {
   emptyContentForm,
   isFormDirty,
@@ -30,7 +30,7 @@ export function ContentCreatePage() {
   // előbb le kell fegyverződnie, különben a saját navigációnkat blokkolná egy
   // félrevezető „elvesznek a módosítások” kérdéssel.
   const dirty = isFormDirty(values, EMPTY) && redirectTo === null;
-  const confirmDiscard = useDirtyGuard(dirty);
+  useDirtyNavigationGuard(dirty);
 
   useEffect(() => {
     if (redirectTo) navigate(redirectTo, { replace: true });
@@ -68,9 +68,7 @@ export function ContentCreatePage() {
     <div className="stack-pages">
       <section className="panel content-heading">
         <div><p className="eyebrow">Új piszkozat</p><h2>Tartalom létrehozása</h2></div>
-        <button type="button" className="btn-secondary" onClick={() => {
-          if (confirmDiscard()) navigate('/contents');
-        }}>Mégse</button>
+        <button type="button" className="btn-secondary" onClick={() => navigate('/contents')}>Mégse</button>
       </section>
       <section className="panel">
         <ContentForm

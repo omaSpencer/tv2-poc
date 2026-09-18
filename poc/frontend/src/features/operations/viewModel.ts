@@ -26,7 +26,7 @@ export function searchAvailability(status: ProcessingStatus): SearchAvailability
   }
   if (eligible === 1) {
     return {
-      kind: 'fallback', tone: 'warning', label: 'Fallback – csökkent redundancia',
+      kind: 'fallback', tone: 'warning', label: 'Tartalék üzem – csökkent redundancia',
       detail: 'Egy keresőindex routolható; a másik nem tud forgalmat fogadni.',
     };
   }
@@ -106,4 +106,17 @@ export const PHASE_LABELS: Record<NonNullable<NonNullable<ProcessingStatus['inde
   catching_up: 'Felzárkózás',
   verifying: 'Ellenőrzés',
   failed: 'Sikertelen',
+};
+
+export const OPERATOR_ACTION_STATE_LABELS: Record<'queued' | 'running' | 'succeeded' | 'failed', string> = {
+  queued: 'Sorban',
+  running: 'Fut',
+  succeeded: 'Sikeres',
+  failed: 'Sikertelen',
+};
+
+export const OPERATOR_ACTION_KIND_LABELS: Record<'reindex' | 'quarantine_replay' | 'content_repair', string> = {
+  reindex: 'Reindex',
+  quarantine_replay: 'Karantén-visszajátszás',
+  content_repair: 'Tartalomjavítás',
 };

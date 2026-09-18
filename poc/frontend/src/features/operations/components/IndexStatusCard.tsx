@@ -41,8 +41,8 @@ export function IndexStatusCard({ alias, index }: { alias: 'a' | 'b'; index: Ind
       <dl className="kv compact-kv">
         <div><dt>Durable</dt><dd className="mono">{index.durable}</dd></div>
         <div><dt>Elvárt worker</dt><dd>{index.desiredWorkerState === null ? 'nincs adat' : index.desiredWorkerState === 'running' ? 'Fut' : 'Szünetel'}</dd></div>
-        <div><dt>In-flight event</dt><dd className="mono">{index.inFlightEventId ?? 'nincs'}</dd></div>
-        <div><dt>In-flight task</dt><dd>{formatInteger(index.inFlightTaskUid)}</dd></div>
+        <div><dt>Folyamatban lévő esemény</dt><dd className="mono">{index.inFlightEventId ?? 'nincs'}</dd></div>
+        <div><dt>Folyamatban lévő feladat</dt><dd>{formatInteger(index.inFlightTaskUid)}</dd></div>
         <div><dt>Utolsó ACK</dt><dd><TimestampValue value={index.lastAckedAt} /></dd></div>
         <div><dt>Utolsó hibakód</dt><dd className="mono">{index.lastErrorCode ?? 'nincs'}</dd></div>
       </dl>

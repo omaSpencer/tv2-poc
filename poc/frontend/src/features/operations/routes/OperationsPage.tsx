@@ -55,7 +55,7 @@ export function OperationsPage() {
       <OperationsNav />
       <section className="panel operations-heading">
         <div>
-          <p className="eyebrow">Read-only megfigyelés</p>
+          <p className="eyebrow">Csak olvasható megfigyelés</p>
           <h2>Operációs dashboard</h2>
           <p className="muted">Outbox, relay, broker, durable consumerek és A/B keresőindexek egy nézetben.</p>
         </div>

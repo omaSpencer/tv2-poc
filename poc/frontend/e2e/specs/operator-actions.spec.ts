@@ -80,7 +80,7 @@ test.describe.serial('Operátori műveletek', () => {
     const contentId = await createDraft(page, publishableDraft(uniqueTitle('E2E javítás')));
 
     await page.goto('/operations/repair');
-    await page.getByRole('textbox', { name: 'Content UUID' }).fill(contentId);
+    await page.getByRole('textbox', { name: 'Tartalom UUID' }).fill(contentId);
     await expect(page.getByRole('combobox', { name: 'Célindex' })).toHaveValue('both');
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Mindkét index konvergenciájának ellenőrzése');
     await page.getByRole('button', { name: 'Javítás indítása' }).click();

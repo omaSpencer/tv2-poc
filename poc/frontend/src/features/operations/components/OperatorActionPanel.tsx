@@ -4,6 +4,7 @@ import { ProblemPanel } from '../../../components/ProblemPanel';
 import { JsonBlock } from '../../../components/JsonBlock';
 import { useOperatorAction } from '../useOperatorAction';
 import { StatusBadge } from './StatusBadge';
+import { OPERATOR_ACTION_KIND_LABELS, OPERATOR_ACTION_STATE_LABELS } from '../viewModel';
 
 export function OperatorActionPanel({
   actionId,
@@ -26,8 +27,8 @@ export function OperatorActionPanel({
   return (
     <section className="panel operator-action-panel" aria-live="polite">
       <div className="section-heading-row">
-        <div><p className="eyebrow">{action.kind}</p><h2>{title}</h2></div>
-        <StatusBadge tone={tone}>{action.state}</StatusBadge>
+        <div><p className="eyebrow">{OPERATOR_ACTION_KIND_LABELS[action.kind]}</p><h2>{title}</h2></div>
+        <StatusBadge tone={tone}>{OPERATOR_ACTION_STATE_LABELS[action.state]}</StatusBadge>
       </div>
       <dl className="kv compact-kv">
         <div><dt>Azonosító</dt><dd className="mono">{action.id}</dd></div>

@@ -109,7 +109,7 @@ test.describe('Operációs dashboard', () => {
     await expect(page.locator('#search-availability-title')).toHaveText('Teljes A/B rendelkezésre állás');
     await expect(page.getByText('Mindkét keresőindex routolható.')).toBeVisible();
 
-    await expect(page.getByRole('heading', { level: 2, name: 'Durable consumerek' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Tartós fogyasztók' })).toBeVisible();
     await expect(page.locator('table').getByRole('columnheader', { name: 'Pending', exact: true })).toBeVisible();
 
     const refresh = page.getByRole('button', { name: 'Frissítés most' });
@@ -135,7 +135,7 @@ test.describe('A/B kiesés @outage', () => {
     await expect(page.locator('#search-availability-title')).toHaveText('Teljes A/B rendelkezésre állás');
 
     stopSearchInstance('a');
-    await expect(page.locator('#search-availability-title')).toHaveText('Fallback – csökkent redundancia', {
+    await expect(page.locator('#search-availability-title')).toHaveText('Tartalék üzem – csökkent redundancia', {
       timeout: 60_000,
     });
     await expect(page.getByText('Egy keresőindex routolható; a másik nem tud forgalmat fogadni.')).toBeVisible();

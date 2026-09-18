@@ -22,11 +22,11 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
     await loginAs(page, 'poc-viewer');
 
     await expect(nav(page).getByRole('link', { name: 'Tartalmak' })).toHaveCount(0);
-    await expect(nav(page).getByRole('link', { name: 'Operations' })).toHaveCount(0);
-    await expect(nav(page).getByRole('link', { name: 'Demo' })).toBeVisible();
+    await expect(nav(page).getByRole('link', { name: 'Operáció' })).toHaveCount(0);
+    await expect(nav(page).getByRole('link', { name: 'Demó' })).toBeVisible();
 
     await page.goto('/login');
-    await expect(page.getByRole('row', { name: /^Viewer/ })).toContainText('aktív');
+    await expect(page.getByRole('row', { name: /^Megtekintő/ })).toContainText('aktív');
     await expect(page.getByText('nincs / ismeretlen')).toBeVisible();
 
     await page.goto('/contents');
@@ -40,7 +40,7 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
     await loginAs(page, 'poc-editor');
 
     await expect(nav(page).getByRole('link', { name: 'Tartalmak' })).toBeVisible();
-    await expect(nav(page).getByRole('link', { name: 'Operations' })).toHaveCount(0);
+    await expect(nav(page).getByRole('link', { name: 'Operáció' })).toHaveCount(0);
 
     await page.goto('/contents');
     await expect(page.getByRole('heading', { level: 2, name: 'Tartalmak' })).toBeVisible();
@@ -55,7 +55,7 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
     await loginAs(page, 'poc-publisher');
 
     await expect(nav(page).getByRole('link', { name: 'Tartalmak' })).toBeVisible();
-    await expect(nav(page).getByRole('link', { name: 'Operations' })).toBeVisible();
+    await expect(nav(page).getByRole('link', { name: 'Operáció' })).toBeVisible();
 
     await page.goto('/operations');
     await expect(page.getByRole('heading', { level: 2, name: 'Operációs dashboard' })).toBeVisible();

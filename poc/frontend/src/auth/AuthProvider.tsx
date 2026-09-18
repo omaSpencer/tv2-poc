@@ -34,7 +34,7 @@ function safeAuthMessage(error: unknown): string {
   if (isApiProblemError(error)) {
     if (error.problem.status === 401) return 'A munkamenet lejárt vagy a token érvénytelen.';
     if (error.problem.code === 'dependency_unavailable') {
-      return 'Az identity szolgáltatás jelenleg nem elérhető.';
+      return 'Az identitásszolgáltatás jelenleg nem elérhető.';
     }
     return `A bejelentkezés ellenőrzése sikertelen (${error.problem.code}).`;
   }

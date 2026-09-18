@@ -4,6 +4,7 @@ import { Navigate, Route, createRoutesFromElements } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { RequirePermission } from './auth/RequirePermission';
 import { AppShell } from './components/AppShell';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { RootErrorPage } from './pages/RootErrorPage';
 
 const AuthCallbackPage = lazy(async () => ({ default: (await import('./pages/AuthCallbackPage')).AuthCallbackPage }));
@@ -55,6 +56,6 @@ export const appRoutes = createRoutesFromElements(
     <Route path="operations/repair" element={page(<RequirePermission permission="ops:write"><RepairPage /></RequirePermission>)} />
     <Route path="processing" element={<Navigate to="/operations" replace />} />
     <Route path="demo" element={page(<RequireAuth><DemoPage /></RequireAuth>)} />
-    <Route path="*" element={<Navigate to="/" replace />} />
+    <Route path="*" element={<NotFoundPage />} />
   </Route>,
 );

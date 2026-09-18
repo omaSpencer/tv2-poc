@@ -12,7 +12,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <footer className="footer muted">
-        Fejlesztői playground · lásd <code className="mono">../FRONTEND.md</code>
+        Fejlesztői kipróbálófelület · lásd <code className="mono">../FRONTEND.md</code>
       </footer>
     </div>
   );

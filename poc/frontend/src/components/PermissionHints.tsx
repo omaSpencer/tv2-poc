@@ -6,9 +6,9 @@ type Props = {
 };
 
 const MATRIX: { role: AppRole; label: string; perms: readonly AppPermission[] }[] = [
-  { role: 'viewer', label: 'Viewer', perms: ROLE_PERMISSIONS.viewer },
-  { role: 'editor', label: 'Editor', perms: ROLE_PERMISSIONS.editor },
-  { role: 'publisher', label: 'Publisher', perms: ROLE_PERMISSIONS.publisher },
+  { role: 'viewer', label: 'Megtekintő', perms: ROLE_PERMISSIONS.viewer },
+  { role: 'editor', label: 'Szerkesztő', perms: ROLE_PERMISSIONS.editor },
+  { role: 'publisher', label: 'Kiadó', perms: ROLE_PERMISSIONS.publisher },
 ];
 
 export function PermissionHints({ me }: Props) {
@@ -21,7 +21,7 @@ export function PermissionHints({ me }: Props) {
         <thead>
           <tr>
             <th>Szerep</th>
-            <th>Permissionök</th>
+            <th>Jogosultságok</th>
             <th>Most</th>
           </tr>
         </thead>

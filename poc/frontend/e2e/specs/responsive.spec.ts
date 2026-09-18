@@ -62,7 +62,7 @@ test('az operations dashboard a támogatott viewporton sem csúszik ki', async (
 
 test('a scenario workspace hosszú tartalommal sem okoz vízszintes túlcsordulást', async ({ page }) => {
   await loginAs(page, 'poc-publisher', { startPath: '/demo', expectedPath: '/demo' });
-  await expect(page.getByRole('heading', { name: 'Scenario runner és evidence workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Forgatókönyv-futtató és bizonyítéktér' })).toBeVisible();
   await expect(page.getByRole('button', { name: /S04 · Kereső fallback és kiesés/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

@@ -1,9 +1,25 @@
-# IndaPlay / TV2 PoC – API playground
+# IndaPlay / TV2 PoC – API kipróbálófelület
 
 Vite + React + TanStack Query + React Router kliens a NestJS backend mellé.
 Demó- és kipróbálófelület, nem termelési CMS. A high-level háttér:
 [../FRONTEND.md](../FRONTEND.md); az aktuális, nyolcfázisú végrehajtási roadmap:
 [../FRONTEND-IMPLEMENTATION-PLAN.md](../FRONTEND-IMPLEMENTATION-PLAN.md).
+
+## Nyelv
+
+A PoC és a belőle készülő belső operátori felület **magyar-only**. Nincs i18n
+runtime és nincsenek fordítási kulcsok. Minden felhasználói mondat, akció,
+üres/hibaállapot és accessibility label magyar. Az `<html lang="hu">` az
+igazságforrás.
+
+Technikai azonosítók és szabványos rövidítések – UUID, HTTP, correlation ID,
+audit/event code, role/permission code, OIDC/PKCE – változatlanul megjelenhetnek,
+a körülöttük lévő magyarázó label magyar. A nyers backend state/code csak magyar
+labellel vagy ismert view-model leképezéssel látszik.
+
+Valódi i18n projektet akkor indítunk, ha a terméknek production többnyelvű
+követelménye lesz: legalább egy második támogatott nyelv az operátori vagy a
+publikus felületen. Addig az alkalmi angol/magyar keverés regresszió.
 
 ## Előfeltétel és identity konfiguráció
 
@@ -44,6 +60,7 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | `/catalog/:id` | Publikus részlet | M1 |
 | `/operations` | Processing dashboard, `ops:read` guarddal | M3 |
 | `/demo` | Életciklus lépésenként + negatív esetek | M2+ |
+| ismeretlen út | „Az oldal nem található” a shellben, biztonságos vissza | — |
 
 A vezetett `/demo` futás a saját, verziózott run-state-jében őrzi meg a hozzá
 tartozó content UUID-t; nincs alkalmazásszintű „aktív content” session. Az OIDC

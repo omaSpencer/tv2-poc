@@ -34,7 +34,7 @@ describe('DemoPage Phase 6 workspace', () => {
         <AuthContext value={auth}><DemoPage /></AuthContext>
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: /Scenario runner és evidence workspace/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Forgatókönyv-futtató és bizonyítéktér/i })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(5);
     expect(screen.getByRole('button', { name: /S01 · Publisher életciklus/i }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('textbox')).toBeNull();

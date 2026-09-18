@@ -67,3 +67,16 @@ describe('app compatibility routes', () => {
     expect(appRoutes[0]?.errorElement).toBeTruthy();
   });
 });
+
+describe('unknown routes', () => {
+  it('renders a 404 inside the app shell without redirecting or echoing the path', async () => {
+    const router = renderApp('/nincs-ilyen-oldal', authValue({ kind: 'anonymous' }));
+    expect(await screen.findByRole('heading', { name: 'Az oldal nem található' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/nincs-ilyen-oldal');
+    expect(screen.getByRole('link', { name: 'Ugrás a fő tartalomra' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Elsődleges navigáció' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Főoldal' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('button', { name: 'Vissza' })).toBeTruthy();
+    expect(document.body.textContent).not.toContain('nincs-ilyen-oldal');
+  });
+});

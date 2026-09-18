@@ -1,7 +1,8 @@
-# Final frontend evidence – FE-F1–FE-F3
+# Final frontend evidence – FE-F1–FE-F4
 
 2026-09-18 · FE-F2: branch `codex/final-fe-f2`; FE-F3: branch
-`codex/final-fe-f3`; integráció: `main`. Node **24.20.0**.
+`codex/final-fe-f3`; FE-F4: branch `codex/final-fe-f4`; integráció: `main`.
+Node **24.20.0**.
 
 Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) lezárt
 frontend fázisainak bizonyítéka. A fáziságak után a koordinátor az integrált
@@ -369,3 +370,164 @@ valamint az E2E TypeScript-ellenőrzés szintén sikeres.
 
 FE-F2 és FE-F3 együtt került a `main` ágra. Backend- vagy OpenAPI-szerződést
 egyik frontend fázis sem módosított; FE-F4, FE-F5 és a milestone DoD nyitott.
+
+---
+
+## FE-F4 – UX, accessibility és navigáció
+
+2026-09-18 · Branch `codex/final-fe-f4` · worktree `/private/tmp/tv2-poc-fe-f4`
+· baseline `98dc729` · Node **24.20.0**. Lezárt ID-k: **L12, L13, I1, I5**.
+
+A termék döntése magyar-only; i18n runtime nincs. A négy finding implementálva,
+a component/router/timer kapuk zöldek. A böngészős Playwright accessibility
+szelet ebben a worktree-ben nem indult el (nincs `.env.e2e`, a backend
+`/health/ready` nem elérhető).
+
+### Környezet
+
+| Elem | Érték |
+| --- | --- |
+| Node.js | 24.20.0 (`nvm use 24.20.0`) |
+| npm | 11.19.0 |
+| Kapu | `cd poc/frontend && npm run verify` (a tesztlépés alapértelmezett
+  párhuzamossággal 5 s timeouttal flakkelhet; ismételt
+  `npx vitest run --maxWorkers=4` 215/215) |
+| E2E typecheck | `cd poc/frontend && npm run e2e:typecheck` PASS |
+| Böngészős E2E / axe | Nem futott – hiányzik `E2E_USER_PASSWORD` és a backend ready |
+
+### Production bundle
+
+| | JS (byte) | CSS (byte) | Legnagyobb JS |
+| --- | ---: | ---: | --- |
+| Integrált FE-F1–FE-F3 | 690 317 | 19 064 | `assets/index-D4TFOdbu.js` 341 068 |
+| FE-F4 (`index-BKe50RUK.js`) | 693 297 | 19 273 | `assets/index-BKe50RUK.js` 343 710 |
+| Delta | **+2 980** | **+209** | **+2 642** |
+
+A 404 nézet a fő bundle-ben van (`Az oldal nem található` az
+`index-BKe50RUK.js`-ben), nem lazy chunkban. A dirty-navigation adapter külön
+chunk (`useDirtyNavigationGuard-B8bCCOIZ.js`, 4 110 byte), mert a szerkesztő
+lapok lazy-k.
+
+### Timer- és fókusz-invariánsok (L12)
+
+- Fake clock: `vi.useFakeTimers()`; success timeout **5 000 ms**.
+- Hover vagy a toaston belüli keyboard focus szünetelteti a visszaszámlálást;
+  resume a **maradék** idővel folytatódik (2 000 ms után pause, majd 3 000 ms
+  resume → dismiss).
+- Error toast 60 000 ms után is perzisztens; csak a „Értesítés bezárása”
+  gomb tünteti el.
+- Megjelenéskor nincs autofocus; a mező fókusza megmarad. Unmount után a timer
+  nem hív `setState`-et.
+- Live-region: success `role="status"` + `aria-live="polite"` +
+  `aria-atomic="true"`; error `role="alert"` + `aria-live="assertive"`. A záró
+  gomb **nincs** a live-regionben (nincs dupla bejelentés).
+
+### L12 – Bezárható, szüneteltethető értesítések
+
+**Eredmény:** minden toast billentyűzettel elérhető magyar záró gombot kap;
+success 5 s után eltűnhet, error kézi bezárásig marad.
+
+- `src/components/NotificationProvider.tsx`
+- Tesztek: `src/components/NotificationProvider.test.tsx` (4)
+
+### L13 – Saját 404 route
+
+**Eredmény:** a wildcard nem redirectel. Az `AppShell`-en belül magyar
+„Az oldal nem található” nézet, a kért út visszhangozása nélkül; Főoldal-link
+és biztonságos Vissza (csak `history.state.idx > 0` vagy nem-`default`
+location key; deep link → kezdőlap, `replace`).
+
+- `src/pages/NotFoundPage.tsx`, `src/navigation/inAppHistory.ts`
+- `src/appRoutes.tsx`: `path="*"` → `<NotFoundPage />`
+- Tesztek: `NotFoundPage.test.tsx` (3), `inAppHistory.test.ts` (2),
+  `App.test.tsx` unknown routes (1)
+
+### I1 – Stabil dirty-navigation adapter
+
+**Eredmény:** nincs `unstable_usePrompt`. A pinelt React Router `useBlocker`
+API egyetlen adapterben (`useDirtyNavigationGuard`) tulajdonolja a belső
+blokkolást és a magyar confirm szöveget. A `beforeunload` csak
+`preventDefault` + `returnValue = ''`; a böngésző natív copyját az alkalmazás
+nem állítja.
+
+- Dirty: confirm → proceed egyszer, cancel → reset, az oldalon maradás.
+- Tiszta állapotban nincs prompt. Mentés utáni redirect (`dirty === false`)
+  és a lap Mégse gombja ugyanazt a policyt követi (Mégse a blocker confirmján
+  megy át, nincs kettős ablak).
+- Tesztek: `src/navigation/useDirtyNavigationGuard.test.tsx` (7) — belső link,
+  browser back, cancel/confirm, clean transition, beforeunload
+  `defaultPrevented`/`returnValue`, és a forrás nem tartalmazza az
+  `unstable_usePrompt` importot.
+
+### I5 – Magyar-only UI
+
+**Eredmény:** a frontend README rögzíti a magyar-only döntést, a technikai
+tokenek kivételét, és azt a feltételt, amely később i18n projektet indít
+(production második nyelv).
+
+Felhasználói copy magyarra hozva a shellben, kezdőlapon, státuszsávon,
+jogosultsági mátrixban, 404-en, toaston, demó workspace-en és az operátori
+állapotcímkéken. A `ProblemPanel` továbbra is megjelenítheti a nyers
+`Failed to fetch` exceptiont — ez a rögzített biztonsági hiba-megjelenítés,
+nem nyelvi egységesítés.
+
+- Dokumentáció: `poc/frontend/README.md` (Nyelv)
+- `<html lang="hu">` marad az igazságforrás
+- Teszt: `src/uiLanguage.test.tsx` (1)
+
+### FE-F4 kapu
+
+```text
+node -v
+v24.20.0
+
+cd poc/frontend && npm run contracts:check
+PASS (generated backend.ts unchanged)
+
+cd poc/frontend && npm run build
+PASS
+{"event":"bundle_baseline","javascriptBytes":693297,"cssBytes":19273,
+ "largestJavaScript":{"path":"assets/index-BKe50RUK.js","bytes":343710}}
+
+cd poc/frontend && npm run compiler:check
+PASS
+
+cd poc/frontend && npm run lint
+PASS (oxlint src e2e, 0 warning)
+
+cd poc/frontend && npx vitest run --maxWorkers=4
+PASS  47 files, 215/215
+
+cd poc/frontend && npm run e2e:typecheck
+PASS
+```
+
+Az alapértelmezett, erősen párhuzamos `vitest run` (a `npm run verify`
+tesztlépése) továbbra is 5 s timeouttal flakkelhet jsdom worker-terhelésen;
+ugyanaz a suite `--maxWorkers=4` mellett 215/215.
+
+### Nem futtatott kapuk (FE-F4)
+
+- Böngészős Playwright `e2e:a11y` / navigációs szelet: a global-setup
+  blokkolt (`E2E_USER_PASSWORD` hiányzik, `http://127.0.0.1:3000/health/ready`
+  nem elérhető). A spec bővítve van 404 + toast close button ellenőrzéssel;
+  új axe dependency nincs.
+- Coverage küszöb — I4, FE-F5
+- Backend test/build, OpenAPI emit — tilos volt módosítani
+
+### Maradék kockázat (FE-F4)
+
+- A dirty confirm `window.confirm`; StrictMode devben a blocker effect
+  elvileg kétszer fusson, a `promptLock` ezt a dupla natív dialogot
+  megfogja. Production (nem Strict) egy confirm.
+- A biztonságos Vissza a React Router `idx` mezőjére (hiányában a location
+  key-re) támaszkodik, nem a `window.history.length`-re, hogy idegen originre
+  ne lépjen.
+- A Playwright axe kapu környezeti okból nem futott ezen az ágon.
+
+### Scope (FE-F4)
+
+Nem merge-eltem `main`-re, nem rebase-eltem más agent ágára, és nem
+módosítottam a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend forrás,
+OpenAPI, generated contract, Compose és dependency-verzió változatlan.
+

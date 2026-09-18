@@ -7,7 +7,7 @@ import { useNotifications } from '../../../components/notificationContext';
 import { getAdminContent, patchContent } from '../api';
 import { ContentConflictDialog } from '../components/ContentConflictDialog';
 import { ContentForm } from '../components/ContentForm';
-import { useDirtyGuard } from '../components/useDirtyGuard';
+import { useDirtyNavigationGuard } from '../../../navigation/useDirtyNavigationGuard';
 import {
   contentToForm,
   isFormDirty,
@@ -49,7 +49,7 @@ function EditWorkspace({ initial }: { initial: AdminContentView }) {
   // Amíg a saját átirányításunk függőben van, az űrlap nem számít mentetlennek:
   // enélkül a dirty guard a sikeres feloldás után is rákérdezne az adatvesztésre.
   const dirty = isFormDirty(values, baseline) && redirect === null;
-  const confirmDiscard = useDirtyGuard(dirty);
+  useDirtyNavigationGuard(dirty);
 
   useEffect(() => {
     if (!redirect) return;
@@ -147,9 +147,7 @@ function EditWorkspace({ initial }: { initial: AdminContentView }) {
     <div className="stack-pages">
       <section className="panel content-heading">
         <div><p className="eyebrow">Szerkesztés · v{baselineContent.version}</p><h2>{baselineContent.title}</h2></div>
-        <button type="button" className="btn-secondary" onClick={() => {
-          if (confirmDiscard()) navigate(`/contents/${id}`);
-        }}>Mégse</button>
+        <button type="button" className="btn-secondary" onClick={() => navigate(`/contents/${id}`)}>Mégse</button>
       </section>
       <section className="panel">
         <ContentForm

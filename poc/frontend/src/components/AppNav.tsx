@@ -8,8 +8,8 @@ export function AppNav() {
     { to: '/', label: 'Kezdőlap', end: true, visible: true },
     { to: '/catalog/search', label: 'Katalógus', end: false, visible: true },
     { to: '/contents', label: 'Tartalmak', end: false, visible: can(me, 'content:read') || can(me, 'content:write') },
-    { to: '/operations', label: 'Operations', end: false, visible: can(me, 'ops:read') },
-    { to: '/demo', label: 'Demo', end: false, visible: isAuthenticated },
+    { to: '/operations', label: 'Operáció', end: false, visible: can(me, 'ops:read') },
+    { to: '/demo', label: 'Demó', end: false, visible: isAuthenticated },
     { to: '/login', label: isAuthenticated ? 'Profil' : 'Belépés', end: false, visible: true },
   ];
 

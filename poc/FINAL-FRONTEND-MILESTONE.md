@@ -42,28 +42,28 @@ terv a runtime-reziliencia, production posture és fenntarthatóság rendezése.
 **Cél:** a további javítások előtt csökkenteni a felszínt, és megszüntetni a
 duplikált helyi igazságforrásokat.
 
-- [ ] **M1 – Az `EditorialPage` lánc eltávolítása.** Törlendő a sehonnan nem
+- [x] **M1 – Az `EditorialPage` lánc eltávolítása.** Törlendő a sehonnan nem
   routolt `EditorialPage`, `PhasePlaceholderPage`, `ContentIdBar` és az elavult
   `content/activeContent` context, a hozzájuk tartozó sessionStorage-írásokkal,
   query key-ekkel, tesztekkel és exportokkal együtt. A `/editorial` kompatibilis
   redirectje csak akkor maradjon, ha dokumentált bookmark-compatibilitást ad.
-- [ ] **L7 – Permission-mátrix drift javítása.** A demo fixture publisher
+- [x] **L7 – Permission-mátrix drift javítása.** A demo fixture publisher
   jogosultsága egyezzen az E2E szerződéssel, az `ops:write` legyen egyértelmű. A
   lokális `AppPermission` duplikáció helyett egy közös/generált típus legyen.
-- [ ] **L8 – Egységes UUID-validálás.** A holtkód törlése után minden megmaradó
+- [x] **L8 – Egységes UUID-validálás.** A holtkód törlése után minden megmaradó
   UUID input ugyanazt a backenddel kompatibilis v1–v8 szabályt/helper-sémát
   használja; v7 pozitív regressziós teszt kötelező.
-- [ ] **L11 – Duplikációk és nem használt exportok.** A `hasPermission`/`can`,
+- [x] **L11 – Duplikációk és nem használt exportok.** A `hasPermission`/`can`,
   `CONTENT_CATEGORIES` és demo-konstansok közül maradjon egy igazságforrás;
   törlendők a nem használt exportok. A contract-generált érték elsőbbséget élvez.
 
 ### FE-F1 lezárási kapu
 
-- [ ] A törölt láncra nincs import, route, storage key vagy query key hivatkozás.
-- [ ] Publisher permission fixture és E2E contract azonos.
-- [ ] UUID v7 elfogadási és hibás UUID elutasítási teszt zöld.
-- [ ] A teljes frontend typecheck, lint és unit/component suite zöld.
-- [ ] A bundle nem nő; a holtkód ténylegesen eltűnik a production buildből.
+- [x] A törölt láncra nincs import, route, storage key vagy query key hivatkozás.
+- [x] Publisher permission fixture és E2E contract azonos.
+- [x] UUID v7 elfogadási és hibás UUID elutasítási teszt zöld.
+- [x] A teljes frontend typecheck, lint és unit/component suite zöld.
+- [x] A bundle nem nő; a holtkód ténylegesen eltűnik a production buildből.
 
 ---
 

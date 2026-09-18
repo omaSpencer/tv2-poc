@@ -1,5 +1,5 @@
 import type { AppPermission, AppRole, MeResponse } from '../api/types';
-import { ROLE_PERMISSIONS } from '../data/demoFixture';
+import { ROLE_PERMISSIONS } from '../auth/permissions';
 
 type Props = {
   me: MeResponse | null;

@@ -28,4 +28,13 @@ describe('Phase 6 safe persistence', () => {
     expect(restored?.status).toBe('waiting_manual');
     expect(restored?.steps[0].note).toMatch(/explicit kézi megerősítés/);
   });
+
+  it('persists a UUID v7 content id and rejects nil ids', () => {
+    const run = createRun(SCENARIOS[0], 'a'.repeat(64), me);
+    run.contentId = '018f1e2c-8b7a-7d3e-9c4b-1a2b3c4d5e6f';
+    persistRun(run);
+    expect(loadPersistedRun('a'.repeat(64))?.contentId).toBe(run.contentId);
+    run.contentId = '00000000-0000-0000-0000-000000000000';
+    expect(() => persistRun(run)).toThrow();
+  });
 });

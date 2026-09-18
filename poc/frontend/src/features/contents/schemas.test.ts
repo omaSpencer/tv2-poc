@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CONTENT_CATEGORIES,
   emptyContentForm,
   isFormDirty,
   normalizeTags,
@@ -20,6 +21,10 @@ const valid: ContentFormValues = {
 };
 
 describe('content form schema', () => {
+  it('is the runtime source of the category contract', () => {
+    expect(CONTENT_CATEGORIES).toEqual(['film', 'sorozat', 'hir', 'sport', 'szorakozas', 'egyeb']);
+  });
+
   it('normalizes the create payload exactly like the backend contract', () => {
     expect(toCreateContentBody(valid)).toEqual({
       title: 'Téli Őrség',

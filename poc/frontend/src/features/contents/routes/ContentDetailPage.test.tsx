@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminContentView, AppRole, MeResponse } from '../../../api/types';
+import { ROLE_PERMISSIONS } from '../../../auth/permissions';
 import type { AuthContextValue } from '../../../auth/authTypes';
 import { AuthContext } from '../../../auth/authContext';
 import { NotificationProvider } from '../../../components/NotificationProvider';
@@ -23,10 +24,9 @@ const baseContent: AdminContentView = {
 };
 
 function authFor(role: AppRole): AuthContextValue {
-  const permissions: MeResponse['permissions'] = role === 'publisher'
-    ? ['content:read', 'content:write', 'content:publish', 'ops:read']
-    : ['content:read', 'content:write'];
-  const me: MeResponse = { sub: role, roles: [role], permissions, expiresAt: '2030-01-01T00:00:00.000Z' };
+  const me: MeResponse = {
+    sub: role, roles: [role], permissions: [...ROLE_PERMISSIONS[role]], expiresAt: '2030-01-01T00:00:00.000Z',
+  };
   return {
     state: { kind: 'authenticated', me }, me, isAuthenticated: true, manualTokenAllowed: false,
     login: vi.fn(async () => undefined), completeCallback: vi.fn(async () => '/'),

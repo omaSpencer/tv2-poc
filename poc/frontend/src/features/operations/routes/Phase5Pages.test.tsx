@@ -26,6 +26,7 @@ import { RepairPage } from './RepairPage';
 
 const ACTION_ID = '123e4567-e89b-42d3-a456-426614174000';
 const CONTENT_ID = '123e4567-e89b-42d3-a456-426614174001';
+const CONTENT_ID_V7 = '018f1e2c-8b7a-7d3e-9c4b-1a2b3c4d5e6f';
 
 function response<T>(data: T) {
   return { status: 200, correlationId: 'phase-5-test', data };
@@ -153,14 +154,26 @@ describe('Phase 5 operator pages', () => {
     mocks.fetchOperatorAction.mockResolvedValue(response(action('content_repair')));
     renderPage(<RepairPage />, '/operations/repair');
 
-    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: CONTENT_ID } });
+    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: CONTENT_ID_V7 } });
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Keresőprojekció javítása' } });
     fireEvent.click(screen.getByRole('button', { name: 'Javítás indítása' }));
 
     await waitFor(() => expect(mocks.startContentRepair).toHaveBeenCalledTimes(1));
     expect(mocks.startContentRepair.mock.calls[0]?.[0]).toEqual({
-      contentId: CONTENT_ID, target: 'both', reason: 'Keresőprojekció javítása',
+      contentId: CONTENT_ID_V7, target: 'both', reason: 'Keresőprojekció javítása',
     });
     expect(await screen.findByRole('heading', { name: 'Javítás állapota' })).toBeTruthy();
+  });
+
+  it('accepts a UUID v7 repair target and rejects nil or malformed ids', () => {
+    renderPage(<RepairPage />, '/operations/repair');
+    fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Keresőprojekció javítása' } });
+    const submit = () => screen.getByRole('button', { name: 'Javítás indítása' });
+    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: 'not-a-uuid' } });
+    expect(submit().hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: '00000000-0000-0000-0000-000000000000' } });
+    expect(submit().hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText('Content UUID'), { target: { value: CONTENT_ID_V7 } });
+    expect(submit().hasAttribute('disabled')).toBe(false);
   });
 });

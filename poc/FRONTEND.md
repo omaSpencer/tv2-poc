@@ -131,6 +131,7 @@ nyers token nem kerül page-propba vagy query key-be.
 | `/` | Kezdőlap | Útvonal-térkép |
 | `/login`, `/auth/callback` | Identity | PKCE login/callback/refresh/logout, `GET /me` |
 | `/contents` | Tartalomlista | URL-szűrők, stabil cursor, responsive lista |
+| `/editorial` | Redirect `/contents` | Egy release-ciklusig bookmark-kompatibilitás; a régi szerkesztői lánc törölve |
 | `/contents/new` | Új piszkozat | Validáció, dirty-state védelem, célzott szerverhibák |
 | `/contents/:id` | Áttekintő | Lifecycle, readiness és cursoros audit |
 | `/contents/:id/edit` | Szerkesztő | Dirty PATCH, no-op és adatvesztésmentes 409 feloldás |
@@ -145,12 +146,11 @@ notification live region és permission hint.
 frontend/src/
   features/contents/  lista, form, detail/edit/create, audit és konfliktuskezelés
   features/catalog/   URL-alapú keresés, publikus detail és visibility polling
-  pages/           Home, Auth, Processing, Demo
-  components/      Shell, Nav, StatusBar, gates, panels
+  pages/           Home, Auth, Demo
+  components/      Shell, Nav, StatusBar, panels
   api/             client, health, catalog, admin, me, search, processing
-  auth/            OIDC adapter, provider és route guardok
-  content/activeContent.tsx
-  data/demoFixture.ts
+  auth/            OIDC adapter, provider, route guardok és role-mátrix
+  lib/uuid.ts      közös v1–v8 UUID helper
 ```
 
 ## 7. Demózható forgatókönyvek

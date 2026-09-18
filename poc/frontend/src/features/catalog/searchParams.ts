@@ -1,5 +1,5 @@
 import type { ContentCategory } from '../../api/types';
-import { CONTENT_CATEGORIES } from '../../data/demoFixture';
+import { CONTENT_CATEGORIES } from '../contents/schemas';
 
 export const CATALOG_PAGE_LIMITS = [10, 20, 50] as const;
 export const DEFAULT_CATALOG_PAGE_LIMIT = 20;

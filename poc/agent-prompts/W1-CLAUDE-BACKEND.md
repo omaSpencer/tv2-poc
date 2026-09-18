@@ -2,7 +2,7 @@
 
 Dolgozz kizárólag a `/private/tmp/tv2-poc-be-f1` worktree-ben, a
 `codex/final-be-f1` branchen. A kiinduló commit:
-`e70aea5e767f2ae1705235293c43bcb4cd2845a9`.
+`bcc903e`.
 
 Olvasd el teljesen a `poc/FINAL-BACKEND-MILESTONE.md` dokumentumot, majd
 implementáld kizárólag a **BE-F1 – Publikus perem és futtatási hardening** fázist:

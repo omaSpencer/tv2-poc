@@ -279,7 +279,8 @@ auth) továbbra is Bearer-t küld — bizonyítja, hogy a policy opció, nem pat
 
 **Eredmény:** látható lapon 8 s refetch ugyanazon query key-en; hidden pause;
 visible azonnali refetch; in-flight mellett nincs második fetch; index/outage
-változás új query + új idempotency key; submit a kijelzett preflight
+változás új query + új idempotency key. A submit frissítés közben és sikertelen
+frissítés után tiltott; sikeres frissítéskor a kijelzett preflight
 `confirmationTarget` értékét küldi.
 
 - `src/features/operations/reindexPreflightPoll.ts`: `REINDEX_PREFLIGHT_POLL_MS = 8_000`
@@ -296,9 +297,10 @@ változás új query + új idempotency key; submit a kijelzett preflight
 
 ### L10 – Health polling backoff
 
-**Eredmény:** siker 10 s; consecutive failure capped exponenciális
-(20 s / 40 s / 80 s) ±10 % injektálható jitter; első siker vissza a 10 s-re;
-live és ready querynként legfeljebb egy in-flight; hidden pause, visible refresh.
+**Eredmény:** siker 10 s; thrown hiba és feloldott, kijelzendő ready 503 esetén
+is capped exponenciális backoff (20 s / 40 s / 80 s) ±10 % injektálható
+jitter; első egészséges válasz vissza a 10 s-re; live és ready querynként
+legfeljebb egy in-flight; hidden pause, visible refresh.
 
 - `src/lib/healthPollInterval.ts`: `HEALTH_POLL_SUCCESS_MS = 10_000`,
   `HEALTH_POLL_MAX_MS = 80_000`, `HEALTH_POLL_JITTER_RATIO = 0.1`,

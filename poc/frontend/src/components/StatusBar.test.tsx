@@ -34,6 +34,14 @@ function healthOk(correlationId: string) {
   };
 }
 
+function healthNotReady(correlationId: string) {
+  return {
+    status: 503,
+    correlationId,
+    data: { status: 'error' as const, info: {}, error: { search: { status: 'down' } }, details: {} },
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>(res => {
@@ -235,6 +243,26 @@ describe('StatusBar health polling and ready correlationId', () => {
     expect(healthMocks.fetchLive).toHaveBeenCalledTimes(3);
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(healthMocks.fetchLive).toHaveBeenCalledTimes(4);
+  });
+
+  it('backs off resolved ready 503 responses while still exposing their status', async () => {
+    vi.useFakeTimers();
+    healthMocks.fetchLive.mockResolvedValue(healthOk('live-ok'));
+    healthMocks.fetchReady
+      .mockResolvedValueOnce(healthNotReady('ready-down-1'))
+      .mockResolvedValueOnce(healthNotReady('ready-down-2'))
+      .mockResolvedValue(healthOk('ready-recovered'));
+    renderStatusBar();
+    await flushFakeQueryUpdates();
+    expect(healthMocks.fetchReady).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('not ready')).toBeTruthy();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(healthMocks.fetchReady).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(40_000); });
+    expect(healthMocks.fetchReady).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(HEALTH_POLL_SUCCESS_MS); });
+    expect(healthMocks.fetchReady).toHaveBeenCalledTimes(4);
   });
 
   it('does not start a second live request while one is in flight, including on visibility', async () => {

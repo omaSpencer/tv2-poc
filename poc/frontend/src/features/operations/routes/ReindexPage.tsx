@@ -48,6 +48,8 @@ export function ReindexPage() {
   const status = preflight.data?.data;
   const confirmationOk = !status?.confirmationRequired || confirmation === status.confirmationTarget;
   const canSubmit = Boolean(status)
+    && !preflight.isFetching
+    && !preflight.isError
     && !mutation.isPending
     && reason.trim().length >= 3
     && confirmationOk

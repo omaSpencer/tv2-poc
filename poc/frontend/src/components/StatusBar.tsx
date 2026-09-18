@@ -14,7 +14,10 @@ function pillClass(ok: boolean | null): string {
 
 function useTrackedHealthQuery(queryKey: readonly ['health', 'live' | 'ready'], queryFn: () => ReturnType<typeof fetchLive>) {
   const [tracker] = useState(createFailureTracker);
-  const [trackedQueryFn] = useState(() => tracker.wrap(queryFn));
+  const [trackedQueryFn] = useState(() => tracker.wrap(
+    queryFn,
+    response => response.status !== 200 || response.data.status !== 'ok',
+  ));
   const refetchInterval = useCallback(
     () => healthPollInterval({
       consecutiveFailures: tracker.consecutiveFailures,

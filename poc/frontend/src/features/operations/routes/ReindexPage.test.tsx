@@ -70,10 +70,12 @@ async function flushFakeQueryUpdates() {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>(res => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
     resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('reindex preflight freshness', () => {
@@ -162,6 +164,35 @@ describe('reindex preflight freshness', () => {
 
     fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Tervezett karbantartás' } });
     expect(screen.getByRole('button', { name: 'Teljes reindex indítása' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('disables submit while a refresh is pending and keeps it disabled after refresh failure', async () => {
+    vi.useFakeTimers();
+    const refresh = deferred<ReturnType<typeof response>>();
+    mocks.fetchReindexPreflight
+      .mockResolvedValueOnce(response(preflight()))
+      .mockReturnValueOnce(refresh.promise);
+    renderReindex();
+    await flushFakeQueryUpdates();
+    fireEvent.change(screen.getByLabelText('Indoklás'), { target: { value: 'Tervezett karbantartás' } });
+    const submit = screen.getByRole('button', { name: 'Teljes reindex indítása' });
+    expect(submit.hasAttribute('disabled')).toBe(false);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINDEX_PREFLIGHT_POLL_MS * 3); });
+    await flushFakeQueryUpdates();
+    expect(mocks.fetchReindexPreflight).toHaveBeenCalledTimes(2);
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    await act(async () => {
+      refresh.reject(new Error('preflight unavailable'));
+      try {
+        await refresh.promise;
+      } catch {
+        // React Query exposes the refresh failure through query state.
+      }
+    });
+    await flushFakeQueryUpdates();
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('A reindex előellenőrzése sikertelen')).toBeTruthy();
   });
 
   it('submits the confirmation target from the currently displayed preflight', async () => {

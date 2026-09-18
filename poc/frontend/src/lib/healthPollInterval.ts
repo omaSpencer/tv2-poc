@@ -43,11 +43,11 @@ export function createFailureTracker() {
     get consecutiveFailures() {
       return consecutiveFailures;
     },
-    wrap<T>(queryFn: () => Promise<T>): () => Promise<T> {
+    wrap<T>(queryFn: () => Promise<T>, isFailure: (result: T) => boolean = () => false): () => Promise<T> {
       return async () => {
         try {
           const result = await queryFn();
-          consecutiveFailures = 0;
+          consecutiveFailures = isFailure(result) ? consecutiveFailures + 1 : 0;
           return result;
         } catch (error) {
           consecutiveFailures += 1;

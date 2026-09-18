@@ -44,4 +44,13 @@ describe('healthPollInterval', () => {
     await expect(wrapped()).resolves.toBe('ok');
     expect(tracker.consecutiveFailures).toBe(0);
   });
+
+  it('can count an unhealthy resolved response without hiding it from the caller', async () => {
+    const tracker = createFailureTracker();
+    const unhealthy = { status: 503 };
+    const wrapped = tracker.wrap(async () => unhealthy, result => result.status !== 200);
+
+    await expect(wrapped()).resolves.toBe(unhealthy);
+    expect(tracker.consecutiveFailures).toBe(1);
+  });
 });

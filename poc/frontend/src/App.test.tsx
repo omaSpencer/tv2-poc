@@ -62,4 +62,8 @@ describe('app compatibility routes', () => {
       expect(router.state.location.search).toBe('?returnTo=%2Fcontents');
     });
   });
+
+  it('registers a root errorElement on the data router', () => {
+    expect(appRoutes[0]?.errorElement).toBeTruthy();
+  });
 });

@@ -38,5 +38,55 @@ describe('OIDC helpers', () => {
     await expect(second).resolves.toBe(resolved);
     expect(manager.signinRedirectCallback).toHaveBeenCalledTimes(1);
   });
+
+  it('starts a new callback after a successful one has settled', async () => {
+    clearSigninCallbackCache();
+    const firstUser = user({ returnTo: '/' });
+    const secondUser = user({ returnTo: '/contents' });
+    const manager = {
+      signinRedirectCallback: vi.fn().mockResolvedValueOnce(firstUser).mockResolvedValueOnce(secondUser),
+    };
+    const url = 'http://app/auth/callback?code=one';
+    await expect(completeSigninCallbackOnce(manager, url)).resolves.toBe(firstUser);
+    await expect(completeSigninCallbackOnce(manager, url)).resolves.toBe(secondUser);
+    expect(manager.signinRedirectCallback).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts a new callback after a failed one has settled', async () => {
+    clearSigninCallbackCache();
+    const manager = {
+      signinRedirectCallback: vi.fn()
+        .mockRejectedValueOnce(new Error('invalid_grant'))
+        .mockResolvedValueOnce(user({ returnTo: '/' })),
+    };
+    const url = 'http://app/auth/callback?code=one';
+    await expect(completeSigninCallbackOnce(manager, url)).rejects.toThrow('invalid_grant');
+    await expect(completeSigninCallbackOnce(manager, url)).resolves.toMatchObject({ access_token: 'secret-access-token' });
+    expect(manager.signinRedirectCallback).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not let a stale finally drop a newer in-flight callback', async () => {
+    clearSigninCallbackCache();
+    let resolveFirst!: (value: User) => void;
+    let resolveSecond!: (value: User) => void;
+    const firstPromise = new Promise<User>(resolve => { resolveFirst = resolve; });
+    const secondPromise = new Promise<User>(resolve => { resolveSecond = resolve; });
+    const firstUser = user({ returnTo: '/one' });
+    const secondUser = user({ returnTo: '/two' });
+    const manager = {
+      signinRedirectCallback: vi.fn().mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise),
+    };
+    const url = 'http://app/auth/callback?code=one';
+    const first = completeSigninCallbackOnce(manager, url);
+    clearSigninCallbackCache();
+    const second = completeSigninCallbackOnce(manager, url);
+    resolveFirst(firstUser);
+    await expect(first).resolves.toBe(firstUser);
+    const secondWaiter = completeSigninCallbackOnce(manager, url);
+    expect(manager.signinRedirectCallback).toHaveBeenCalledTimes(2);
+    resolveSecond(secondUser);
+    await expect(second).resolves.toBe(secondUser);
+    await expect(secondWaiter).resolves.toBe(secondUser);
+  });
 });
 

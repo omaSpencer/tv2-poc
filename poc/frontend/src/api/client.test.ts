@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiRequest, setApiAccessToken, setAuthRecoveryHandler } from './client';
+import { API_REQUEST_TIMEOUT_MS, apiRequest, setApiAccessToken, setAuthRecoveryHandler } from './client';
+import { ApiTimeoutError, isApiTimeoutError } from './types';
 
 const problem = {
   type: 'urn:indaplay:poc:error:unauthenticated',
@@ -94,5 +95,87 @@ describe('api auth recovery', () => {
     });
     expect(recover).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+function hangingFetch(): ReturnType<typeof vi.fn> {
+  return vi.fn().mockImplementation((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+    const signal = init?.signal;
+    if (!signal) return;
+    if (signal.aborted) {
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+      return;
+    }
+    signal.addEventListener('abort', () => {
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    }, { once: true });
+  }));
+}
+
+describe('api request timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('times out with a stable request_timeout error', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const pending = apiRequest('/admin/example');
+    const rejection = expect(pending).rejects.toMatchObject({
+      name: 'ApiTimeoutError',
+      code: 'request_timeout',
+    });
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    await rejection;
+  });
+
+  it('propagates a caller abort instead of a timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const controller = new AbortController();
+    const pending = apiRequest('/admin/example', { signal: controller.signal });
+    const rejection = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    controller.abort();
+    await rejection;
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+  });
+
+  it('resolves when the response arrives before the timeout', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }, 200));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = apiRequest<{ ok: boolean }>('/admin/example');
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS - 1);
+    await expect(pending).resolves.toMatchObject({ data: { ok: true } });
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up timeout timers and caller listeners across an auth retry', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(problem, 401))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }, 200));
+    vi.stubGlobal('fetch', fetchMock);
+    setApiAccessToken('old-token');
+    setAuthRecoveryHandler(async () => {
+      setApiAccessToken('new-token');
+      return true;
+    });
+    const controller = new AbortController();
+    const add = vi.spyOn(controller.signal, 'addEventListener');
+    const remove = vi.spyOn(controller.signal, 'removeEventListener');
+    await expect(apiRequest<{ ok: boolean }>('/admin/example', { signal: controller.signal }))
+      .resolves.toMatchObject({ data: { ok: true } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(add.mock.calls.length).toBeGreaterThan(0);
+    expect(remove.mock.calls.length).toBe(add.mock.calls.length);
+    await vi.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('exposes a UI-recognizable timeout type', () => {
+    expect(isApiTimeoutError(new ApiTimeoutError())).toBe(true);
+    expect(isApiTimeoutError(new Error('aborted'))).toBe(false);
   });
 });

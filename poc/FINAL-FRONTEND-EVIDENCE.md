@@ -1,11 +1,11 @@
-# Final frontend evidence – FE-F1
+# Final frontend evidence – FE-F1 és FE-F2
 
-2026-09-18 · Branch `codex/final-fe-f1` · worktree `/private/tmp/tv2-poc-fe-f1` ·
+2026-09-18 · FE-F2: branch `codex/final-fe-f2` · worktree `/private/tmp/tv2-poc-fe-f2` ·
 Node **24.20.0**.
 
-Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) FE-F1
-fázisának bizonyítéka. A későbbi fázisok (FE-F2–FE-F5) ide kerülnek, amikor
-lezárulnak.
+Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) lezárt
+frontend fázisainak bizonyítéka. A koordinációs dokumentumot ez a hullám nem
+módosította.
 
 ## Környezet
 
@@ -137,3 +137,136 @@ a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend forrás, OpenAPI,
 auth architektúra és a kiosztott findingeken túli felhasználói viselkedés
 változatlan (a PermissionHints publisher sora most helyesen mutatja az
 `ops:write` jogot).
+
+---
+
+## FE-F2 – Runtime-helyreállás és request-életciklus
+
+2026-09-18 · Branch `codex/final-fe-f2` · worktree `/private/tmp/tv2-poc-fe-f2`.
+
+Lezárt ID-k: **M2, L3, L4, L5, L9**. A FE-F2 lezárási kapuk teljesültek.
+
+### Környezet
+
+| Elem | Érték |
+| --- | --- |
+| Node.js | 24.20.0 (`nvm use 24.20.0`) |
+| npm | 11.19.0 |
+| Kapu | `cd poc/frontend && npm run verify` |
+| E2E typecheck | `cd poc/frontend && npm run e2e:typecheck` |
+| Böngészős E2E | Nem futtatva – FE-F4/FE-F5, nem FE-F2 kapu |
+
+### Production bundle
+
+| | JS (byte) | CSS (byte) | Legnagyobb JS |
+| --- | ---: | ---: | --- |
+| FE-F1 után | 684 666 | 19 064 | `assets/index-B6CWNPM2.js` 336 494 |
+| FE-F2 után | 688 617 | 19 064 | `assets/index-Cj5XTy0Z.js` 339 683 |
+| Delta | **+3 951** | **0** | **+3 189** |
+
+A root error page a fő bundle-ben van (`Az oldal nem tölthető be` az
+`index-Cj5XTy0Z.js`-ben), nem lazy chunkban. A növekedés a recovery UI, a
+chunk loop-guard és az `apiRequest` timeout.
+
+### M2 – Root error boundary
+
+**Eredmény:** a data router gyökerén `errorElement={<RootErrorPage />}`; magyar,
+biztonságos hibaoldal újratöltéssel; szűk lazy-chunk felismerés után legfeljebb
+egy automatikus reload navigáció+build páronként.
+
+- `src/appRoutes.tsx`: root `errorElement`
+- `src/pages/RootErrorPage.tsx`: nincs stack, URL query, token, authorization
+  code vagy nyers exception message; `Oldal újratöltése` + kezdőlap link
+- `src/lib/lazyChunkError.ts`: Vite/webpack/browser module-script minták;
+  `Failed to fetch` önmagában nem chunk hiba; sessionStorage-s loop guard
+  (`indaplay.poc.lazyChunkReload`) pathname+build fingerprint, query nélkül
+- Tesztek: `src/pages/RootErrorPage.test.tsx`, `src/lib/lazyChunkError.test.ts`,
+  `src/App.test.tsx` (root `errorElement` jelenléte)
+
+### L3 – Callback cache lifecycle
+
+**Eredmény:** URL-kulcsú OIDC callback promise success és failure után is
+ürül; StrictMode/párhuzamos hívás továbbra is egy `signinRedirectCallback`;
+a takarítás csak a saját, még aktuális map-entryt törli.
+
+- `src/auth/oidc.ts`: `completeSigninCallbackOnce` `then`/`catch` takarítás
+  identitás-ellenőrzéssel (stale finally nem dobja a újabb in-flight entryt)
+- Tesztek: `src/auth/oidc.test.ts` – concurrent, success utáni új hívás,
+  failure utáni új hívás, stale finally
+
+### L4 – Catalog probe single-flight
+
+**Eredmény:** aktív `fetchPublishedContent` alatt hidden→visible nem indít új
+probe-ot; egy probe eredménye egyszer ír state-et/`onResult`-ot; cleanup után
+késői promise nem ír.
+
+- `src/features/catalog/useCatalogVisibilityPolling.ts`: `probeInFlight` +
+  `finished` + `cancelled`
+- Tesztek: fake clock + kézzel kontrollált pending promise;
+  unmount utáni settle nem hív `onResult`
+
+### L5 – Pure lapozási state
+
+**Eredmény:** cursor és history egy reducerben; state updateren belül nincs
+másik setter; next/previous/filter reset StrictMode alatt egy logikai lépés.
+
+- `src/features/contents/cursorPagination.ts`
+- `src/features/contents/routes/ContentListPage.tsx`: `useReducer`
+- Tesztek: reducer idempotencia; `ContentListPage.test.tsx` StrictMode
+  next → previous → next → filter reset
+
+### L9 – Központi request timeout
+
+**Eredmény:** `apiRequest` 15 000 ms default timeout, caller `AbortSignal`
+támogatással; timeout = `ApiTimeoutError` / `request_timeout`; caller abort =
+`AbortError`; timer/listener cleanup auth-retry után is; `timeoutMs: false`
+opt-out létezik, de semelyik hívó nem használja.
+
+- `src/api/client.ts`: `API_REQUEST_TIMEOUT_MS`, `composeRequestSignal`
+- `src/api/types.ts`: `ApiTimeoutError`, `isApiTimeoutError`
+- UI: `ProblemPanel`, `CatalogSearchError` magyar timeout üzenet, nyers
+  message nélkül
+- Tesztek: fake clock timeout; caller abort; siker a határ előtt; auth retry
+  listener/timer cleanup
+
+### FE-F2 kapu
+
+```text
+node -v
+v24.20.0
+
+cd poc/frontend && npm run verify
+contracts:check  PASS (generated backend.ts unchanged)
+build            PASS
+compiler:check   PASS
+lint             PASS (oxlint src e2e, 0 warning)
+test             PASS  37 files, 172/172
+
+cd poc/frontend && npm run e2e:typecheck
+PASS
+```
+
+### Nem futtatott kapuk
+
+- Böngészős Playwright E2E, axe, cross-browser — FE-F4/FE-F5
+- Backend test/build, OpenAPI emit — tilos volt backend/contractot módosítani
+- Coverage küszöb — I4, FE-F5
+
+### Maradék kockázat
+
+- A chunk-hiba felismerés bundler/browser üzenetre szűk; ismeretlen szövegű
+  betöltési hiba manuális újratöltést kap, nem automatikusat.
+- sessionStorage quota/privát mód: az auto-reload kihagyódik, a hibaoldal
+  megmarad (loop nélkül).
+- A 15 s default timeout streaming/hosszú kéréshez szűk lehet; opt-out van,
+  de FE-F2-ben szándékosan nincs fogyasztója.
+- A root `errorElement` a shell helyett jelenik meg; a helyreállás teljes
+  újratöltés vagy kezdőlap.
+
+### Scope
+
+Nem merge-eltem `main`-re, nem rebase-eltem, nem pusholtam, és nem módosítottam
+a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend, OpenAPI snapshot,
+generated contract, Compose és `FINAL-FRONTEND-MILESTONE.md` érintetlen.
+Kizárólag frontend production forrás, frontend teszt és ez az evidence fájl
+változott. FE-F3–FE-F5 findingjei nyitottak maradtak.

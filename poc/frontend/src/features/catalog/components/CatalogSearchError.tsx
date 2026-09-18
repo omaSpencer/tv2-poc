@@ -1,4 +1,4 @@
-import { isApiProblemError } from '../../../api/types';
+import { isApiProblemError, isApiTimeoutError } from '../../../api/types';
 
 type Props = {
   error: unknown;
@@ -32,6 +32,16 @@ export function CatalogSearchError({ error, onRetry, onReset }: Props) {
       <aside className="panel panel-error" role="alert">
         <h2>Egy háttérszolgáltatás nem elérhető</h2>
         <p>A találatok publikus állapotát most nem lehet biztonságosan ellenőrizni.</p>
+        <button type="button" onClick={onRetry}>Újrapróbálás</button>
+      </aside>
+    );
+  }
+
+  if (isApiTimeoutError(error)) {
+    return (
+      <aside className="panel panel-error" role="alert">
+        <h2>A keresés időtúllépés miatt megszakadt</h2>
+        <p>A kérés nem ért célba időben. Próbáld újra.</p>
         <button type="button" onClick={onRetry}>Újrapróbálás</button>
       </aside>
     );

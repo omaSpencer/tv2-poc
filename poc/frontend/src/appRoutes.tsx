@@ -4,6 +4,7 @@ import { Navigate, Route, createRoutesFromElements } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { RequirePermission } from './auth/RequirePermission';
 import { AppShell } from './components/AppShell';
+import { RootErrorPage } from './pages/RootErrorPage';
 
 const AuthCallbackPage = lazy(async () => ({ default: (await import('./pages/AuthCallbackPage')).AuthCallbackPage }));
 const AuthPage = lazy(async () => ({ default: (await import('./pages/AuthPage')).AuthPage }));
@@ -30,7 +31,7 @@ function page(children: ReactNode) {
 }
 
 export const appRoutes = createRoutesFromElements(
-  <Route element={<AppShell />}>
+  <Route element={<AppShell />} errorElement={<RootErrorPage />}>
     <Route index element={page(<HomePage />)} />
     <Route path="login" element={page(<AuthPage />)} />
     <Route path="auth" element={<Navigate to="/login" replace />} />

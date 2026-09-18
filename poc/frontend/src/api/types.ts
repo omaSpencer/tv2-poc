@@ -57,6 +57,28 @@ export class ApiProblemError extends Error {
   }
 }
 
+export const API_TIMEOUT_CODE = 'request_timeout' as const;
+
+export class ApiTimeoutError extends Error {
+  readonly name = 'ApiTimeoutError';
+  readonly code = API_TIMEOUT_CODE;
+
+  constructor(message = 'A kérés időtúllépés miatt megszakadt.') {
+    super(message);
+  }
+}
+
+export function isApiTimeoutError(error: unknown): error is ApiTimeoutError {
+  if (error instanceof ApiTimeoutError) return true;
+  if (!error || typeof error !== 'object') return false;
+  return (
+    'name' in error
+    && error.name === 'ApiTimeoutError'
+    && 'code' in error
+    && error.code === API_TIMEOUT_CODE
+  );
+}
+
 export function isApiProblemError(error: unknown): error is ApiProblemError {
   if (error instanceof ApiProblemError) return true;
   if (!error || typeof error !== 'object' || !('problem' in error)) return false;

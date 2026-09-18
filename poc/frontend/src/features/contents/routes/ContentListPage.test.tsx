@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -38,17 +39,18 @@ function response(nextCursor: string | null) {
   };
 }
 
-function renderPage(initial = '/contents?q=alma&status=draft') {
+function renderPage(initial = '/contents?q=alma&status=draft', wrapStrict = false) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const tree = (
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={auth}>
         <MemoryRouter initialEntries={[initial]}>
           <Routes><Route path="/contents" element={<ContentListPage />} /></Routes>
         </MemoryRouter>
       </AuthContext.Provider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return render(wrapStrict ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 describe('ContentListPage', () => {
@@ -76,5 +78,32 @@ describe('ContentListPage', () => {
       status: 'published', cursor: null,
     })));
     expect(screen.getByRole('button', { name: 'Előző' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('keeps next, previous and filter reset as one logical step under StrictMode', async () => {
+    renderPage('/contents?q=alma&status=draft', true);
+    await screen.findAllByText('Alma film');
+    fireEvent.click(screen.getByRole('button', { name: 'Következő' }));
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Tartalomlista lapozása' }).textContent).toMatch(/2\. oldal/);
+      expect(screen.getByRole('button', { name: 'Előző' }).hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Előző' }));
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Tartalomlista lapozása' }).textContent).toMatch(/1\. oldal/);
+      expect(screen.getByRole('button', { name: 'Következő' }).hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Következő' }));
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Tartalomlista lapozása' }).textContent).toMatch(/2\. oldal/);
+    });
+    fireEvent.change(screen.getByLabelText('Státusz'), { target: { value: 'published' } });
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Tartalomlista lapozása' }).textContent).toMatch(/1\. oldal/);
+    });
+    expect(screen.getByRole('button', { name: 'Előző' }).hasAttribute('disabled')).toBe(true);
+    await waitFor(() => expect(mocks.listAdminContents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'published', cursor: null }),
+    ));
   });
 });

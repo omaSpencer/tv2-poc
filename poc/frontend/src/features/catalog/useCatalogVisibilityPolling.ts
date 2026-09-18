@@ -34,6 +34,8 @@ export function useCatalogVisibilityPolling(onResult?: (result: CatalogPollingRe
     if (!request) return;
 
     let cancelled = false;
+    let finished = false;
+    let probeInFlight = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let timerStartedAt = 0;
     let activeElapsedMs = 0;
@@ -41,7 +43,8 @@ export function useCatalogVisibilityPolling(onResult?: (result: CatalogPollingRe
     let remainingDelayMs: number = POLL_DELAYS_MS[0];
 
     const finish = (phase: 'success' | 'timeout') => {
-      if (cancelled) return;
+      if (cancelled || finished) return;
+      finished = true;
       if (timer) clearTimeout(timer);
       timer = null;
       setState({ phase, target: request.target });
@@ -49,7 +52,7 @@ export function useCatalogVisibilityPolling(onResult?: (result: CatalogPollingRe
     };
 
     const schedule = () => {
-      if (cancelled) return;
+      if (cancelled || finished || timer) return;
       if (activeElapsedMs >= CATALOG_POLL_BUDGET_MS) {
         finish('timeout');
         return;
@@ -70,32 +73,38 @@ export function useCatalogVisibilityPolling(onResult?: (result: CatalogPollingRe
     };
 
     const probe = async () => {
+      if (cancelled || finished || probeInFlight) return;
+      probeInFlight = true;
       let isPublic = false;
       try {
-        await fetchPublishedContent(request.contentId);
-        isPublic = true;
-      } catch (error) {
-        if (!(isApiProblemError(error) && error.problem.status === 404)) {
-          isPublic = request.target === 'hidden';
+        try {
+          await fetchPublishedContent(request.contentId);
+          isPublic = true;
+        } catch (error) {
+          if (!(isApiProblemError(error) && error.problem.status === 404)) {
+            isPublic = request.target === 'hidden';
+          }
         }
-      }
 
-      if (cancelled) return;
-      if ((request.target === 'visible' && isPublic) || (request.target === 'hidden' && !isPublic)) {
-        finish('success');
-        return;
-      }
-      if (activeElapsedMs >= CATALOG_POLL_BUDGET_MS) {
-        finish('timeout');
-        return;
-      }
+        if (cancelled || finished) return;
+        if ((request.target === 'visible' && isPublic) || (request.target === 'hidden' && !isPublic)) {
+          finish('success');
+          return;
+        }
+        if (activeElapsedMs >= CATALOG_POLL_BUDGET_MS) {
+          finish('timeout');
+          return;
+        }
 
-      delayIndex = Math.min(delayIndex + 1, POLL_DELAYS_MS.length - 1);
-      remainingDelayMs = Math.min(
-        POLL_DELAYS_MS[delayIndex],
-        CATALOG_POLL_BUDGET_MS - activeElapsedMs,
-      );
-      schedule();
+        delayIndex = Math.min(delayIndex + 1, POLL_DELAYS_MS.length - 1);
+        remainingDelayMs = Math.min(
+          POLL_DELAYS_MS[delayIndex],
+          CATALOG_POLL_BUDGET_MS - activeElapsedMs,
+        );
+        schedule();
+      } finally {
+        probeInFlight = false;
+      }
     };
 
     const onVisibilityChange = () => {
@@ -107,8 +116,8 @@ export function useCatalogVisibilityPolling(onResult?: (result: CatalogPollingRe
           clearTimeout(timer);
           timer = null;
         }
-        setState({ phase: 'paused', target: request.target });
-      } else if (!timer) {
+        if (!probeInFlight) setState({ phase: 'paused', target: request.target });
+      } else if (!timer && !probeInFlight) {
         schedule();
       }
     };

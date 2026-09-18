@@ -1,4 +1,4 @@
-import { isApiProblemError, type ProblemDocument } from '../api/types';
+import { isApiProblemError, isApiTimeoutError, type ProblemDocument } from '../api/types';
 
 type Props = {
   error: unknown;
@@ -27,6 +27,15 @@ const PROBLEM_TITLES: Record<string, string> = {
 
 export function ProblemPanel({ error, title = 'API hiba' }: Props) {
   if (!error) return null;
+
+  if (isApiTimeoutError(error)) {
+    return (
+      <aside className="panel panel-error" aria-live="polite">
+        <h3>A kérés időtúllépés miatt megszakadt</h3>
+        <p>A szerver nem válaszolt időben. Próbáld újra.</p>
+      </aside>
+    );
+  }
 
   const problem = asProblem(error);
   if (!problem) {

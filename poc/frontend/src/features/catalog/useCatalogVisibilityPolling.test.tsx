@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiProblemError } from '../../api/types';
 
 const mocks = vi.hoisted(() => ({ fetchPublishedContent: vi.fn() }));
@@ -13,8 +13,8 @@ const notFound = () => new ApiProblemError({
   detail: 'Not found', instance: `/catalog/contents/${id}`, correlationId: 'corr', fields: [],
 }, 'corr');
 
-function Harness() {
-  const polling = useCatalogVisibilityPolling();
+function Harness({ onResult }: { onResult?: (result: { phase: 'success' | 'timeout'; target: 'visible' | 'hidden' }) => void } = {}) {
+  const polling = useCatalogVisibilityPolling(onResult);
   return (
     <div>
       <output>{polling.phase}:{polling.target ?? 'none'}</output>
@@ -34,6 +34,10 @@ describe('useCatalogVisibilityPolling', () => {
     vi.useFakeTimers();
     mocks.fetchPublishedContent.mockReset();
     setVisibility('visible');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('uses the 1s → 2s cadence and succeeds when a publish becomes public', async () => {
@@ -81,5 +85,46 @@ describe('useCatalogVisibilityPolling', () => {
 
     await act(() => vi.advanceTimersByTimeAsync(CATALOG_POLL_BUDGET_MS));
     expect(screen.getByText('timeout:visible')).toBeTruthy();
+  });
+
+  it('keeps a single in-flight probe across hidden→visible and reports once', async () => {
+    const onResult = vi.fn();
+    let release: (value: unknown) => void = () => undefined;
+    mocks.fetchPublishedContent.mockImplementation(() => new Promise(resolve => {
+      release = resolve;
+    }));
+    render(<Harness onResult={onResult} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Publikálás figyelése' }));
+
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(mocks.fetchPublishedContent).toHaveBeenCalledTimes(1);
+
+    act(() => setVisibility('hidden'));
+    act(() => setVisibility('visible'));
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(mocks.fetchPublishedContent).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      release({ data: {}, status: 200 });
+    });
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith({ phase: 'success', target: 'visible' });
+    expect(screen.getByText('success:visible')).toBeTruthy();
+  });
+
+  it('ignores a probe that settles after cleanup', async () => {
+    const onResult = vi.fn();
+    let release: (value: unknown) => void = () => undefined;
+    mocks.fetchPublishedContent.mockImplementation(() => new Promise(resolve => {
+      release = resolve;
+    }));
+    const { unmount } = render(<Harness onResult={onResult} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Publikálás figyelése' }));
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    unmount();
+    await act(async () => {
+      release({ data: {}, status: 200 });
+    });
+    expect(onResult).not.toHaveBeenCalled();
   });
 });

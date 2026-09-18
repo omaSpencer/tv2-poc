@@ -47,6 +47,14 @@ export function completeSigninCallbackOnce(manager: CallbackManager, url = windo
   if (existing) return existing;
   const request = manager.signinRedirectCallback(url);
   callbackRequests.set(url, request);
+  void request.then(
+    () => {
+      if (callbackRequests.get(url) === request) callbackRequests.delete(url);
+    },
+    () => {
+      if (callbackRequests.get(url) === request) callbackRequests.delete(url);
+    },
+  );
   return request;
 }
 

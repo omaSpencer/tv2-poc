@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ApiProblemError, type ProblemDocument } from '../api/types';
+import { ApiProblemError, ApiTimeoutError, type ProblemDocument } from '../api/types';
 import { ProblemPanel } from './ProblemPanel';
 
 function error(status: number, code: ProblemDocument['code'], extras: Partial<ProblemDocument> = {}) {
@@ -39,5 +39,11 @@ describe('ProblemPanel state matrix', () => {
     expect(screen.getByRole('heading', { name: 'Kapcsolati hiba' })).toBeTruthy();
     expect(screen.getByText('Failed to fetch')).toBeTruthy();
     expect(screen.queryByText('correlationId')).toBeNull();
+  });
+
+  it('maps a request timeout to a stable Hungarian message without the raw error text', () => {
+    render(<ProblemPanel error={new ApiTimeoutError('internal timeout secret')} />);
+    expect(screen.getByRole('heading', { name: 'A kérés időtúllépés miatt megszakadt' })).toBeTruthy();
+    expect(screen.queryByText('internal timeout secret')).toBeNull();
   });
 });

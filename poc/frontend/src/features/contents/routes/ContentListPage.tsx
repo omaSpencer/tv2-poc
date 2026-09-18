@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/authContext';
 import { can } from '../../../auth/permissions';
@@ -9,6 +9,7 @@ import { CONTENT_CATEGORIES } from '../schemas';
 import { contentKeys } from '../queryKeys';
 import { ContentStatusBadge } from '../components/ContentStatusBadge';
 import { formatDateTime } from '../components/format';
+import { cursorPaginationReducer, INITIAL_CURSOR_PAGINATION } from '../cursorPagination';
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -26,16 +27,17 @@ export function ContentListPage() {
   const status = searchParams.get('status') ?? '';
   const category = searchParams.get('category') ?? '';
   const debouncedQ = useDebouncedValue(q.trim(), 300);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<string | null>>([]);
+  const [{ cursor, history }, dispatchPagination] = useReducer(
+    cursorPaginationReducer,
+    INITIAL_CURSOR_PAGINATION,
+  );
   const filterSignature = `${q}\u0000${status}\u0000${category}`;
   const previousSignature = useRef(filterSignature);
 
   useEffect(() => {
     if (previousSignature.current === filterSignature) return;
     previousSignature.current = filterSignature;
-    setCursor(null);
-    setHistory([]);
+    dispatchPagination({ type: 'reset' });
   }, [filterSignature]);
 
   const filters = useMemo(() => ({
@@ -54,8 +56,7 @@ export function ContentListPage() {
   });
 
   function setFilter(name: 'q' | 'status' | 'category', value: string) {
-    setCursor(null);
-    setHistory([]);
+    dispatchPagination({ type: 'reset' });
     setSearchParams(current => {
       const next = new URLSearchParams(current);
       if (value) next.set(name, value);
@@ -67,16 +68,11 @@ export function ContentListPage() {
   function nextPage() {
     const next = list.data?.data.nextCursor;
     if (!next) return;
-    setHistory(current => [...current, cursor]);
-    setCursor(next);
+    dispatchPagination({ type: 'next', cursor: next });
   }
 
   function previousPage() {
-    setHistory(current => {
-      const next = [...current];
-      setCursor(next.pop() ?? null);
-      return next;
-    });
+    dispatchPagination({ type: 'previous' });
   }
 
   const items = list.data?.data.items ?? [];

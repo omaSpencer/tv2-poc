@@ -71,6 +71,27 @@ Minden implementáló agent válasza tartalmazza:
 - [ ] A két W1 branch együtt, tiszta integrációs állapotban is zöld.
 - [ ] Csak ezután jelölhető a fázis késznek és osztható ki BE-F2/FE-F2.
 
+## W1 baseline – 2026-09-18
+
+Runtime: Node `24.20.0`. A dependency stack a Compose healthcheckek szerint
+healthy volt.
+
+| Kapu | Eredmény |
+| --- | --- |
+| Frontend `npm run verify` | PASS – contract, build, compiler, lint; 31 fájl, 139/139 teszt |
+| Frontend production bundle | PASS – 685462 byte JS, 19358 byte CSS |
+| Backend build/lint/OpenAPI | PASS – 0 warning, 0 error, nincs contract drift |
+| Backend teljes Vitest első élő-stack futás | 227/232; 5 dependency/config timeout a search/relay suite-ban |
+| Guardolt `poc_test` reset | PASS – minden migráció sikeres |
+| Relay célzott újrafutás reset után | PASS – 17/17 |
+| Search célzott újrafutás reset után | 37/38; M4-T21/T22 DB connection timeout/dependency_unavailable |
+| Közvetlen `poc_test` connectivity a hiba után | PASS – `select current_database(), 1` |
+
+A backend baseline fennmaradó egy esete élő-stack kapcsolat-időzítési zajként
+van rögzítve, nem zöldnek minősítve. Integrációkor az érintett M4-T21/T22 esetet
+és a teljes suite-ot újra kell futtatni; agent-regresszió csak diff- és ismételt
+futási bizonyíték alapján állapítható meg.
+
 ## Hullámok
 
 | Hullám | Backend | Frontend | Indítás feltétele |

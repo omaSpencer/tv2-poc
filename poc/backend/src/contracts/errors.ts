@@ -20,6 +20,7 @@ export const ERROR_CODES = {
   reindex_already_running: 409,
   quarantine_schema_invalid: 409,
   payload_too_large: 413,
+  rate_limited: 429,
   validation_failed: 422,
   target_confirmation_required: 422,
   operation_not_found: 404,

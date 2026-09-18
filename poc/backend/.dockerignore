@@ -1,0 +1,23 @@
+# BE-F1 O1 – nothing secret, nothing host-built and nothing irrelevant enters
+# the build context. `.env*` is listed before any re-inclusion so a local
+# configuration file can never reach an image layer.
+.env
+.env.*
+node_modules
+dist
+coverage
+tmp
+test
+migrations
+authentik
+docs
+compose*.yaml
+Dockerfile
+.dockerignore
+README.md
+VERSIONS.md
+.oxlintrc.json
+vitest.config.ts
+drizzle.config.ts
+**/*.log
+.DS_Store

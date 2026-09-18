@@ -6,6 +6,7 @@ import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
 import { ConfigurationError, disabledIntegrationNames, type AppConfig } from './config.js';
 import { createOpenApiDocument } from './openapi-document.js';
+import { publicRateLimit } from './rate-limit.js';
 import { identityBoundary } from './identity/identity.boundary.js';
 import { TokenVerifier } from './identity/token-verifier.js';
 
@@ -18,6 +19,15 @@ async function bootstrap() {
   const log = pino({ level: config.getOrThrow<string>('LOG_LEVEL') });
   const identityOn = config.getOrThrow<string>('FEATURE_IDENTITY') === 'on';
   app.use(requestBoundary(log, { blockAdmin: !identityOn }));
+  // BE-F1 S1: the public edge limit runs before token verification, so a flood
+  // on a public route cannot spend JWKS or database work.
+  if (config.getOrThrow<string>('RATE_LIMIT_PUBLIC') === 'on') {
+    app.use(publicRateLimit({
+      max: config.getOrThrow<number>('RATE_LIMIT_PUBLIC_MAX'),
+      windowMs: config.getOrThrow<number>('RATE_LIMIT_PUBLIC_WINDOW_MS'),
+      trustedProxyHops: config.getOrThrow<number>('RATE_LIMIT_TRUSTED_PROXY_HOPS'),
+    }));
+  }
   if (identityOn) {
     app.use(identityBoundary(app.get(TokenVerifier), log));
   }

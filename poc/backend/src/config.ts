@@ -19,6 +19,15 @@ const schema = z.object({
       return false;
     }
   }),
+  // BE-F1 S1 – public edge rate limit. On by default: a public route that can
+  // be hammered for free is the problem, not the limiter. The window is a
+  // fixed per-process window; see src/rate-limit.ts for the proxy assumption.
+  RATE_LIMIT_PUBLIC: z.enum(['off', 'on']).default('on'),
+  RATE_LIMIT_PUBLIC_MAX: z.coerce.number().int().positive().max(1_000_000).default(120),
+  RATE_LIMIT_PUBLIC_WINDOW_MS: z.coerce.number().int().positive().max(3_600_000).default(60_000),
+  // Number of reverse proxies whose X-Forwarded-For entries may be trusted.
+  // 0 means the header is ignored entirely and the transport peer is counted.
+  RATE_LIMIT_TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(8).default(0),
   FEATURE_IDENTITY: flag,
   FEATURE_OUTBOX_RELAY: flag,
   FEATURE_SEARCH: flag,

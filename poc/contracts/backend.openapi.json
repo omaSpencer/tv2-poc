@@ -851,6 +851,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "rate_limited: the public edge limit for this route was exceeded",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds until the current limit window resets.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
           }
         },
         "summary": "Public detail of currently published content",
@@ -937,6 +956,25 @@
           },
           "422": {
             "description": "validation_failed with the offending query parameter names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited: the public edge limit for this route was exceeded",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds until the current limit window resets.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2395,6 +2433,7 @@
               "reindex_already_running",
               "quarantine_schema_invalid",
               "payload_too_large",
+              "rate_limited",
               "validation_failed",
               "target_confirmation_required",
               "operation_not_found",

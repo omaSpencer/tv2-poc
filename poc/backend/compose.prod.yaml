@@ -1,0 +1,84 @@
+# BE-F1 O1 + S7 – production-shaped overlay.
+#
+# This file is an overlay, never a replacement:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml --profile app up -d --wait
+#
+# It deliberately introduces a separate `app` profile instead of extending the
+# existing `full` profile. `full` is what CI starts for dependencies while the
+# backend runs on the host; putting a backend container in it would collide on
+# the host port and change what the release gate measures.
+#
+# Add `--profile full` to the command above to bring the dependencies up in the
+# same posture; with this overlay Meilisearch then runs in production mode with
+# a mandatory master key that is supplied from the environment, never from the
+# repository.
+#
+# Nothing here carries a value: every credential is a required substitution and
+# fails fast, by name, when it is missing.
+
+name: ${COMPOSE_PROJECT_NAME:-indaplay-poc}
+
+services:
+  backend:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.20.0-alpine3.22}
+    image: ${BACKEND_IMAGE:-indaplay-poc-backend:local}
+    # The image already runs as uid 1000; the rest is defence in depth.
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NODE_ENV: production
+      # Inside the container the listener must bind every interface; the host
+      # publication below is still loopback-only (S4).
+      HOST: 0.0.0.0
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: ${BACKEND_DATABASE_URL:?set BACKEND_DATABASE_URL in the env file}
+      FEATURE_IDENTITY: ${FEATURE_IDENTITY:-off}
+      FEATURE_OUTBOX_RELAY: ${FEATURE_OUTBOX_RELAY:-off}
+      FEATURE_SEARCH: ${FEATURE_SEARCH:-off}
+      FEATURE_MEDIA: ${FEATURE_MEDIA:-off}
+      # BE-F1 S1. One reverse proxy in front of the application is the
+      # documented production topology, so exactly one hop is trusted.
+      RATE_LIMIT_PUBLIC: ${RATE_LIMIT_PUBLIC:-on}
+      RATE_LIMIT_PUBLIC_MAX: ${RATE_LIMIT_PUBLIC_MAX:-120}
+      RATE_LIMIT_PUBLIC_WINDOW_MS: ${RATE_LIMIT_PUBLIC_WINDOW_MS:-60000}
+      RATE_LIMIT_TRUSTED_PROXY_HOPS: ${RATE_LIMIT_TRUSTED_PROXY_HOPS:-1}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-}
+      NATS_URL: ${BACKEND_NATS_URL:-}
+      NATS_STREAM: ${NATS_STREAM:-}
+      NATS_SUBJECT: ${NATS_SUBJECT:-}
+      MEILI_A_URL: ${BACKEND_MEILI_A_URL:-}
+      MEILI_A_KEY: ${MEILI_A_KEY:-}
+      MEILI_B_URL: ${BACKEND_MEILI_B_URL:-}
+      MEILI_B_KEY: ${MEILI_B_KEY:-}
+    ports:
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # BE-F1 S7 – production posture for both index instances. The master key stays
+  # a required substitution: an unkeyed or development-mode Meilisearch is not a
+  # production configuration.
+  meilisearch-a:
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_A_KEY:?set MEILI_A_KEY in the env file}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+
+  meilisearch-b:
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_B_KEY:?set MEILI_B_KEY in the env file}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"

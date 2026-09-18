@@ -95,6 +95,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
         : status === 401 ? 'unauthenticated'
         : status === 403 ? 'forbidden'
         : status === 400 ? 'invalid_request'
+        // BE-F1 S1: a 429 raised anywhere in the stack keeps the stable
+        // rate_limited code; it must never fall through to internal_error.
+        : status === 429 ? 'rate_limited'
         : status === 503 ? 'dependency_unavailable'
         : 'internal_error';
       this.send(res, problem(code, correlationId, 'The request could not be completed.', req.path));

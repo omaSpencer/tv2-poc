@@ -333,6 +333,27 @@ export function problemResponse(description: string): {
   };
 }
 
+/**
+ * BE-F1 S1 – the 429 descriptor for the public catalog routes, including the
+ * `Retry-After` header a client is expected to honour.
+ */
+export function rateLimitedResponse(): {
+  description: string;
+  headers: Record<string, { description: string; schema: Record<string, unknown> }>;
+  content: Record<string, { schema: { $ref: string } }>;
+} {
+  return {
+    description: 'rate_limited: the public edge limit for this route was exceeded',
+    headers: {
+      'Retry-After': {
+        description: 'Whole seconds until the current limit window resets.',
+        schema: { type: 'integer', minimum: 1 },
+      },
+    },
+    content: { 'application/problem+json': { schema: schemaRef('ProblemDocument') } },
+  };
+}
+
 /** application/json response descriptor for an `@ApiResponse` decorator. */
 export function jsonResponse(name: OpenApiSchemaName, description: string): {
   description: string;

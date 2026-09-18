@@ -11,12 +11,6 @@ export type ApiSuccess<T> = {
   status: number;
 };
 
-let lastCorrelationId: string | null = null;
-
-export function getLastCorrelationId(): string | null {
-  return lastCorrelationId;
-}
-
 type RequestOptions = {
   method?: string;
   body?: unknown;
@@ -161,7 +155,6 @@ async function executeRequest<T>(
     }, options.signal, resolveTimeoutMs(options.timeoutMs));
 
   const correlationId = response.headers.get('X-Correlation-Id') ?? options.correlationId ?? '';
-  if (correlationId) lastCorrelationId = correlationId;
 
   const contentType = response.headers.get('content-type') ?? '';
   let parsed: unknown = undefined;

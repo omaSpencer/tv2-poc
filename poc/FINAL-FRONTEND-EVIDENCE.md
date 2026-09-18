@@ -1,7 +1,7 @@
-# Final frontend evidence – FE-F1 és FE-F2
+# Final frontend evidence – FE-F1–FE-F3
 
-2026-09-18 · FE-F2: branch `codex/final-fe-f2` · worktree `/private/tmp/tv2-poc-fe-f2` ·
-Node **24.20.0**.
+2026-09-18 · FE-F2: branch `codex/final-fe-f2`; FE-F3: branch
+`codex/final-fe-f3`; integráció: `main`. Node **24.20.0**.
 
 Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) lezárt
 frontend fázisainak bizonyítéka. A koordinációs dokumentumot ez a hullám nem
@@ -13,8 +13,8 @@ módosította.
 | --- | --- |
 | Node.js | 24.20.0 (`nvm use 24.20.0`) |
 | npm | 11.19.0 |
-| Kapu | `cd poc/frontend && npm run verify` |
-| E2E / böngésző | Nem futtatva – FE-F1 unit/component + production build kapu |
+| Kapu | `cd poc/frontend && npm run verify` (+ FE-F3: `npm run e2e:typecheck`) |
+| E2E / böngésző | Nem futtatva – unit/component + production build kapu |
 
 ## Production bundle
 
@@ -22,7 +22,9 @@ módosította.
 | --- | ---: | ---: | --- |
 | Baseline (HEAD a változtatások előtt) | 685 311 | 19 358 | `assets/index-t1eWlQDv.js` 336 906 |
 | FE-F1 után | 684 666 | 19 064 | `assets/index-B6CWNPM2.js` 336 494 |
-| Delta | **−645** | **−294** | **−412** |
+| FE-F1 delta | **−645** | **−294** | **−412** |
+| FE-F3 (`05c8c29` + L2/L6/L10/I2) | 685 939 | 19 064 | `assets/index-glMBnpP2.js` 337 558 |
+| FE-F3 vs FE-F1 | **+1 273** | **0** | **+1 064** |
 
 A baseline production bundle tartalmazta a `indaplay.poc.activeContentId`
 sessionStorage-kulcsot (`ActiveContentProvider`). A FE-F1 distben ez a kulcs, az
@@ -130,7 +132,7 @@ A verify tesztlépése első, terhelt futtatásokon 5s timeouttal flakkelt
 - A `appRoutes.tsx` kiemelése csak a routerteszt miatt kellett; Fast Refresh
   warningot fájlszintű oxlint disable fed.
 
-## Scope
+## Scope (FE-F1)
 
 Nem merge-eltem `main`-re, nem rebase-eltem más agent ágára, és nem módosítottam
 a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend forrás, OpenAPI,
@@ -232,6 +234,90 @@ opt-out létezik, de semelyik hívó nem használja.
 
 ### FE-F2 kapu
 
+Az önálló FE-F2 ágon a teljes `npm run verify` és az `npm run e2e:typecheck`
+zöld volt: 37 tesztfájl, 173/173 teszt. Az integrált FE-F1–FE-F3 kapu az FE-F3
+szakasz végén szerepel.
+
+---
+
+## FE-F3 – Frissesség, polling és diagnosztika
+
+2026-09-18 · Branch `codex/final-fe-f3` · worktree `/private/tmp/tv2-poc-fe-f3` ·
+Node **24.20.0**. Lezárt ID-k: **L2, L6, L10, I2**.
+
+A W3 szerződés a W2 timeout/abort/auth-retry viselkedést megőrzendőként jelöli.
+Ezen a baseline-on (`main` @ `05c8c29`) a FE-F2 **L9** timeout/abort kód nincs
+jelen; FE-F2-t nem merge-eltem. Az auth-retry szerződés (`options.auth !== false`
++ `retryAuth`) változatlan, és a health hívások explicit `auth: false` miatt
+nem indítanak recovery-t.
+
+### Timer-invariánsok
+
+- Fake clock: `vi.useFakeTimers()`; Query `notifyManager` `setTimeout(0)`
+  flush: `advanceTimersByTimeAsync(0)` (`flushFakeQueryUpdates`).
+- Timeres tesztek `beforeEach`/`afterEach` visszaállítja a real timert és
+  `document.visibilityState = 'visible'`.
+- TanStack Query v5: `refetchIntervalInBackground: false`; visibility refetch
+  `refetch({ cancelRefetch: false })` + `!isFetching` (in-flight join, nem
+  második fetch).
+- Consecutive health backoff **nem** `fetchFailureCount`-ra épül (a fetch
+  start nullázza); `createFailureTracker()` a queryFn körül számol.
+
+### L2 – Anonim health hívások
+
+**Eredmény:** `fetchLive` / `fetchReady` explicit `{ auth: false }`; a kliens
+nem `/health` URL-kivétel. Aktív token mellett sincs `Authorization`, 401-re
+sincs auth recovery. Ugyanazon path `apiRequest('/health/live')` (alapértelmezett
+auth) továbbra is Bearer-t küld — bizonyítja, hogy a policy opció, nem path.
+
+- `src/api/health.ts`: `{ auth: false }` (ready: `acceptNonOkJson: true`)
+- `src/api/client.ts`: `options.auth !== false` a Bearer és a 401 recovery
+  feltétele; `lastCorrelationId` törölve (I2)
+- Tesztek: `src/api/health.test.ts` (3)
+
+### L6 – Élő reindex preflight
+
+**Eredmény:** látható lapon 8 s refetch ugyanazon query key-en; hidden pause;
+visible azonnali refetch; in-flight mellett nincs második fetch; index/outage
+változás új query + új idempotency key; submit a kijelzett preflight
+`confirmationTarget` értékét küldi.
+
+- `src/features/operations/reindexPreflightPoll.ts`: `REINDEX_PREFLIGHT_POLL_MS = 8_000`
+- `src/lib/useVisibleRefetch.ts`
+- `src/features/operations/routes/ReindexPage.tsx`: `refetchInterval` +
+  `refetchIntervalInBackground: false` + `useCallback` queryFn
+- Tesztek: `reindexPreflightPoll.test.ts` (1), `ReindexPage.test.tsx` (6)
+  - 8 s beat ugyanazon query-n
+  - hidden pause, visible refetch
+  - pending + visibility single-flight
+  - poll után `active_run` blocker → submit disabled
+  - displayed `poc_fresh` confirmation a submit body-ban
+  - index/outage → új `fetchReindexPreflight` hívás
+
+### L10 – Health polling backoff
+
+**Eredmény:** siker 10 s; consecutive failure capped exponenciális
+(20 s / 40 s / 80 s) ±10 % injektálható jitter; első siker vissza a 10 s-re;
+live és ready querynként legfeljebb egy in-flight; hidden pause, visible refresh.
+
+- `src/lib/healthPollInterval.ts`: `HEALTH_POLL_SUCCESS_MS = 10_000`,
+  `HEALTH_POLL_MAX_MS = 80_000`, `HEALTH_POLL_JITTER_RATIO = 0.1`,
+  `createFailureTracker`
+- `src/components/StatusBar.tsx`: `useTrackedHealthQuery` (`retry: false`)
+- Tesztek: `healthPollInterval.test.ts` (4), `StatusBar.test.tsx` polling
+  esetei (jitter a tesztben `() => 0`)
+
+### I2 – Correlation ID tulajdonlás
+
+**Eredmény:** nincs modul-globális last-write-wins ID. A StatusBar label
+`ready correlationId`; érték `ready.data?.correlationId || '—'`. Live vagy
+később befejeződő nem-health kérés nem írja felül.
+
+- Tesztek: `StatusBar.test.tsx` — em dash a ready sikerig; live ID figyelmen
+  kívül; contents-first + live/ready reverse-complete → `ready-last`
+
+### FE-F3 kapu
+
 ```text
 node -v
 v24.20.0
@@ -241,19 +327,23 @@ contracts:check  PASS (generated backend.ts unchanged)
 build            PASS
 compiler:check   PASS
 lint             PASS (oxlint src e2e, 0 warning)
-test             PASS  37 files, 172/172
+test             PASS  39 files, 170/170 (önálló FE-F3 baseline)
 
 cd poc/frontend && npm run e2e:typecheck
 PASS
 ```
 
-### Nem futtatott kapuk
+A default `vitest run` worker-párhuzamossága (jsdom per file) 5 s timeouttal
+flakkelhet terhelt gépen — ezt FE-F1 is dokumentálta. A FE-F3 zöld kapu a
+serial `--maxWorkers=1` 170/170, plusz a fenti verify lépések. Célzott
+FE-F3 fájlok izoláltan 21/21.
+
+### Nem futtatott kapuk (FE-F2/FE-F3 ágakon)
 
 - Böngészős Playwright E2E, axe, cross-browser — FE-F4/FE-F5
 - Backend test/build, OpenAPI emit — tilos volt backend/contractot módosítani
 - Coverage küszöb — I4, FE-F5
-
-### Maradék kockázat
+### Maradék kockázat (FE-F2)
 
 - A chunk-hiba felismerés bundler/browser üzenetre szűk; ismeretlen szövegű
   betöltési hiba manuális újratöltést kap, nem automatikusat.
@@ -264,10 +354,15 @@ PASS
 - A root `errorElement` a shell helyett jelenik meg; a helyreállás teljes
   újratöltés vagy kezdőlap.
 
-### Scope
+### Maradék kockázat (FE-F3)
 
-Nem merge-eltem `main`-re, nem rebase-eltem, nem pusholtam, és nem módosítottam
-a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend, OpenAPI snapshot,
-generated contract, Compose és `FINAL-FRONTEND-MILESTONE.md` érintetlen.
-Kizárólag frontend production forrás, frontend teszt és ez az evidence fájl
-változott. FE-F3–FE-F5 findingjei nyitottak maradtak.
+- A reindex blocker/confirmation UI-tesztek három poll-ütemet várnak, mert
+  a Query observer újraindíthatja az 8 s intervalt.
+- `useVisibleRefetch` a `isFetching` closure-re támaszkodik; in-flight alatt
+  a visibility handler no-op, a Query `cancelRefetch: false` a biztonsági
+  háló.
+
+### Integrációs scope
+
+FE-F2 és FE-F3 együtt került a `main` ágra. Backend- vagy OpenAPI-szerződést
+egyik frontend fázis sem módosított; FE-F4, FE-F5 és a milestone DoD nyitott.

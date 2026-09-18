@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; FE-F1 lezárva.** Ez a milestone a final audit mind a **21 frontend
+**Státusz: folyamatban; FE-F1–FE-F3 lezárva.** Ez a milestone a final audit mind a **21 frontend
 találatát** lezárja: 2 Medium, 14 Low és 5 Info tételt. A munka öt külön
 fázisban halad; egy fázis végén a frontendnek önmagában kiadható állapotban kell
 maradnia.
@@ -105,27 +105,27 @@ determinista helyreállás, párhuzamos mellékhatások nélkül.
 **Cél:** a háttér- és operációs lekérdezések ne szivárogtassanak tokent, ne
 terheljék szükségtelenül a backendet, és ne adjanak elavult döntési alapot.
 
-- [ ] **L2 – Health hívások auth nélkül.** A `/health/*` kérések explicit
+- [x] **L2 – Health hívások auth nélkül.** A `/health/*` kérések explicit
   `auth: false` módban fussanak. Teszt bizonyítsa, hogy akkor sem kerül rájuk
   Bearer header, ha aktív session van.
-- [ ] **L6 – Valóban élő reindex preflight.** Látható lapon 5–10 másodperces
+- [x] **L6 – Valóban élő reindex preflight.** Látható lapon 5–10 másodperces
   polling vagy azzal egyenértékű invalidáció tartsa frissen a preflightot és a
   `canSubmit` állapotot; rejtett lapon szüneteljen, visszatéréskor frissítsen.
-- [ ] **L10 – Health polling backoff.** Tartós hibánál capped exponenciális
+- [x] **L10 – Health polling backoff.** Tartós hibánál capped exponenciális
   backoff és ésszerű jitter csökkentse a kéréseket; siker után álljon vissza a
   normál 10 másodperces ritmus. Egyszerre ne legyen több health request.
-- [ ] **I2 – Correlation ID versenyhelyzet rendezése.** A modul-globális
+- [x] **I2 – Correlation ID versenyhelyzet rendezése.** A modul-globális
   last-write-wins érték helyett a StatusBar kapjon explicit, értelmezhető
   requesthez tartozó azonosítót, vagy a mező legyen egyértelműen „legutóbbi
   válasz” eseményként modellezve. Párhuzamos request teszt szükséges.
 
 ### FE-F3 lezárási kapu
 
-- [ ] Health requestben semmilyen auth header nincs.
-- [ ] A reindex indítás nem maradhat korlátlan ideig stale preflight alapján aktív.
-- [ ] Tartós outage alatt a health kérési ráta csökken, recovery után normalizálódik.
-- [ ] Párhuzamos API-kérések nem társítanak félrevezető correlation ID-t a státuszhoz.
-- [ ] Timeres tesztek fake clockkal determinisztikusan zöldek.
+- [x] Health requestben semmilyen auth header nincs.
+- [x] A reindex indítás nem maradhat korlátlan ideig stale preflight alapján aktív.
+- [x] Tartós outage alatt a health kérési ráta csökken, recovery után normalizálódik.
+- [x] Párhuzamos API-kérések nem társítanak félrevezető correlation ID-t a státuszhoz.
+- [x] Timeres tesztek fake clockkal determinisztikusan zöldek.
 
 ---
 

@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { fetchReindexPreflight, startReindex } from '../../../api/operations';
 import { ProblemPanel } from '../../../components/ProblemPanel';
+import { useVisibleRefetch } from '../../../lib/useVisibleRefetch';
+import { reindexPreflightPollInterval } from '../reindexPreflightPoll';
 import { OperationsNav } from '../components/OperationsNav';
 import { activeActionStorageKey, createIdempotencyKey } from '../idempotency';
 import { operationsKeys } from '../queryKeys';
@@ -19,11 +21,18 @@ export function ReindexPage() {
     key.current = createIdempotencyKey();
     mutation.reset();
   };
+  const preflightQueryFn = useCallback(
+    () => fetchReindexPreflight(index, allowSearchOutage),
+    [index, allowSearchOutage],
+  );
   const preflight = useQuery({
     queryKey: operationsKeys.preflight(index, allowSearchOutage),
-    queryFn: () => fetchReindexPreflight(index, allowSearchOutage),
+    queryFn: preflightQueryFn,
     retry: false,
+    refetchInterval: () => reindexPreflightPollInterval(document.visibilityState),
+    refetchIntervalInBackground: false,
   });
+  useVisibleRefetch(preflight.refetch, preflight.isFetching);
   const mutation = useMutation({
     mutationFn: () => startReindex({
       index,

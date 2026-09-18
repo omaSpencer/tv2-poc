@@ -7,15 +7,16 @@ Fázisonként bővül; jelenleg a **BE-F1** zárása szerepel benne.
 
 | Tétel | Ebben a futásban |
 | --- | --- |
-| Node | **22.22.2** – a megkövetelt 24.20.0 nem volt beszerezhető (a `nodejs.org` és a konténerregiszter is tiltott egress) |
-| PostgreSQL | 16.13, natív, `poc_ci_test` eldobható célponttal (a CI és a Compose 17-et használ) |
-| NATS JetStream | **nincs** |
-| Meilisearch A/B | **nincs** |
-| Docker daemon | **nincs**; a `docker compose` CLI daemon nélkül is renderel, ezért konfiguráció-validálásra használható, image buildre nem |
+| Node | **24.20.0** – a rögzített runtime |
+| PostgreSQL | Compose PostgreSQL 17, elkülönített tesztadatbázissal |
+| NATS JetStream | Compose szolgáltatás, élő integrációs tesztekkel |
+| Meilisearch A/B | Két Compose szolgáltatás, élő integrációs tesztekkel |
+| Docker daemon | Docker Desktop; image build, nem-root futtatás és health smoke lefutott |
 
-Következmény: a teljes tesztkészletből **40 eset skipped**, mert NATS-ot vagy
-Meilisearch-öt igényel, és **image build/konténer smoke nem futott**. Ezek nincsenek
-zöldnek jelölve sem itt, sem a milestone-ban.
+A koordinátori review-körben a teljes tesztkészlet **skip nélkül**, az image és
+a konténer smoke pedig valódi Docker daemonon futott. A production ingress
+hiánya és a merge előtti, régi Compose-konfigurációból futó konténerek újraindítása
+továbbra is külön nyitott tétel.
 
 ---
 
@@ -85,13 +86,14 @@ RATE_LIMIT_PUBLIC_MAX=0 → {"event":"startup_failed","code":"invalid_configurat
 ```
 
 **Vállalt korlát.** A számláló processzenkénti: két példány a konfigurált limit
-kétszeresét engedi át, és `10 000` kliens-kulcs felett a lejárathoz legközelebbi
-ablakok kiesnek (fail-open memóriavédelem). Újraértékelés akkor esedékes, amikor
-a backend egynél több példányban fut; a tulajdonos a backend gazdája.
+kétszeresét engedi át. A nyilvántartás `10 000` kliens-kulcsnál telítődik; ekkor
+az új kulcsok fail-closed `429` választ kapnak a legrégebbi aktív ablak
+lejártáig. Aktív számláló nem esik ki, a lejárt ablakok eltávolítása amortizált
+O(1). Több példány előtt megosztott számláló vagy ingress-limit szükséges.
 
 ---
 
-### S2 – Explicit CORS/same-origin döntés · **lezárva**
+### S2 – Explicit CORS/same-origin döntés · **részleges: döntés és backend contract kész, production ingress proof nyitott**
 
 **Döntés.** A támogatott topológia same-origin ingress. A böngésző relatív
 `/api/...` útra kér, azt fejlesztésben a Vite dev proxy, productionben a reverse
@@ -120,6 +122,12 @@ S2 same-origin contract (3 eset, pass)
 Futó listener ellen `Origin: https://evil.example` header mellett a válasz
 egyetlen `access-control-*` headert sem tartalmazott.
 
+**Nyitott rész.** A repó nem tartalmaz production ingress/reverse-proxy
+konfigurációt vagy olyan smoke tesztet, amely az SPA és az `/api` valódi
+same-origin kiszolgálását, valamint a prefix levágását bizonyítja. A fenti teszt
+csak a backend CORS-nélküliségét igazolja; S2 teljes lezárásához az ingress réteg
+és annak smoke-ja szükséges.
+
 ---
 
 ### S4 – Dependency-portok loopbackre kötése · **lezárva (konfiguráció), runtime próba pending**
@@ -146,9 +154,10 @@ konténerek közti feloldás érintetlen (`AUTHENTIK_POSTGRESQL__HOST:
 authentik-postgres`, `AUTHENTIK_REDIS__HOST: authentik-redis` változatlan; a
 `container-posture.test.ts` ezt is állítja).
 
-**Pending.** Élő `docker compose up` melletti host-oldali port-próba
-(`ss -ltn` / külső interfészről érkező kapcsolat elutasítása) nem futott, mert
-ebben a környezetben nincs Docker daemon.
+**Pending.** A futó, hosszú életű Compose-konténerek még a módosítás előtti
+konfigurációból származnak, ezért jelenleg `0.0.0.0`/`::` címeken publikálnak.
+A branch merge-je után kontrollált újralétrehozás és host-oldali port-próba kell;
+ezt a review nem végezte el, mert a fejlesztői dependency stacket megszakítaná.
 
 ---
 
@@ -179,7 +188,7 @@ A `.env.production.example` minden hitelesítő adata `REPLACE_ME`; ezt a
 
 ---
 
-### O1 – Alkalmazás image · **nem lezárt: implementálva, image smoke nem futott**
+### O1 – Alkalmazás image · **lezárva**
 
 **Változtatott fájlok.** `poc/backend/Dockerfile` (új),
 `poc/backend/.dockerignore` (új), `poc/backend/scripts/container-healthcheck.mjs`
@@ -205,24 +214,29 @@ docker compose -f compose.yaml -f compose.prod.yaml --profile app config
     no-new-privileges:true, host_ip 127.0.0.1 published 3000
   → BACKEND_DATABASE_URL nélkül: required variable BACKEND_DATABASE_URL is missing a value
 
-nem root futtatás a lefordított artifactból (appsmoke felhasználó, NODE_ENV=production):
-  ps → appsmoke … node dist/main.js
+docker build -t indaplay-poc-backend:review-ee72910 . → pass
+  image: sha256:6f4c0876075f3163bd51ac53c0606d94948c30d05a8a6b2cc525f771a07d8484
+  base: node:24.20.0-alpine3.23
+
+konténer smoke (`--read-only --cap-drop ALL --security-opt no-new-privileges`):
+  Config.User → node
+  Docker health → healthy
   /health/live  → 200
   /health/ready → {"status":"ok","info":{"postgres":{"status":"up"}}, …}
-  node scripts/container-healthcheck.mjs /health/live  → exit 0, {"event":"healthcheck","path":"/health/live","status":200}
-  node scripts/container-healthcheck.mjs /health/ready → exit 0
-  DATABASE_URL='not-a-postgres-url' → {"event":"startup_failed","code":"invalid_configuration","keys":["DATABASE_URL"]}
+  DATABASE_URL hiányzik → exit 1,
+    {"event":"startup_failed","code":"invalid_configuration","keys":["DATABASE_URL"]}
 ```
+
+A smoke két implementációs hibát talált és a review-kör javította: a nem létező
+`alpine3.22` tag `alpine3.23`-ra változott, a healthcheck script pedig explicit
+`0555` módot kapott, hogy a `node` felhasználó olvasni tudja.
 
 `test/container-posture.test.ts` állítja a stage-számot, a `npm ci --omit=dev`-et,
 a `USER node` és `CMD` sorrendjét, a `HEALTHCHECK` meglétét, a `.dockerignore`
 `.env*` kizárását, valamint azt, hogy a Dockerfile nem tartalmaz
 `PASSWORD`/`SECRET`/`TOKEN`/`_KEY` mintát.
 
-**Pending.** `docker build`, a konténer indítása, a daemon által futtatott
-`HEALTHCHECK` és a konténerből érkező live/ready ellenőrzés nem futott: nincs
-Docker daemon, és a `node:24.20.0-alpine3.22` base image sem húzható le (tiltott
-registry egress, E01). A digest pinelés emiatt továbbra is nyitott.
+**Maradék.** A base image pontos verziótaggal pinelt, digesttel még nem (E01).
 
 ---
 
@@ -233,13 +247,11 @@ registry egress, E01). A digest pinelés emiatt továbbra is nyitott.
 | `npm run build` (tsc) | pass |
 | `npm run lint` (oxlint, 121 fájl) | pass – 0 warning, 0 error |
 | `npm run openapi:check` | pass (a snapshot az új `429` válaszokkal újragenerálva) |
-| `npm test` (teljes Vitest) | 23 fájl pass, 1 skipped · **223 teszt pass, 40 skipped** |
-| `npm run verify` | **exit 0** (Node 22.22.2, PostgreSQL 16.13) |
-| Baseline ugyanezen a gépen a munka előtt | 192 pass, 40 skipped – a 40 skip nem változott, regresszió nincs |
-| `docker compose config` validálás | pass (daemon nélkül) |
-| `docker build` / konténer smoke | **nem futott** – nincs Docker daemon, a base image nem húzható |
-| `npm run verify` Node 24.20.0-n | **nem futott** – a runtime nem szerezhető be ebben a környezetben |
-| NATS/Meilisearch igényű integrációs esetek (40) | **skipped** – a szolgáltatások nincsenek |
+| `npm test` (teljes Vitest) | 24 fájl pass · **264 teszt pass, 0 skip** |
+| `npm run verify` | **exit 0** (Node 24.20.0, élő PostgreSQL/NATS/Meilisearch) |
+| `docker compose config` validálás | pass |
+| `docker build` / konténer smoke | **pass** – `USER node`, Docker `healthy`, live/ready 200 |
+| Hiányzó `DATABASE_URL` image-ből | **pass** – exit 1, strukturált `invalid_configuration` |
 
 ## Frontend contract hatás
 
@@ -265,5 +277,7 @@ Amit a frontendnek érdemes kezelnie: a publikus catalog hívások `429` ága
    mozgatni az ingress konfigurációjával; rossz érték hamisítható kliens-IP-t
    jelent.
 3. **Image digest.** A base image tag szerint pinelt, digest szerint nem (E01).
-4. **O1 lezárása** Docker daemonnal rendelkező gépet igényel: build, indítás,
-   healthcheck és konténerből futtatott live/ready.
+4. **S2 production proof.** A döntés és a backend CORS-contract kész, de a
+   production ingress konfigurációja és same-origin `/api` smoke-ja még hiányzik.
+5. **S4 runtime aktiválás.** Merge után a régi Compose-konténereket kontrolláltan
+   újra kell létrehozni, majd ellenőrizni, hogy csak loopbacken publikálnak.

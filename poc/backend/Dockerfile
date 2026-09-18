@@ -15,7 +15,7 @@
 #
 # Migrations are deliberately not part of this image: drizzle-kit is a dev
 # dependency and schema change stays an explicit, separately run step.
-ARG NODE_IMAGE=node:24.20.0-alpine3.22
+ARG NODE_IMAGE=node:24.20.0-alpine3.23
 
 # --- build: dev dependencies, TypeScript compile ---------------------------
 FROM ${NODE_IMAGE} AS build
@@ -47,7 +47,7 @@ WORKDIR /app
 COPY --from=deps --chown=root:root /deps/node_modules ./node_modules
 COPY --from=build --chown=root:root /build/dist ./dist
 COPY --chown=root:root package.json ./
-COPY --chown=root:root scripts/container-healthcheck.mjs ./scripts/container-healthcheck.mjs
+COPY --chown=root:root --chmod=0555 scripts/container-healthcheck.mjs ./scripts/container-healthcheck.mjs
 
 USER node
 EXPOSE 3000

@@ -184,7 +184,7 @@ sosem volt és nem is lehet opció.
 | Környezet | Ki továbbít | Szerződés |
 | --- | --- | --- |
 | Fejlesztés | Vite dev proxy (`poc/frontend/vite.config.ts`) | A böngésző `http://127.0.0.1:5173/api/...` útra kér; a proxy levágja az `/api` prefixet és a `VITE_BACKEND_ORIGIN` (alap: `http://127.0.0.1:3000`) felé továbbít |
-| Production | Reverse proxy / ingress | Egy origin szolgálja ki az SPA-t és az API-t. Az `/api/*` útvonal a backendre megy, az `/api` prefix levágásával, a `Host`, `X-Forwarded-For` és `X-Forwarded-Proto` headerök továbbításával. Minden más út az SPA-ra megy |
+| Production (célállapot; még nincs repóban implementálva) | Reverse proxy / ingress | Egy origin szolgálja ki az SPA-t és az API-t. Az `/api/*` útvonal a backendre megy, az `/api` prefix levágásával, a `Host`, `X-Forwarded-For` és `X-Forwarded-Proto` headerök továbbításával. Minden más út az SPA-ra megy |
 
 Az ingress-szerződés kötelező elemei:
 
@@ -236,10 +236,11 @@ részleges bizalom, hanem visszaesés a peer címre.
 `Retry-After` headerrel.
 
 **Korlát.** A számláló ebben a processzben él. Két alkalmazáspéldány együtt a
-konfigurált limit kétszeresét engedi át, és a nyilvántartott kliens-kulcsok
-száma felülről korlátos (`10 000`), efölött a lejárathoz legközelebbi ablakok
-esnek ki. Ez tudatosan fail-open memóriavédelem; ahol ennél erősebb garancia
-kell, az ingress tegyen rá saját peremlimitet.
+konfigurált limit kétszeresét engedi át. A nyilvántartott kliens-kulcsok száma
+felülről korlátos (`10 000`); telítettségnél az új kulcsok a legrégebbi aktív
+ablak lejártáig `429` választ kapnak. Aktív számláló nem esik ki, a lejárt
+ablakok takarítása amortizált O(1). Több példánynál az ingress tegyen rá saját
+peremlimitet, vagy kerüljön a számláló megosztott tárolóba.
 
 ## Production image és profil (BE-F1 O1, S7)
 
@@ -260,7 +261,8 @@ portütközést okozna:
 ```bash
 docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app --profile full up -d --wait
-docker compose -f compose.yaml -f compose.prod.yaml --profile app ps
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app ps
 curl -s 127.0.0.1:3000/health/live
 curl -s 127.0.0.1:3000/health/ready
 ```

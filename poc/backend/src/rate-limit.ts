@@ -89,10 +89,12 @@ export type RateLimitDecision =
 export const DEFAULT_MAX_TRACKED_CLIENTS = 10_000;
 
 /**
- * Fixed-window counter. Memory is bounded by `maxTrackedClients`: expired
- * windows are swept first and, if the map is still full, the windows closest to
- * expiry are dropped. Dropping a window resets that client's count, so the
- * limiter fails open under key pressure rather than locking out real clients.
+ * Fixed-window counter. Memory is bounded by `maxTrackedClients`. Map insertion
+ * order is also expiry order because every new window has the same duration;
+ * this lets us remove expired entries from the front in amortized O(1) time.
+ * When every tracked window is still active, previously unseen keys are denied
+ * until the oldest window expires. Active counters are never evicted, so key
+ * pressure cannot reset another client's budget.
  */
 export class FixedWindowRateLimiter {
   private readonly windows = new Map<string, { count: number; resetAt: number }>();
@@ -115,8 +117,16 @@ export class FixedWindowRateLimiter {
   check(key: string): RateLimitDecision {
     const now = this.now();
     const current = this.windows.get(key);
-    if (current === undefined || current.resetAt <= now) {
-      this.evictIfFull(now);
+    if (current === undefined) {
+      const capacityRetry = this.retryWhenFull(now);
+      if (capacityRetry !== null) return capacityRetry;
+      this.windows.set(key, { count: 1, resetAt: now + this.windowMs });
+      return { allowed: true, remaining: this.max - 1 };
+    }
+    if (current.resetAt <= now) {
+      // Delete before reinserting so the renewed window moves to the back and
+      // insertion order remains identical to expiry order.
+      this.windows.delete(key);
       this.windows.set(key, { count: 1, resetAt: now + this.windowMs });
       return { allowed: true, remaining: this.max - 1 };
     }
@@ -127,23 +137,22 @@ export class FixedWindowRateLimiter {
     return { allowed: true, remaining: this.max - current.count };
   }
 
-  private evictIfFull(now: number): void {
-    if (this.windows.size < this.maxTrackedClients) return;
+  private retryWhenFull(now: number): RateLimitDecision | null {
+    if (this.windows.size < this.maxTrackedClients) return null;
+
+    // Only expired entries are visited. Since every entry is inserted and
+    // removed once, cleanup is amortized O(1), including under key floods.
     for (const [key, window] of this.windows) {
-      if (window.resetAt <= now) this.windows.delete(key);
+      if (window.resetAt > now) break;
+      this.windows.delete(key);
     }
-    while (this.windows.size >= this.maxTrackedClients) {
-      let oldestKey: string | undefined;
-      let oldestResetAt = Number.POSITIVE_INFINITY;
-      for (const [key, window] of this.windows) {
-        if (window.resetAt < oldestResetAt) {
-          oldestResetAt = window.resetAt;
-          oldestKey = key;
-        }
-      }
-      if (oldestKey === undefined) return;
-      this.windows.delete(oldestKey);
-    }
+    if (this.windows.size < this.maxTrackedClients) return null;
+
+    const oldest = this.windows.values().next().value as { resetAt: number } | undefined;
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil(((oldest?.resetAt ?? now + this.windowMs) - now) / 1000)),
+    };
   }
 }
 

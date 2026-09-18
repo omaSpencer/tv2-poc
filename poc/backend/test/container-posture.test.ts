@@ -81,7 +81,7 @@ describe('O1 application image', () => {
   it('builds in stages and ships production dependencies only', async () => {
     const dockerfile = await read('Dockerfile');
     expect(dockerfile.match(/^FROM /gm)).toHaveLength(3);
-    expect(dockerfile).toContain('ARG NODE_IMAGE=node:24.20.0-alpine3.22');
+    expect(dockerfile).toContain('ARG NODE_IMAGE=node:24.20.0-alpine3.23');
     expect(dockerfile).toContain('npm ci --omit=dev');
     // The compiled output is copied from the build stage; the runtime stage
     // never compiles and therefore never needs a dev dependency.
@@ -96,6 +96,7 @@ describe('O1 application image', () => {
     expect(cmdLine).toBeGreaterThan(userLine);
     expect(dockerfile).toContain('HEALTHCHECK');
     expect(dockerfile).toContain('scripts/container-healthcheck.mjs');
+    expect(dockerfile).toContain('--chmod=0555 scripts/container-healthcheck.mjs');
     expect(dockerfile).not.toContain('USER root');
   });
 

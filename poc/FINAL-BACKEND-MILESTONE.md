@@ -45,10 +45,12 @@ alapállapotának egyértelművé tétele.
   `GET /catalog/search` és `GET /catalog/contents/:id` route-okra. A választott
   hely (NestJS vagy reverse proxy) legyen dokumentálva; legyen teszt a limitre,
   a `429` válaszra és arra, hogy normál forgalom nem sérül.
-- [x] **S2 – Explicit CORS/same-origin döntés.** Rögzíteni kell a támogatott
+- [ ] **S2 – Explicit CORS/same-origin döntés.** Rögzíteni kell a támogatott
   browser-topológiát. Cross-origin SPA esetén szűk origin-, method- és
   header-allowlist szükséges; same-origin proxy esetén az API maradjon CORS
   nélkül, és ezt a runbook bizonyítsa. Wildcard origin nem elfogadott.
+  **Részleges:** a döntés és a backend CORS-negatív contract tesztelt, de a
+  production ingress konfiguráció és a same-origin `/api` smoke még hiányzik.
 - [x] **S4 – Dependency-portok loopbackre kötése.** A fejlesztői Compose-ban a
   PostgreSQL, NATS, mindkét Meilisearch és Authentik host-portja alapból csak
   `127.0.0.1`-en legyen elérhető. A konténerek közti hálózat maradjon működőképes.
@@ -56,12 +58,11 @@ alapállapotának egyértelművé tétele.
   dokumentáltan `development`, de a production példa/profil használjon
   `production` módot és kötelező, nem repóban tárolt kulcsot.
   Bizonyíték: `FINAL-BACKEND-EVIDENCE.md` → BE-F1/S7.
-- [ ] **O1 – Alkalmazás image.** Készüljön reprodukálható, nem rootként futó,
+- [x] **O1 – Alkalmazás image.** Készüljön reprodukálható, nem rootként futó,
   production dependency-ket tartalmazó backend image és dokumentált indítás.
   A healthcheck és a konfigurációs hibaút konténerből is működjön.
-  **Nyitva marad:** a `Dockerfile`, a `.dockerignore`, a healthcheck script és az
-  `app` profilos overlay elkészült, de a build és a konténer smoke nem futott
-  (nincs Docker daemon, a base image nem húzható – E01). Részleges bizonyíték:
+  A build, a `USER node`, a Docker `healthy`, a live/ready és a hiányzó
+  `DATABASE_URL` hibaút valódi konténerből bizonyított. Bizonyíték:
   `FINAL-BACKEND-EVIDENCE.md` → BE-F1/O1.
 
 ### BE-F1 lezárási kapu
@@ -69,14 +70,12 @@ alapállapotának egyértelművé tétele.
 - [x] A publikus route-ok limitje automatikus tesztben bizonyított.
 - [x] A browser-topológia és CORS-döntés a README/runbook része.
 - [ ] A hostról a dependency-k csak loopbacken érhetők el. *(A renderelt Compose
-  konfiguráció mind a hat portra `host_ip: 127.0.0.1`-et ad; élő host-oldali
-  port-próba Docker daemont igényel.)*
-- [ ] A backend image buildel, nem rootként indul, és a live/ready ellenőrzés zöld.
-  *(A lefordított artifact nem root felhasználóként indul és a live/ready zöld; a
-  konténer-változat Docker daemont és elérhető base image-et igényel.)*
-- [ ] Backend typecheck, lint, unit/integrációs tesztek és OpenAPI check zöld.
-  *(`npm run verify` exit 0, de Node 22.22.2-n és 40 NATS/Meilisearch-igényű eset
-  skipeltként; a Node 24.20.0 kapu nem futott.)*
+  konfiguráció mind a hat portra `host_ip: 127.0.0.1`-et ad; a jelenleg futó,
+  korábbi konfigurációból létrehozott konténereket merge után kontrolláltan újra
+  kell létrehozni, majd host-oldali port-próbával ellenőrizni.)*
+- [x] A backend image buildel, nem rootként indul, és a live/ready ellenőrzés zöld.
+- [x] Backend typecheck, lint, unit/integrációs tesztek és OpenAPI check zöld.
+  *(Node 24.20.0, 24 tesztfájl, 264/264 pass, 0 skip.)*
 
 ---
 

@@ -26,7 +26,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:24.20.0-alpine3.22}
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.20.0-alpine3.23}
     image: ${BACKEND_IMAGE:-indaplay-poc-backend:local}
     # The image already runs as uid 1000; the rest is defence in depth.
     read_only: true

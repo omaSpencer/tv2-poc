@@ -55,11 +55,13 @@ tesztek a konténereket `afterEach` helyreállítással kezelik.
 
 ## Publikus perem és futtatási posture (BE-F1)
 
-A böngésző-topológia **same-origin**: a böngésző relatív `/api/...` útra kér, azt
-fejlesztésben a Vite dev proxy, productionben a reverse proxy továbbítja a
-backendnek az `/api` prefix levágásával. A backend ezért CORS nélkül fut, és
-preflightra sem válaszol; wildcard origin nem elfogadott. A teljes
-ingress-szerződés és a külön-originű opció feltételei:
+A böngésző-topológia célállapota **same-origin**: a böngésző relatív `/api/...`
+útra kér, azt fejlesztésben a Vite dev proxy továbbítja a backendnek az `/api`
+prefix levágásával. Productionben ugyanez a kötelező ingress-szerződés, de a
+reverse proxy konfigurációja és smoke-ja még nincs a repóban, ezért ez nem
+tekinthető bizonyított production útvonalnak. A backend CORS nélkül fut, és
+preflightra sem válaszol; wildcard origin nem elfogadott. A teljes szerződés és
+a külön-originű opció feltételei:
 [backend/README.md](backend/README.md) „Böngésző-topológia és CORS".
 
 A publikus catalog route-ok alkalmazásszintű limitet kapnak
@@ -84,7 +86,8 @@ cd poc/backend
 cp .env.production.example .env.production      # majd írd át minden REPLACE_ME értéket
 docker compose -f compose.yaml -f compose.prod.yaml \
   --env-file .env.production --profile app --profile full up -d --wait
-docker compose -f compose.yaml -f compose.prod.yaml --profile app ps
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app ps
 curl -s 127.0.0.1:3000/health/live
 curl -s 127.0.0.1:3000/health/ready
 ```
@@ -100,4 +103,3 @@ Az overlay mindkét Meilisearch példányt `MEILI_ENV=production` módban, köte
 - Playwright HTML/JSON/trace: `poc/frontend/e2e/.report`, `.artifacts`;
 - release evidence: `poc/PHASE-7-EVIDENCE.md`;
 - állapot-, capability- és security-mátrix: a `poc/` gyökérben.
-

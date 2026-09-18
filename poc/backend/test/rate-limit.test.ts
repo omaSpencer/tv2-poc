@@ -120,4 +120,26 @@ describe('S1 fixed window', () => {
     expect(limiter.size).toBeLessThanOrEqual(8);
     expect(DEFAULT_MAX_TRACKED_CLIENTS).toBe(10_000);
   });
+
+  it('fails closed for new keys at capacity without resetting active budgets', () => {
+    let clock = 0;
+    const limiter = new FixedWindowRateLimiter({
+      max: 2, windowMs: 1000, trustedProxyHops: 0, maxTrackedClients: 2, now: () => clock,
+    });
+    expect(limiter.check('client-a')).toEqual({ allowed: true, remaining: 1 });
+    clock = 100;
+    expect(limiter.check('client-b')).toEqual({ allowed: true, remaining: 1 });
+
+    expect(limiter.check('overflow-1')).toEqual({ allowed: false, retryAfterSeconds: 1 });
+    expect(limiter.check('overflow-2')).toEqual({ allowed: false, retryAfterSeconds: 1 });
+    expect(limiter.size).toBe(2);
+
+    expect(limiter.check('client-a')).toEqual({ allowed: true, remaining: 0 });
+    expect(limiter.check('client-a')).toEqual({ allowed: false, retryAfterSeconds: 1 });
+
+    clock = 1000;
+    expect(limiter.check('client-c')).toEqual({ allowed: true, remaining: 1 });
+    expect(limiter.size).toBe(2);
+    expect(limiter.check('client-b')).toEqual({ allowed: true, remaining: 0 });
+  });
 });

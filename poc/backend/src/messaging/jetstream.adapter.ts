@@ -327,7 +327,7 @@ export class JetStreamAdapter {
 export function classifyBrokerError(error: unknown): 'transient' | 'capacity' | 'fatal' {
   if (error instanceof TopologyMismatchError) return 'fatal';
   const message = error instanceof Error ? error.message : String(error);
-  if (/maximum messages|max.?msgs|maximum bytes|max.?bytes|resource limits exceeded|503/i.test(message)) {
+  if (/maximum messages|max.?msgs|maximum bytes|max.?bytes|resource limits exceeded/i.test(message)) {
     return 'capacity';
   }
   const code = (error as { code?: string | number; api_error?: { err_code?: number } })?.code

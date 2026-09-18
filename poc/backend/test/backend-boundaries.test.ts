@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Meilisearch } from 'meilisearch';
 import { MeiliIndexAdapter } from '../src/search/meili.adapter.js';
 import { OutboxRelay } from '../src/messaging/relay.js';
+import { classifyBrokerError } from '../src/messaging/jetstream.adapter.js';
 import { RelayState } from '../src/messaging/relay.state.js';
 import { OutboxWake } from '../src/outbox/outbox.wake.js';
 import { ProcessingStatusController } from '../src/ops/processing-status.controller.js';
@@ -34,6 +35,12 @@ it('F-05 keeps the relay disabled even when the raw environment says on', () => 
   relay.start();
   expect(resume).not.toHaveBeenCalled();
   expect(state.enabled).toBe(false);
+});
+
+it('classifies broker capacity separately from transient 503 and timeout failures', () => {
+  expect(classifyBrokerError(new Error('maximum messages limit reached'))).toBe('capacity');
+  expect(classifyBrokerError(Object.assign(new Error('server unavailable'), { code: 503 }))).toBe('transient');
+  expect(classifyBrokerError(Object.assign(new Error('request timeout'), { code: 'TIMEOUT' }))).toBe('transient');
 });
 
 it('F-02 validates the actual paused status and complete consumer progress', async () => {

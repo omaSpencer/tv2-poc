@@ -186,12 +186,11 @@ export function toContentAuditListView(rows: ContentAuditRow[], limit: number): 
   const last = visible.at(-1);
   const validRoles = new Set<string>(ROLES);
   const validFields = new Set<string>(CHANGED_FIELD_ORDER);
-  const validActions = new Set<string>(AUDIT_ACTIONS);
   return {
     items: visible.map(row => ({
       id: row.id,
       contentVersion: row.contentVersion,
-      action: validActions.has(row.action) ? row.action as ContentAuditView['action'] : 'updated',
+      action: auditAction(row.action),
       actorSub: row.actorSub,
       actorRoles: row.actorRoles.filter((role): role is Role => validRoles.has(role)),
       occurredAt: row.occurredAt.toISOString(),
@@ -202,4 +201,11 @@ export function toContentAuditListView(rows: ContentAuditRow[], limit: number): 
       ? encodeCursor({ v: 1, contentVersion: last.contentVersion })
       : null,
   };
+}
+
+function auditAction(value: string): ContentAuditView['action'] {
+  if ((AUDIT_ACTIONS as readonly string[]).includes(value)) {
+    return value as ContentAuditView['action'];
+  }
+  throw new TypeError('Unknown content audit action.');
 }

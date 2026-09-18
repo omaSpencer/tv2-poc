@@ -90,9 +90,18 @@ export class QuarantineService {
     }
     const hasMore = items.length > options.limit;
     const visible = hasMore ? items.slice(0, options.limit) : items;
+    // The cursor is exclusive. When a sparse stream exhausts the scan budget
+    // before finding a full page, continue after the last examined sequence
+    // instead of reporting a false end-of-list. For a dense page, keep the
+    // usual last-visible cursor so the buffered extra item is read next.
+    const scanHasMore = sequence >= bounds.firstSequence;
     return {
       items: visible,
-      nextBeforeSequence: hasMore ? visible.at(-1)!.sequence : null,
+      nextBeforeSequence: hasMore
+        ? visible.at(-1)!.sequence
+        : scanHasMore
+          ? sequence + 1
+          : null,
     };
   }
 

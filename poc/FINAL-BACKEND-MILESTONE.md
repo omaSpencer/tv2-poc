@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; BE-F1 lezárva.** Ez a milestone a final audit mind a **25 backend
+**Státusz: folyamatban; BE-F1–BE-F3 lezárva.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 
@@ -115,31 +115,32 @@ karbantartható kezelése.
 **Cél:** a lapozási, audit- és broker-segédutak ne csonkoljanak vagy maszkoljanak
 csendben.
 
-- [ ] **C1 – Karanténlista scan-budget kurzor.** A 2000-es scan-büdzsé
+- [x] **C1 – Karanténlista scan-budget kurzor.** A 2000-es scan-büdzsé
   kimerülésekor az API adjon folytatható kurzort az utolsó vizsgált sequence-nél;
   `nextBeforeSequence: null` csak valódi lista-végén legyen. Legyen nagy,
   purge-elt réseket szimuláló integrációs teszt.
-- [ ] **C6 – Ismeretlen audit action fail-closed.** Az ismeretlen adat ne essen
+- [x] **C6 – Ismeretlen audit action fail-closed.** Az ismeretlen adat ne essen
   csendben `updated` értékre. Legyen explicit unreachable/assertion vagy stabil
   belső hiba, és tesztelje a mappert a DB CHECK-től függetlenül.
-- [ ] **C7 – Korlátlan audit-olvasás megszüntetése.** A production repository út
+- [x] **C7 – Korlátlan audit-olvasás megszüntetése.** A production repository út
   kötelező, ésszerű limittel/cursorral működjön. A fixture/demo segéd ne
   használjon `2_147_483_647` limitet.
-- [ ] **C8 – Broker `capacity` osztály döntése.** Vagy kapjon eltérő retry/
+- [x] **C8 – Broker `capacity` osztály döntése.** Vagy kapjon eltérő retry/
   observability viselkedést, vagy olvadjon be a `transient` osztályba. Holt
   kategória ne maradjon a publikus belső contractban.
-- [ ] **D2 – Forward-only migrációs policy.** A jelenlegi tudatos döntés legyen
+- [x] **D2 – Forward-only migrációs policy.** A jelenlegi tudatos döntés legyen
   explicit runbook/ADR: rollback módja restore/forward-fix, rehearsal elvárás és
   felelősség. Ez dokumentált elfogadással zárható, down migrációk gyártása nem
   öncél.
 
 ### BE-F3 lezárási kapu
 
-- [ ] A karantén lapozása nagy sequence-rések mellett hiánytalanul bejárható.
-- [ ] Audit action és audit lista szélső esetei automatikus tesztben zöldek.
-- [ ] A broker-hibakategóriák száma és viselkedése egyértelműen dokumentált.
-- [ ] A migrációs recovery eljárás friss környezetben végigolvasható/reprodukálható.
-- [ ] Contract- és regressziós kapuk zöldek.
+- [x] A karantén lapozása nagy sequence-rések mellett hiánytalanul bejárható.
+- [x] Audit action és audit lista szélső esetei automatikus tesztben zöldek.
+- [x] A broker-hibakategóriák száma és viselkedése egyértelműen dokumentált.
+- [x] A migrációs recovery eljárás friss környezetben végigolvasható/reprodukálható.
+- [x] Contract- és regressziós kapuk zöldek. *(Node 24.20.0, 25 tesztfájl,
+  279/279 pass, OpenAPI drift nincs.)*
 
 ---
 

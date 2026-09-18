@@ -149,6 +149,41 @@ describe('operator services', () => {
     expect(quarantineListViewSchema.safeParse({ items: result.items, nextCursor: null }).success).toBe(true);
   });
 
+  it('continues across scan-budget-sized purge gaps without skipping stored records', async () => {
+    const stored = new TextEncoder().encode(JSON.stringify({
+      quarantineId: ACTION_ID,
+      schemaVersion: 1,
+      failedAt: '2026-09-17T10:00:00.000Z',
+      errorCode: 'projection_rejected',
+      originalEventId: CONTENT_ID,
+      originalStream: 'CONTENT',
+      originalStreamSequence: 7,
+      originalSubject: 'poc.content.changed.v1',
+      durable: 'search-a-v1',
+    }));
+    const broker = {
+      names: { quarantineStream: 'CONTENT_DLQ' },
+      streamBounds: async () => ({ firstSequence: 1, lastSequence: 5005, messages: 2 }),
+      storedMessage: vi.fn(async (_stream: string, sequence: number) => (
+        sequence === 5005 || sequence === 1 ? { subject: 'x', sequence, data: stored } : null
+      )),
+    } as unknown as JetStreamAdapter;
+    const service = new QuarantineService(broker, {} as never, {} as never);
+
+    const first = await service.list({ beforeSequence: null, limit: 10 });
+    const second = await service.list({ beforeSequence: first.nextBeforeSequence, limit: 10 });
+    const third = await service.list({ beforeSequence: second.nextBeforeSequence, limit: 10 });
+
+    expect(first.items.map(item => item.sequence)).toEqual([5005]);
+    expect(first.nextBeforeSequence).toBe(3006);
+    expect(second.items).toEqual([]);
+    expect(second.nextBeforeSequence).toBe(1006);
+    expect(third.items.map(item => item.sequence)).toEqual([1]);
+    expect(third.nextBeforeSequence).toBeNull();
+    expect([first, second, third].flatMap(page => page.items).map(item => item.sequence)).toEqual([5005, 1]);
+    expect((broker.storedMessage as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(5005);
+  });
+
   it('replays from the original stream with broker deduplication and never returns the payload', async () => {
     const quarantine = new TextEncoder().encode(JSON.stringify({
       quarantineId: ACTION_ID,

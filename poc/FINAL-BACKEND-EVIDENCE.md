@@ -1,7 +1,7 @@
 # Final backend evidence
 
 2026-09-18 · A `FINAL-BACKEND-MILESTONE.md` fázisainak bizonyítékai.
-Fázisonként bővül; jelenleg a **BE-F1–BE-F2** zárása szerepel benne.
+Fázisonként bővül; jelenleg a **BE-F1–BE-F3** zárása szerepel benne.
 
 ## Futtatókörnyezet és annak korlátai
 
@@ -342,3 +342,80 @@ korlátot, hogy a HTTP-log önmagában nem azonosít route-ot vagy queryt.
 | `npm run verify` | **exit 0**, Node 24.20.0, élő PostgreSQL/NATS/Meilisearch |
 
 Frontend/OpenAPI contract nem változott ebben a fázisban.
+
+---
+
+## BE-F3 – Lekérdezési és adatkezelési korrektség
+
+### C1 – Karanténlista scan-budget kurzor · **lezárva**
+
+A `QuarantineService.list` a sűrű oldalnál továbbra is a legutolsó látható
+rekord exkluzív kurzorát adja. Ha viszont a 2000-es scan-budget a stream valódi
+alja előtt fogy el, a következő kurzor az utolsó vizsgált sequence-nél folytat;
+ez üres közbenső oldalon is igaz. `null` csak üres streamnél vagy a valódi
+alsó határ elérésekor keletkezik.
+
+A regressziós teszt 5005 sequence-t, két tárolt rekordot és 2000-nél nagyobb
+purge-réseket modellez. A három oldal közül a második üres, mégis továbblép;
+az eredmény pontosan `[5005, 1]`, duplikáció nélkül, termináló `null`
+kurzorral.
+
+### C6 – Ismeretlen audit action fail-closed · **lezárva**
+
+A content audit view mapper csak az `AUDIT_ACTIONS` zárt készletét fogadja el.
+Ismeretlen perzisztált érték többé nem válik csendben `updated` eseménnyé:
+titokmentes `TypeError` jut a meglévő globális `internal_error` ágra. A mapper
+közvetlen tesztje a PostgreSQL CHECK constraint megkerülésével injektál
+ismeretlen actiont, és igazolja a fail-closed viselkedést.
+
+### C7 – Korlátos audit-olvasás · **lezárva**
+
+A `ContentRepository.listAudit` query paramétere kötelező. Az opcionális,
+ascending és `2_147_483_647` sentinelt használó bypass megszűnt; minden
+production hívás `content_version DESC` keyset feltétellel és `limit + 1`
+oldalmérettel fut. Unit teszt igazolja, hogy 50-es kérésnél a repository
+pontosan 51 sort kér a következő oldal felismeréséhez.
+
+### C8 – Broker `capacity` osztály · **lezárva**
+
+A `capacity` kategória megmaradt, mert operátori kapacitás-/retention-döntést
+jelez. A relay egyszer osztályoz, majd ugyanazt a kódot teszi a strukturált
+`relay_retry` logba és a processing status `lastErrorCode` mezőjébe. Az általános
+503 többé nem esik a message/byte/resource-limit regexbe, hanem `transient`.
+
+Unit teszt különbözteti a capacity-, 503- és timeout-ágat. A valódi NATS +
+PostgreSQL `M3-T10` integrációs teszt igazolja, hogy a capacity-elutasítás után
+az outbox rekord függőben marad és a relay status `capacity` kódot ad.
+A három kategória (`transient`, `capacity`, `fatal`) és viselkedése a backend
+README-ben dokumentált.
+
+### D2 – Forward-only migrációs policy · **lezárva dokumentált elfogadással**
+
+A D12 ADR és a recovery runbook kimondja, hogy alkalmazott migráció nem
+írható át, és nincs általános down út. Az alapértelmezett recovery
+append-only forward-fix; restore csak igazolt backuppal, elfogadott RPO-val és
+írás-egyeztetési tervvel választható. A dokumentum rögzíti a release owner,
+migrációs szerző/reviewer és adatbázis-operátor felelősségét, a friss `_test`
+célra történő restore/migrate/verify parancsvázat, a negyedéves és
+toolchain-váltás utáni rehearsal elvárást, valamint az evidence minimumát.
+
+Production adaton restore-próba nem történt és nem is része ennek a PoC
+fázisnak; az első production release előtti rehearsal explicit release blocker.
+
+## BE-F3 – futtatott kapuk
+
+| Parancs | Eredmény |
+| --- | --- |
+| Célzott C1/C6/C7/C8 unit tesztek | **3 fájl, 32/32 pass** |
+| Valódi NATS/PostgreSQL `M3-T10` | **1/1 pass**, 16 nem célzott eset kihagyva |
+| `npm run build` | pass |
+| `npm run lint` | pass – 0 warning, 0 error (125 fájl) |
+| `npm run openapi:check` | pass – contract drift nincs |
+| `npm test` a frissen újraindított core stacken | **25 fájl, 279/279 pass, 0 skip** |
+| `npm run verify` | **exit 0**, Node 24.20.0 |
+
+A kezdeti teljes futásokban az Authentik server/worker egyenként közel teljes
+CPU-magot foglalt, ami széles PostgreSQL/NATS/Meilisearch connection timeoutot
+okozott. Az Authentik ideiglenes leállítása és a core stack adatvesztés nélküli
+restartja után a teljes verify tisztán zöld lett; az Authentik szolgáltatásokat a
+mérés után visszaindítottuk. Frontend/OpenAPI contract nem változott.

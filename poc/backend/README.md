@@ -100,6 +100,12 @@ alkalmazásoldali migrációs napló. A migráció előrefelé alkalmazott; ált
 Séma módosításakor `src/schema.ts` változik, majd `npm run db:generate` állítja
 elő a következő fájlt. A már alkalmazott fájlt nem írjuk át.
 
+A restore/forward-fix döntés, a felelősségek, a release előtti backup és a
+kötelező negyedéves rehearsal lépései a
+[helyreállítási runbookban](docs/recovery.md#adatbázis-migráció-helyreállítása)
+találhatók. A `db:reset` nem recovery eszköz: kizárólag explicit `_test`
+adatbázist célozhat.
+
 ### Teszt-adatbázis
 
 ```bash
@@ -313,6 +319,14 @@ src/
 
 A `ContentModule` birtokolja a tartalom életciklusát. Az outbox csak rögzít: a
 `delivered_at` mezőt kizárólag az M3 relay írhatja, publish ACK után.
+
+A relay broker-hibaosztályai zártak. A `transient` kapcsolat-, timeout- és
+általános 503 hibát jelent; a `capacity` kifejezetten a broker message/byte/
+resource limitjét, amely operátori kapacitásbővítést vagy retention-döntést
+igényel. Mindkettő ugyanazzal a korlátos retry-létrával hagyja függőben az
+outbox sort, de a strukturált `relay_retry.code` és a processing status
+`relay.lastErrorCode` megkülönbözteti őket. A `fatal` topológiaeltérés nem
+retryzik: `halted` állapotban operátori beavatkozást vár.
 
 ## Szerkesztői read model
 

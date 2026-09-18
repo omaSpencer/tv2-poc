@@ -216,9 +216,10 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
           continue;
         }
         this.status.setState('retrying');
-        this.status.markError(classifyBrokerError(error));
+        const code = classifyBrokerError(error);
+        this.status.markError(code);
         const delayMs = this.nextDelayMs();
-        this.log.warn({ event: 'relay_retry', attempt: this.attempt, delayMs });
+        this.log.warn({ event: 'relay_retry', code, attempt: this.attempt, delayMs });
         // Backoff after a broker failure is mandatory: CMS wake signals must
         // not shorten it, or a busy CMS would hammer a failing broker (R06).
         await this.wake.backoff(delayMs);

@@ -132,14 +132,14 @@ export class ContentRepository {
     return inserted[0]!;
   }
 
-  async listAudit(executor: Executor, contentId: string, query?: ContentAuditQuery): Promise<ContentAuditRow[]> {
+  async listAudit(executor: Executor, contentId: string, query: ContentAuditQuery): Promise<ContentAuditRow[]> {
     const conditions = [eq(contentAudit.contentId, contentId)];
-    if (query?.cursor) conditions.push(lt(contentAudit.contentVersion, query.cursor.contentVersion));
+    if (query.cursor) conditions.push(lt(contentAudit.contentVersion, query.cursor.contentVersion));
     return executor
       .select()
       .from(contentAudit)
       .where(and(...conditions))
-      .orderBy(query ? desc(contentAudit.contentVersion) : sql`${contentAudit.contentVersion} asc`)
-      .limit(query ? query.limit + 1 : 2_147_483_647);
+      .orderBy(desc(contentAudit.contentVersion))
+      .limit(query.limit + 1);
   }
 }

@@ -104,3 +104,16 @@ Az M0–M1 dokumentumreview döntési pontjai rendezettek. Következő végrehaj
 - Reindexhiba esetén a saját staging index a swap megkezdése előtt takarítható. A swap megkezdése után, bizonytalan válasz esetén is megmarad, mert már a régi éles indexet tartalmazhatja. Sikeres verify/ready után törölhető; sikertelen törlés strukturált `reindex_cleanup_failed` figyelmeztetést ad. Korábbi staging indexek automatikus söprése ezért nem történik (F-03, F-06).
 - A Bearer prefix szándékosan szigorú, a meglévő klienskontraktus változatlan (F-09).
 - Az audit információs I-01, I-03–I-06 megjegyzései továbbra is későbbi skálázási/élesítési feladatok. A sequence-tartomány teljes ellenőrzését nem helyettesítjük szúrópróbával, mert az nem bizonyítaná a köztes üzenetek meglétét. I-02-höz a konstansokra korlátozott SQL-helper használati feltételét dokumentáltuk.
+
+## D12 – Forward-only migrációs recovery (2026-09-18)
+
+A D03 döntés végrehajtási policyje forward-only: alkalmazott migráció nem
+írható át, és nincs általános down migration. Hibánál az alapértelmezett út
+append-only forward-fix; ellenőrzött restore csak release owner által elfogadott
+RPO-val, igazolt backuppal és írás-egyeztetési tervvel választható. A restore
+először új célra történik, nem helyben az eredeti adatbázisra. Első production
+release előtt, majd legalább negyedévente és a recovery toolchain változásakor
+rehearsal kötelező. A szerepek, döntési feltételek, reprodukálható lépések és
+evidence minimum a
+[recovery runbookban](backend/docs/recovery.md#adatbázis-migráció-helyreállítása)
+található.

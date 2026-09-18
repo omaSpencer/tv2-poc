@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   parseAdminContentListQuery,
   parseContentAuditQuery,
@@ -6,6 +6,7 @@ import {
   toContentAuditListView,
 } from '../src/contracts/admin-content-list.js';
 import type { ContentAuditRow } from '../src/schema.js';
+import { ContentRepository } from '../src/content/content.repository.js';
 
 function problemFields(work: () => unknown): string[] | undefined {
   try {
@@ -94,5 +95,38 @@ describe('content audit contract', () => {
     ['q=forbidden', ['q']],
   ])('rejects invalid audit query %s', (query, fields) => {
     expect(problemFields(() => parseContentAuditQuery(new URLSearchParams(query)))).toEqual(fields);
+  });
+
+  it('fails closed when persisted audit data contains an unknown action', () => {
+    const row = {
+      id: '00000000-0000-4000-8000-000000000010',
+      contentId: '00000000-0000-4000-8000-000000000020',
+      contentVersion: 1,
+      action: 'silently-rewritten',
+      actorSub: 'publisher-1',
+      actorRoles: ['publisher'],
+      occurredAt: new Date('2026-09-16T10:00:00.000Z'),
+      correlationId: 'correlation-1',
+      changedFields: ['title'],
+    } as unknown as ContentAuditRow;
+    expect(() => toContentAuditListView([row], 1)).toThrow('Unknown content audit action.');
+  });
+
+  it('always applies the requested bounded audit page size', async () => {
+    const limit = vi.fn(async () => []);
+    const executor = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({ limit }),
+          }),
+        }),
+      }),
+    };
+    await new ContentRepository().listAudit(executor as never, '00000000-0000-4000-8000-000000000020', {
+      limit: 50,
+      cursor: null,
+    });
+    expect(limit).toHaveBeenCalledWith(51);
   });
 });

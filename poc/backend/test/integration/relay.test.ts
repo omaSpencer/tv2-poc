@@ -367,6 +367,7 @@ describe.skipIf(!run)('M3 relay delivery', () => {
       );
       expect(pending[0]!.n).toBe(1);
       expect(app.relay.status.snapshot().state).toMatch(/retrying|publishing|idle/);
+      expect(app.relay.status.snapshot().lastErrorCode).toBe('capacity');
     } finally {
       await app.close();
       const nc = await connect({ servers: natsUrl() });

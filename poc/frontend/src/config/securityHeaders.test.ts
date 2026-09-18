@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import nginxConf from '../../nginx.conf?raw';
 import committedHeaders from '../../security-headers.conf?raw';
+import committedSilentHeaders from '../../silent-callback-security-headers.conf?raw';
 import {
   buildContentSecurityPolicy,
   oidcOriginFromIssuer,
@@ -28,6 +29,17 @@ describe('security headers / CSP', () => {
     expect(rendered).toContain("connect-src 'self'");
     expect(rendered).not.toContain('unsafe-eval');
     expect(rendered).toContain("frame-ancestors 'none'");
+  });
+
+  it('allows only the silent callback to run in a same-origin iframe', () => {
+    const rendered = renderNginxSecurityHeaders({}, true);
+    expect(rendered).toContain("frame-ancestors 'self'");
+    expect(rendered).toContain('X-Frame-Options "SAMEORIGIN"');
+    expect(rendered).not.toContain("frame-ancestors 'none'");
+    expect(nginxConf).toContain('location = /auth/silent-callback');
+    expect(nginxConf).toContain('include /etc/nginx/silent-callback-security-headers.conf;');
+    expect(committedSilentHeaders).toContain("frame-ancestors 'self'");
+    expect(committedSilentHeaders).not.toContain('unsafe-eval');
   });
 
   it('fails fast on an explicit invalid issuer used for CSP', () => {

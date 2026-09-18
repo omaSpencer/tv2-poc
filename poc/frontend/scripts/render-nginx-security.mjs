@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { renderNginxSecurityHeaders } from '../src/config/securityHeaders.ts';
 
 const outFlag = process.argv.indexOf('--out');
+const silentCallback = process.argv.includes('--silent-callback');
 const outPath = outFlag >= 0
   ? process.argv[outFlag + 1]
   : fileURLToPath(new URL('../.generated/security-headers.conf', import.meta.url));
@@ -13,5 +14,5 @@ if (!outPath) {
 }
 
 mkdirSync(dirname(outPath), { recursive: true });
-writeFileSync(outPath, renderNginxSecurityHeaders(process.env), 'utf8');
-console.log(JSON.stringify({ event: 'nginx_security_headers', path: outPath }));
+writeFileSync(outPath, renderNginxSecurityHeaders(process.env, silentCallback), 'utf8');
+console.log(JSON.stringify({ event: 'nginx_security_headers', path: outPath, silentCallback }));

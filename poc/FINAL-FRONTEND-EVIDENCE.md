@@ -587,7 +587,9 @@ mert a strict redirect allowist a Codex BE-F5 feladata.
 Threat model (`SECURITY-REVIEW.md`): a memória-only tárolás a tartós
 tokenlopást szünteti meg; aktív XSS ellen a CSP (`script-src 'self'`, nincs
 `unsafe-eval` / `script-src *`, `connect-src`/`frame-src` self + OIDC origin,
-`frame-ancestors 'none'`) és a dependency hygiene véd.
+`frame-ancestors 'none'`) és a dependency hygiene véd. Az exact
+`/auth/silent-callback` route same-origin iframe kivételt kap
+(`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`); minden más route DENY.
 
 Fő fájlok:
 
@@ -662,13 +664,13 @@ Include: `src/**/*.{ts,tsx}`. Exclude indokkal: generated contract, `vite-env.d.
 `src/main.tsx` (bootstrap / silent iframe; a state machine az oidc/AuthProvider
 tesztekben van), teszt- és `src/test` fájlok.
 
-Mért baseline (Node 24.20.0, `vitest run --coverage`, 52 fájl / 248 teszt):
+Mért baseline (Node 24.20.0, `vitest run --coverage`, 52 fájl / 249 teszt):
 
 | Metrika | Baseline | Threshold (lefelé + 2 pont) |
 | --- | ---: | ---: |
-| statements | 71.03% (1550/2182) | 69 |
-| branches | 68.36% (1260/1843) | 66 |
-| functions | 70.48% (406/576) | 68 |
+| statements | 70.98% (1549/2182) | 69 |
+| branches | 68.48% (1267/1850) | 66 |
+| functions | 70.31% (405/576) | 68 |
 | lines | 73.43% (1393/1897) | 71 |
 
 A threshold nem auto-update. A worker pool a Vitest default (threads) maradt;
@@ -698,10 +700,10 @@ build            PASS
 {"event":"production_posture","docsHref":"/api/docs","oidcOrigin":null}
 compiler:check   PASS
 lint             PASS (oxlint src e2e, 0 warning)
-test:coverage    PASS  52 files, 248/248
-                 statements 71.03 >= 69
-                 branches   68.36 >= 66
-                 functions  70.48 >= 68
+test:coverage    PASS  52 files, 249/249
+                 statements 70.98 >= 69
+                 branches   68.48 >= 66
+                 functions  70.31 >= 68
                  lines      73.43 >= 71
 
 cd poc/frontend && npm run e2e:typecheck
@@ -725,6 +727,16 @@ PASS
 - A coverage threshold 2 pontos tartalék; v8 százalék kerekítése futtatásonként
   enyhén változhat, auto-update nincs.
 - `maxWorkers: 4` a coverage-stabilitás miatt; a default pool típusa változatlan.
+
+### Koordinátori review-javítás
+
+A Cursor commit átvizsgálásakor kiderült, hogy a globális
+`frame-ancestors 'none'` és `X-Frame-Options: DENY` productionben blokkolná a
+hidden iframe-ben futó silent callbacket. Az exact `/auth/silent-callback`
+Nginx location külön, teljes header-készletet kap `frame-ancestors 'self'` és
+`X-Frame-Options: SAMEORIGIN` értékekkel; minden más route változatlanul DENY.
+A lifecycle specben a Playwright trace ki van kapcsolva, mert a trace request
+headereket és így Bearer tokent őrizhetne meg hibás futás után.
 
 ### Scope (FE-F5)
 

@@ -41,6 +41,10 @@ async function browserStoresLeakTokens(page: Page): Promise<string[]> {
 }
 
 test.describe('Valódi OIDC token-életciklus @auth-lifecycle', () => {
+  // Playwright traces contain request headers. This test observes Bearer changes
+  // in process memory, so a failed run must not persist the raw header either.
+  test.use({ trace: 'off' });
+
   test.skip(
     !silentRedirectReady,
     'Integrációs gate pending: az Authentik strict redirect allowlist a BE-F5 ágon kapja meg a /auth/silent-callback URI-t.',

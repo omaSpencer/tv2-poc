@@ -27,11 +27,11 @@ ENV VITE_OIDC_POST_LOGOUT_REDIRECT_URI=${VITE_OIDC_POST_LOGOUT_REDIRECT_URI}
 ENV VITE_OIDC_SILENT_REDIRECT_URI=${VITE_OIDC_SILENT_REDIRECT_URI}
 ENV VITE_ALLOW_MANUAL_TOKEN=${VITE_ALLOW_MANUAL_TOKEN}
 RUN npm run build
-RUN node scripts/render-nginx-security.mjs --out /build/security-headers.conf
 
 FROM ${NGINX_IMAGE} AS runtime
 COPY --chown=root:root nginx.conf /etc/nginx/nginx.conf
-COPY --from=build --chown=root:root /build/security-headers.conf /etc/nginx/security-headers.conf
+COPY --from=build --chown=root:root /build/.generated/security-headers.conf /etc/nginx/security-headers.conf
+COPY --from=build --chown=root:root /build/.generated/silent-callback-security-headers.conf /etc/nginx/silent-callback-security-headers.conf
 COPY --from=build --chown=root:root /build/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080

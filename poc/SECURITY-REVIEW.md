@@ -41,6 +41,11 @@ script-src; `connect-src`/`frame-src` same-origin + explicit OIDC origin;
 `frame-ancestors 'none'`) és a dependency hygiene (production audit, lockfile)
 szűkíti. A CSP nem helyettesít sanitizationt; a UI nem renderel tokent.
 
+Az egyetlen frame-ancestor kivétel az exact `/auth/silent-callback` location:
+ott `frame-ancestors 'self'` + `X-Frame-Options: SAMEORIGIN` szükséges, mert az
+OIDC `prompt=none` választ a saját SPA hidden iframe-je dolgozza fel. Más route
+nem örökli ezt a kivételt.
+
 A valódi silent-recovery/renew Playwright kapu a BE-F5 Authentik redirect
 bővítés után az integrációs gate-en fut. Ezen az ágon unit/component/build
 bizonyíték van, a böngészős token-életciklus `E2E_AUTHENTIK_SILENT_REDIRECT=true`

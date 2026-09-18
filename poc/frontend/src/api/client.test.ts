@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { API_REQUEST_TIMEOUT_MS, apiRequest, setApiAccessToken, setAuthRecoveryHandler } from './client';
 import { ApiTimeoutError, isApiTimeoutError } from './types';
-
 const problem = {
   type: 'urn:indaplay:poc:error:unauthenticated',
   title: 'Unauthenticated',
@@ -209,4 +208,3 @@ describe('backend docs URL', () => {
     expect(backendDocsUrl('/docs')).not.toContain('localhost:3000');
   });
 });
-

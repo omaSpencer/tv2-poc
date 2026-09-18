@@ -39,7 +39,7 @@ test.describe('Accessibility release gate', () => {
     await expectNoHighImpactViolations(page);
     await page.getByRole('button', { name: 'Vissza' }).click();
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'TV2 digitális platform POC' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Demófelület' })).toBeVisible();
   });
 
   test('a piszkos szerkesztői űrlap belső navigációját a felhasználó döntése vezérli', async ({ page }) => {
@@ -83,8 +83,9 @@ test.describe('Accessibility release gate', () => {
     await expectNoHighImpactViolations(page);
 
     await page.getByRole('button', { name: 'Publikálás' }).click();
-    await expect(page.getByText('A tartalom publikálva lett.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Értesítés bezárása' })).toBeVisible();
+    const publishNotice = page.getByRole('status').filter({ hasText: 'A tartalom publikálva lett.' });
+    await expect(publishNotice).toBeVisible();
+    await expect(publishNotice.locator('..').getByRole('button', { name: 'Értesítés bezárása' })).toBeVisible();
     await page.getByRole('button', { name: 'Visszavonás' }).click();
     const dialog = page.getByRole('dialog', { name: 'Tartalom visszavonása' });
     await expect(dialog.getByRole('button', { name: 'Mégse' })).toBeFocused();

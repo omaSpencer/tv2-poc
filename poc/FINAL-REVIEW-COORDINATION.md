@@ -194,17 +194,22 @@ Feladatlapok: [Codex / backend BE-F3](agent-prompts/W3-CODEX-BACKEND.md) és
 A W3 közös kapuja zöld; a W4 kiosztható. A hullámban kizárólag Codex és Cursor
 vett részt, Claude nem kapott feladatot vagy review-szerepet.
 
-## Tervezett hullám – W4
+## Lezárt hullám – W4
 
 A W4-ban csak két szereplő vesz részt: Codex és Cursor. A közös baseline a W3
 integrációs kapuját lezáró tiszta `main`, commit: `98dc729`. A két implementáció
 külön worktree-ben, párhuzamosan készül; Claude nem kap tulajdont,
 review-feladatot vagy kapuszerepet.
 
-| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
-| Codex | Backend BE-F4: C3, C4, C5, C9, D1; frontend review és integráció | `codex/final-be-f4` | `/private/tmp/tv2-poc-be-f4` | indítható `98dc729`-ről |
-| Cursor | Frontend FE-F4: L12, L13, I1, I5; backend read-only review | `codex/final-fe-f4` | `/private/tmp/tv2-poc-fe-f4` | indítható `98dc729`-ről |
+| Codex | Backend BE-F4: C3, C4, C5, C9, D1; frontend review és integráció | `codex/final-be-f4` | `/private/tmp/tv2-poc-be-f4` | integrálva (`9f6c23f`) |
+| Cursor | Frontend FE-F4: L12, L13, I1, I5 | `codex/final-fe-f4` | `/private/tmp/tv2-poc-fe-f4` | integrálva (`ec2f0c1`, review `1ed27a2`) |
+
+A felhasználó menet közben explicit a frontend implementációra szűkítette
+Cursor feladatát, ezért a tervezett külön backend read-only Cursor-review nem
+futott. Ezt a koordinátori backend scope/evidence review, az izolált mérések és
+az integrált 289/289-es teljes backend kapu helyettesítette.
 
 Feladatlapok: [Codex / backend BE-F4](agent-prompts/W4-CODEX-BACKEND.md) és
 [Cursor / frontend FE-F4](agent-prompts/W4-CURSOR-FRONTEND.md).
@@ -254,29 +259,47 @@ Feladatlapok: [Codex / backend BE-F4](agent-prompts/W4-CODEX-BACKEND.md) és
 
 ### W4 közös kapu
 
-- [ ] BE-F4 mind az öt, FE-F4 mind a négy audit-ID-je evidence-szel lezárt.
-- [ ] Rövid ablakú izolált topologyban azonos msgID két külön stream sequence-et
+- [x] BE-F4 mind az öt, FE-F4 mind a négy audit-ID-je evidence-szel lezárt.
+- [x] Rövid ablakú izolált topologyban azonos msgID két külön stream sequence-et
   kap az ablak két oldalán; a duplikált envelope mindkét indexen a DB aktuális
   állapotára konvergál, és az event contract ezt explicit kimondja.
-- [ ] A retention check round-tripja nem nő a sequence range hosszával, belső
+- [x] A retention check round-tripja nem nő a sequence range hosszával, belső
   résnél vagy bizonytalan state-nél fail-closed.
-- [ ] A verifier memóriája korlátos, explicit mismatch countjai pontosak, capped
+- [x] A verifier memóriája korlátos, explicit mismatch countjai pontosak, capped
   ID-mintája jelzi a truncationt; az 1000 publikált dokumentumos teljes mérés
   batch/sample maximuma, verify ideje és write-freeze ideje evidence-ben van.
-- [ ] Relay grace timeout után nincs párhuzamos második loop vagy idő előtti
+- [x] Relay grace timeout után nincs párhuzamos második loop vagy idő előtti
   broker-close; az orphan rendeződése után restartolható.
-- [ ] A trigram index friss migrációból és feltöltött `0005` forward upgrade-ből
+- [x] A trigram index friss migrációból és feltöltött `0005` forward upgrade-ből
   létrejön, az ismételt migráció no-op, és a production alakú 10k-s admin query
   plan evidence reprodukálható.
-- [ ] A toast bezárható és fókuszbiztos; error perzisztens, success timeoutja
+- [x] A toast bezárható és fókuszbiztos; error perzisztens, success timeoutja
   hover/focus alatt szünetel; axe zöld.
-- [ ] Ismeretlen route shellen belüli 404-et ad, a dirty guard belső/browser
+- [x] Ismeretlen route shellen belüli 404-et ad, a dirty guard belső/browser
   navigációja stabil adapteren keresztül, kettős prompt nélkül működik.
-- [ ] A magyar-only döntés dokumentált, a routolt production UI termékcopyja és
+- [x] A magyar-only döntés dokumentált, a routolt production UI termékcopyja és
   accessibility labeljei egységesek.
-- [ ] Backend `npm run verify`, frontend `npm run verify` és
+- [x] Backend `npm run verify`, frontend `npm run verify` és
   `npm run e2e:typecheck` Node 24.20.0-n zöld; OpenAPI/generated contract drift
   nincs, a releváns Playwright kapu zöld.
+
+### W4 integrációs eredmény – 2026-09-18
+
+| Kapu | Eredmény |
+| --- | --- |
+| Backend teljes verify, Node 24.20.0 | PASS – 28 fájl, 289/289 teszt |
+| Frontend teljes verify, Node 24.20.0 | PASS – 47 fájl, 216/216 teszt |
+| Frontend E2E typecheck | PASS |
+| OpenAPI → frontend generated contract | PASS – drift nincs |
+| `0005` → `0006` upgrade + ismételt migrate | PASS – 7 migráció, no-op, adatmegőrzés |
+| 1000 dokumentumos verifier/reindex evidence | PASS – A/B 1000/1000, max batch 500 |
+| 100 000 soros admin query plan | PASS – BitmapOr, mindkét trigram GIN index |
+| Chromium accessibility/navigációs Playwright | PASS – 4/4, valódi Authentik/backend |
+
+A W4 közös kapuja zöld; a W5 kiosztható. A backend és frontend
+implementáció külön ágról, a rögzített BE-F4 → FE-F4 sorrendben került
+`main`-re; a koordinátori review-javítás után minden kapu az integrált állapoton
+is megismétlődött.
 
 ## W1 baseline – 2026-09-18
 

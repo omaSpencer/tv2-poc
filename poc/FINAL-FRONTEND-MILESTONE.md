@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; FE-F1–FE-F3 lezárva.** Ez a milestone a final audit mind a **21 frontend
+**Státusz: folyamatban; FE-F1–FE-F4 lezárva.** Ez a milestone a final audit mind a **21 frontend
 találatát** lezárja: 2 Medium, 14 Low és 5 Info tételt. A munka öt külön
 fázisban halad; egy fázis végén a frontendnek önmagában kiadható állapotban kell
 maradnia.
@@ -155,7 +155,7 @@ támogatott nyelvi scope-pal összhangban.
 - [x] Ismeretlen route saját 404 nézetet ad és megőrzi az alkalmazás shellt.
 - [x] Dirty navigation belső route-váltásra és browser kilépésre tesztelt.
 - [x] A nyelvi döntés dokumentált, a látható UI a választott scope-on belül egységes.
-- [ ] Axe/component és a releváns böngészős E2E ellenőrzések zöldek.
+- [x] Axe/component és a releváns böngészős E2E ellenőrzések zöldek.
 
 ---
 

@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; BE-F1–BE-F3 lezárva.** Ez a milestone a final audit mind a **25 backend
+**Státusz: folyamatban; BE-F1–BE-F4 lezárva.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 

@@ -14,8 +14,8 @@ frontend fázisainak bizonyítéka. A fáziságak után a koordinátor az integr
 | --- | --- |
 | Node.js | 24.20.0 (`nvm use 24.20.0`) |
 | npm | 11.19.0 |
-| Kapu | `cd poc/frontend && npm run verify` (+ FE-F3: `npm run e2e:typecheck`) |
-| E2E / böngésző | Nem futtatva – unit/component + production build kapu |
+| Kapu | `cd poc/frontend && npm run verify` (+ FE-F3/FE-F4: `npm run e2e:typecheck`) |
+| E2E / böngésző | FE-F4 integrált kapu: valódi Chromium + Authentik/backend, 4/4 PASS |
 
 ## Production bundle
 
@@ -379,9 +379,10 @@ egyik frontend fázis sem módosított; FE-F4, FE-F5 és a milestone DoD nyitott
 · baseline `98dc729` · Node **24.20.0**. Lezárt ID-k: **L12, L13, I1, I5**.
 
 A termék döntése magyar-only; i18n runtime nincs. A négy finding implementálva,
-a component/router/timer kapuk zöldek. A böngészős Playwright accessibility
-szelet ebben a worktree-ben nem indult el (nincs `.env.e2e`, a backend
-`/health/ready` nem elérhető).
+a component/router/timer kapuk zöldek. A koordinátori review kibővítette a
+nyelvi leltárt a routolt operátori és demófelületekre, majd az integrált
+`main` állapoton valódi Chromium + Authentik/backend ellen lefutott az axe és
+navigációs Playwright szelet.
 
 ### Környezet
 
@@ -389,11 +390,9 @@ szelet ebben a worktree-ben nem indult el (nincs `.env.e2e`, a backend
 | --- | --- |
 | Node.js | 24.20.0 (`nvm use 24.20.0`) |
 | npm | 11.19.0 |
-| Kapu | `cd poc/frontend && npm run verify` (a tesztlépés alapértelmezett
-  párhuzamossággal 5 s timeouttal flakkelhet; ismételt
-  `npx vitest run --maxWorkers=4` 215/215) |
+| Kapu | `cd poc/frontend && npm run verify` PASS, 47 fájl, 216/216 |
 | E2E typecheck | `cd poc/frontend && npm run e2e:typecheck` PASS |
-| Böngészős E2E / axe | Nem futott – hiányzik `E2E_USER_PASSWORD` és a backend ready |
+| Böngészős E2E / axe | `npm run e2e:a11y` PASS, 4/4 Chromium teszt |
 
 ### Production bundle
 
@@ -401,7 +400,9 @@ szelet ebben a worktree-ben nem indult el (nincs `.env.e2e`, a backend
 | --- | ---: | ---: | --- |
 | Integrált FE-F1–FE-F3 | 690 317 | 19 064 | `assets/index-D4TFOdbu.js` 341 068 |
 | FE-F4 (`index-BKe50RUK.js`) | 693 297 | 19 273 | `assets/index-BKe50RUK.js` 343 710 |
-| Delta | **+2 980** | **+209** | **+2 642** |
+| Integrált FE-F4 review után | 694 767 | 19 273 | `assets/index-DIILaIi4.js` 343 873 |
+| FE-F4 branch delta | **+2 980** | **+209** | **+2 642** |
+| Integrált W4 delta | **+4 450** | **+209** | **+2 805** |
 
 A 404 nézet a fő bundle-ben van (`Az oldal nem található` az
 `index-BKe50RUK.js`-ben), nem lazy chunkban. A dirty-navigation adapter külön
@@ -466,14 +467,16 @@ tokenek kivételét, és azt a feltételt, amely később i18n projektet indít
 (production második nyelv).
 
 Felhasználói copy magyarra hozva a shellben, kezdőlapon, státuszsávon,
-jogosultsági mátrixban, 404-en, toaston, demó workspace-en és az operátori
-állapotcímkéken. A `ProblemPanel` továbbra is megjelenítheti a nyers
+jogosultsági mátrixban, 404-en, toaston, demó munkatérben, exportban,
+operátori route-okon és az állapotcímkéken. A backend technikai blocker
+kódjai és boolean értékei magyar felületi leképezést kapnak. A
+`ProblemPanel` továbbra is megjelenítheti a nyers
 `Failed to fetch` exceptiont — ez a rögzített biztonsági hiba-megjelenítés,
 nem nyelvi egységesítés.
 
 - Dokumentáció: `poc/frontend/README.md` (Nyelv)
 - `<html lang="hu">` marad az igazságforrás
-- Teszt: `src/uiLanguage.test.tsx` (1)
+- Teszt: `src/uiLanguage.test.tsx` (2; renderelt és forrásszintű leltár)
 
 ### FE-F4 kapu
 
@@ -496,24 +499,25 @@ cd poc/frontend && npm run lint
 PASS (oxlint src e2e, 0 warning)
 
 cd poc/frontend && npx vitest run --maxWorkers=4
-PASS  47 files, 215/215
+PASS  47 files, 216/216
 
 cd poc/frontend && npm run e2e:typecheck
 PASS
+
+cd poc/frontend && npm run e2e:a11y
+PASS  4/4 Chromium teszt, valódi Authentik/backend
 ```
 
-Az alapértelmezett, erősen párhuzamos `vitest run` (a `npm run verify`
-tesztlépése) továbbra is 5 s timeouttal flakkelhet jsdom worker-terhelésen;
-ugyanaz a suite `--maxWorkers=4` mellett 215/215.
+Az integrált `npm run verify` alapértelmezett párhuzamossággal is zöld:
+47/47 fájl, 216/216 teszt. A Playwright kapu lefedi a serious/critical axe
+találatok hiányát, a shell-404 biztonságos visszalépését, a toast
+bezárhatóságát és a dirty belső navigáció cancel/confirm ágát.
 
 ### Nem futtatott kapuk (FE-F4)
 
-- Böngészős Playwright `e2e:a11y` / navigációs szelet: a global-setup
-  blokkolt (`E2E_USER_PASSWORD` hiányzik, `http://127.0.0.1:3000/health/ready`
-  nem elérhető). A spec bővítve van 404 + toast close button ellenőrzéssel;
-  új axe dependency nincs.
 - Coverage küszöb — I4, FE-F5
-- Backend test/build, OpenAPI emit — tilos volt módosítani
+- Teljes cross-browser/responsive E2E csomag — FE-F5; a W4 kötelező,
+  releváns Chromium accessibility/navigációs szelete zöld
 
 ### Maradék kockázat (FE-F4)
 
@@ -523,7 +527,9 @@ ugyanaz a suite `--maxWorkers=4` mellett 215/215.
 - A biztonságos Vissza a React Router `idx` mezőjére (hiányában a location
   key-re) támaszkodik, nem a `window.history.length`-re, hogy idegen originre
   ne lépjen.
-- A Playwright axe kapu környezeti okból nem futott ezen az ágon.
+- A natív tab/window `beforeunload` szövegét a böngésző birtokolja;
+  automatizáltan az esemény szerződése, Chromiumban a belső route-váltás
+  cancel/confirm ága futott.
 
 ### Scope (FE-F4)
 
@@ -531,3 +537,5 @@ Nem merge-eltem `main`-re, nem rebase-eltem más agent ágára, és nem
 módosítottam a `/Users/busizoltan/code/tv2-poc` fő checkoutot. Backend forrás,
 OpenAPI, generated contract, Compose és dependency-verzió változatlan.
 
+A koordinátor ezután a BE-F4, az eredeti FE-F4 és a review-javítás commitját
+sorrendben integrálta `main`-re, majd a teljes közös W4 kaput futtatta.

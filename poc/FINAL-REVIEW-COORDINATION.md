@@ -87,6 +87,28 @@ Minden implementáló agent válasza tartalmazza:
 A smoke-hoz létrehozott izolált Compose projektet és tesztvolume-ot a mérés után
 eltávolítottuk. A normál fejlesztői dependency volume-ok megmaradtak.
 
+## Aktuális hullám – W2
+
+| Szerep | Tulajdon | Branch | Worktree | Állapot |
+| --- | --- | --- | --- | --- |
+| Cursor | Frontend FE-F2: M2, L3, L4, L5, L9 | `codex/final-fe-f2` | `/private/tmp/tv2-poc-fe-f2` | kiosztásra kész |
+| Codex | Backend BE-F2: S3, S5, S6, C2, O2 | `codex/final-be-f2` | `/private/tmp/tv2-poc-be-f2` | kiosztásra kész |
+| Codex | koordináció, Cursor-review, integrációs kapu | `main` | repository checkout | folyamatban |
+
+Feladatlapok: [Cursor / frontend FE-F2](agent-prompts/W2-CURSOR-FRONTEND.md) és
+[Codex / backend BE-F2](agent-prompts/W2-CODEX-BACKEND.md).
+
+### W2 konfliktus- és contract-stratégia
+
+- Cursor kizárólag frontend runtime/request lifecycle fájlokat és frontend
+  evidence-et ír; Codex kizárólag backend trust-boundary/logging fájlokat és
+  backend evidence-et ír.
+- Generated contract és OpenAPI alapértelmezésben egyik ágon sem változik.
+- A közös koordinációs fájl és a két milestone összesített státusza a koordinátor
+  tulajdona; az agent csak a saját fázis-checklistjét/evidence szakaszát frissíti.
+- Integrációs sorrend: backend review+merge, frontend review+merge, contract
+  drift ellenőrzés, backend teljes verify, frontend verify+E2E typecheck.
+
 ## W1 baseline – 2026-09-18
 
 Runtime: Node `24.20.0`. A dependency stack a Compose healthcheckek szerint

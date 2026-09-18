@@ -87,13 +87,13 @@ Minden implementáló agent válasza tartalmazza:
 A smoke-hoz létrehozott izolált Compose projektet és tesztvolume-ot a mérés után
 eltávolítottuk. A normál fejlesztői dependency volume-ok megmaradtak.
 
-## Aktuális hullám – W2
+## Lezárt hullám – W2
 
 | Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
-| Cursor | Frontend FE-F2: M2, L3, L4, L5, L9 | `codex/final-fe-f2` | `/private/tmp/tv2-poc-fe-f2` | kiosztásra kész |
-| Codex | Backend BE-F2: S3, S5, S6, C2, O2 | `codex/final-be-f2` | `/private/tmp/tv2-poc-be-f2` | átadás kész; teljes verify zöld |
-| Codex | koordináció, Cursor-review, integrációs kapu | `main` | repository checkout | folyamatban |
+| Cursor | Frontend FE-F2: M2, L3, L4, L5, L9 | `codex/final-fe-f2` | `/private/tmp/tv2-poc-fe-f2` | integrálva (`7e0fc3d`, `76a7f11`) |
+| Codex | Backend BE-F2: S3, S5, S6, C2, O2 | `codex/final-be-f2` | `/private/tmp/tv2-poc-be-f2` | integrálva (`05c8c29`) |
+| Codex | koordináció, Cursor-review, integrációs kapu | `main` | repository checkout | kész |
 
 Feladatlapok: [Cursor / frontend FE-F2](agent-prompts/W2-CURSOR-FRONTEND.md) és
 [Codex / backend BE-F2](agent-prompts/W2-CODEX-BACKEND.md).
@@ -109,17 +109,20 @@ Feladatlapok: [Cursor / frontend FE-F2](agent-prompts/W2-CURSOR-FRONTEND.md) és
 - Integrációs sorrend: backend review+merge, frontend review+merge, contract
   drift ellenőrzés, backend teljes verify, frontend verify+E2E typecheck.
 
-## Tervezett hullám – W3
+## Lezárt hullám – W3
 
-A W3-ban csak két szereplő vesz részt: Codex és Cursor. Claude nem kap
-tulajdont, review-feladatot vagy kapuszerepet. A hullám **nem indulhat el**, amíg
-a W2 mindkét ága nincs integrálva, és a közös W2 kapu nem zöld. Mindkét W3
-worktree ugyanarról, a W2 utáni tiszta `main` commitról készül.
+A W3-ban csak két szereplő vett részt: Codex és Cursor. Claude nem kapott
+tulajdont, review-feladatot vagy kapuszerepet. A tervezett belépési feltétellel
+ellentétben az implementációs ágak a felhasználó külön indítási utasítására a
+`05c8c29` baseline-ról készültek, még az FE-F2 integrálása előtt. A koordinátor
+ezt azzal zárta biztonságosan, hogy a `main` ágon előbb FE-F2-t integrálta és
+ellenőrizte, csak utána BE-F3-at és FE-F3-at; az átfedő API-kliens szerződést
+külön regressziós tesztek védik.
 
-| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
-| Codex | Backend BE-F3: C1, C6, C7, C8, D2; frontend review és integráció | `codex/final-be-f3` | `/private/tmp/tv2-poc-be-f3` | W2 közös kapuja után |
-| Cursor | Frontend FE-F3: L2, L6, L10, I2; backend read-only review | `codex/final-fe-f3` | `/private/tmp/tv2-poc-fe-f3` | W2 közös kapuja után |
+| Codex | Backend BE-F3: C1, C6, C7, C8, D2; frontend review és integráció | `codex/final-be-f3` | `/private/tmp/tv2-poc-be-f3` | integrálva (`ad2cb6b`) |
+| Cursor | Frontend FE-F3: L2, L6, L10, I2 | `codex/final-fe-f3` | `/private/tmp/tv2-poc-fe-f3` | integrálva (`9e393db`, review-fix `7788784`) |
 
 Feladatlapok: [Codex / backend BE-F3](agent-prompts/W3-CODEX-BACKEND.md) és
 [Cursor / frontend FE-F3](agent-prompts/W3-CURSOR-FRONTEND.md).
@@ -160,22 +163,36 @@ Feladatlapok: [Codex / backend BE-F3](agent-prompts/W3-CODEX-BACKEND.md) és
 
 ### W3 közös kapu
 
-- [ ] BE-F3 mind az öt, FE-F3 mind a négy audit-ID-je evidence-szel lezárt.
-- [ ] A ritka, 2000-nél nagyobb karanténrés lapozása nem hagy ki üzenetet és
+- [x] BE-F3 mind az öt, FE-F3 mind a négy audit-ID-je evidence-szel lezárt.
+- [x] A ritka, 2000-nél nagyobb karanténrés lapozása nem hagy ki üzenetet és
   végesen eléri a stream elejét.
-- [ ] Ismeretlen audit action belső hibát ad; korlátlan audit repository út
+- [x] Ismeretlen audit action belső hibát ad; korlátlan audit repository út
   nincs.
-- [ ] A `capacity` és `transient` broker-hiba megfigyelhetően különbözik, a
+- [x] A `capacity` és `transient` broker-hiba megfigyelhetően különbözik, a
   forward-only migrációs recovery policy reprodukálható.
-- [ ] Health kérés nem hordoz Bearer headert; tartó outage alatt a polling
+- [x] Health kérés nem hordoz Bearer headert; tartó outage alatt a polling
   ritkul, recovery után 10 másodpercre áll vissza.
-- [ ] A reindex preflight látható lapon friss, rejtett lapon szünetel, és a
+- [x] A reindex preflight látható lapon friss, rejtett lapon szünetel, és a
   submit döntés nem korlátlanul elavult adatra épül.
-- [ ] Párhuzamos requestek mellett a StatusBar correlation ID-ja nem
+- [x] Párhuzamos requestek mellett a StatusBar correlation ID-ja nem
   last-write-wins globális állapotból származik.
-- [ ] Backend `npm run verify`, frontend `npm run verify` és
+- [x] Backend `npm run verify`, frontend `npm run verify` és
   `npm run e2e:typecheck` Node 24.20.0-n zöld; OpenAPI/generated contract drift
   nincs.
+
+### W3 integrációs eredmény – 2026-09-18
+
+| Kapu | Eredmény |
+| --- | --- |
+| Backend teljes verify, Node 24.20.0 | PASS – 25 fájl, 279/279 teszt, 0 skip |
+| Frontend teljes verify, Node 24.20.0 | PASS – 42 fájl, 197/197 teszt |
+| Frontend E2E typecheck | PASS |
+| OpenAPI → frontend generated contract | PASS – drift nincs |
+| FE-F2/FE-F3 API-kliens integráció | PASS – response-body timeout megmaradt, globális correlation ID törölve |
+| FE-F3 koordinátori review | PASS – ready 503 backoff és stale preflight submit külön regressziós teszttel javítva |
+
+A W3 közös kapuja zöld; a W4 kiosztható. A hullámban kizárólag Codex és Cursor
+vett részt, Claude nem kapott feladatot vagy review-szerepet.
 
 ## W1 baseline – 2026-09-18
 

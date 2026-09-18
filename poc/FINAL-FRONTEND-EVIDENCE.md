@@ -4,8 +4,8 @@
 `codex/final-fe-f3`; integráció: `main`. Node **24.20.0**.
 
 Ez a fájl a [FINAL-FRONTEND-MILESTONE.md](FINAL-FRONTEND-MILESTONE.md) lezárt
-frontend fázisainak bizonyítéka. A koordinációs dokumentumot ez a hullám nem
-módosította.
+frontend fázisainak bizonyítéka. A fáziságak után a koordinátor az integrált
+`main` állapotot is újraellenőrizte.
 
 ## Környezet
 
@@ -25,6 +25,7 @@ módosította.
 | FE-F1 delta | **−645** | **−294** | **−412** |
 | FE-F3 (`05c8c29` + L2/L6/L10/I2) | 685 939 | 19 064 | `assets/index-glMBnpP2.js` 337 558 |
 | FE-F3 vs FE-F1 | **+1 273** | **0** | **+1 064** |
+| Integrált FE-F1–FE-F3 | 690 317 | 19 064 | `assets/index-D4TFOdbu.js` 341 068 |
 
 A baseline production bundle tartalmazta a `indaplay.poc.activeContentId`
 sessionStorage-kulcsot (`ActiveContentProvider`). A FE-F1 distben ez a kulcs, az
@@ -245,11 +246,11 @@ szakasz végén szerepel.
 2026-09-18 · Branch `codex/final-fe-f3` · worktree `/private/tmp/tv2-poc-fe-f3` ·
 Node **24.20.0**. Lezárt ID-k: **L2, L6, L10, I2**.
 
-A W3 szerződés a W2 timeout/abort/auth-retry viselkedést megőrzendőként jelöli.
-Ezen a baseline-on (`main` @ `05c8c29`) a FE-F2 **L9** timeout/abort kód nincs
-jelen; FE-F2-t nem merge-eltem. Az auth-retry szerződés (`options.auth !== false`
-+ `retryAuth`) változatlan, és a health hívások explicit `auth: false` miatt
-nem indítanak recovery-t.
+A FE-F3 ág `main` @ `05c8c29` baseline-ról készült, ezért az integrációkor
+külön ellenőriztük a W2 timeout/abort/auth-retry szerződését. Az eredményben a
+response body teljes kiolvasásáig élő timeout megmaradt, miközben a globális
+`lastCorrelationId` eltűnt. A health hívások explicit `auth: false` miatt nem
+indítanak recovery-t.
 
 ### Timer-invariánsok
 
@@ -287,7 +288,7 @@ frissítés után tiltott; sikeres frissítéskor a kijelzett preflight
 - `src/lib/useVisibleRefetch.ts`
 - `src/features/operations/routes/ReindexPage.tsx`: `refetchInterval` +
   `refetchIntervalInBackground: false` + `useCallback` queryFn
-- Tesztek: `reindexPreflightPoll.test.ts` (1), `ReindexPage.test.tsx` (6)
+- Tesztek: `reindexPreflightPoll.test.ts` (1), `ReindexPage.test.tsx` (7)
   - 8 s beat ugyanazon query-n
   - hidden pause, visible refetch
   - pending + visibility single-flight
@@ -306,7 +307,7 @@ legfeljebb egy in-flight; hidden pause, visible refresh.
   `HEALTH_POLL_MAX_MS = 80_000`, `HEALTH_POLL_JITTER_RATIO = 0.1`,
   `createFailureTracker`
 - `src/components/StatusBar.tsx`: `useTrackedHealthQuery` (`retry: false`)
-- Tesztek: `healthPollInterval.test.ts` (4), `StatusBar.test.tsx` polling
+- Tesztek: `healthPollInterval.test.ts` (5), `StatusBar.test.tsx` polling
   esetei (jitter a tesztben `() => 0`)
 
 ### I2 – Correlation ID tulajdonlás
@@ -329,22 +330,22 @@ contracts:check  PASS (generated backend.ts unchanged)
 build            PASS
 compiler:check   PASS
 lint             PASS (oxlint src e2e, 0 warning)
-test             PASS  39 files, 170/170 (önálló FE-F3 baseline)
+test             PASS  42 files, 197/197 (integrált FE-F1–FE-F3)
 
 cd poc/frontend && npm run e2e:typecheck
 PASS
 ```
 
-A default `vitest run` worker-párhuzamossága (jsdom per file) 5 s timeouttal
-flakkelhet terhelt gépen — ezt FE-F1 is dokumentálta. A FE-F3 zöld kapu a
-serial `--maxWorkers=1` 170/170, plusz a fenti verify lépések. Célzott
-FE-F3 fájlok izoláltan 21/21.
+A végső integrált kapu a default párhuzamos `vitest run` beállítással is zöld:
+42/42 fájl, 197/197 teszt. A build contract-, compiler-, lint- és bundle-kapuja,
+valamint az E2E TypeScript-ellenőrzés szintén sikeres.
 
 ### Nem futtatott kapuk (FE-F2/FE-F3 ágakon)
 
 - Böngészős Playwright E2E, axe, cross-browser — FE-F4/FE-F5
 - Backend test/build, OpenAPI emit — tilos volt backend/contractot módosítani
 - Coverage küszöb — I4, FE-F5
+
 ### Maradék kockázat (FE-F2)
 
 - A chunk-hiba felismerés bundler/browser üzenetre szűk; ismeretlen szövegű

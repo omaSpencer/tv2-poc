@@ -21,5 +21,17 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
     include: ['test/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      reporter: ['text', 'json-summary'],
+      reportsDirectory: 'coverage',
+      thresholds: {
+        statements: 79,
+        branches: 70,
+        functions: 78,
+        lines: 82,
+      },
+    },
   },
 });

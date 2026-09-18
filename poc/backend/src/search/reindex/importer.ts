@@ -1,20 +1,14 @@
-import {
-  SEARCH_DISPLAYED_ATTRIBUTES, SEARCH_FILTERABLE_ATTRIBUTES, SEARCH_SEARCHABLE_ATTRIBUTES,
-  SEARCH_SORTABLE_ATTRIBUTES, type SearchProjectionV1,
-} from '../../contracts/search.js';
+import { type SearchProjectionV1 } from '../../contracts/search.js';
 import { stagingIndexUid, type ReindexErrorCode } from '../../contracts/reindex.js';
 import type { MeiliIndexAdapter, MeiliTaskResult } from '../meili.adapter.js';
 import type { ReindexControlRepository } from './control.repository.js';
+import { managedSettingsDifferences } from '../managed-settings.js';
 
 export class ReindexRunError extends Error {
   constructor(readonly code: ReindexErrorCode, message: string = code) {
     super(message);
     this.name = 'ReindexRunError';
   }
-}
-
-function same(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export class StagingImporter {
@@ -41,10 +35,7 @@ export class StagingImporter {
     await this.succeeded(await this.adapter.createNamedIndex(this.stagingUid), 'import_task_failed');
     await this.succeeded(await this.adapter.applyManagedSettingsTo(this.stagingUid), 'import_task_failed');
     const settings = await this.adapter.managedSettingsOf(this.stagingUid);
-    if (!same(settings.searchableAttributes, SEARCH_SEARCHABLE_ATTRIBUTES)
-      || !same(settings.filterableAttributes, SEARCH_FILTERABLE_ATTRIBUTES)
-      || !same(settings.displayedAttributes, SEARCH_DISPLAYED_ATTRIBUTES)
-      || !same(settings.sortableAttributes, SEARCH_SORTABLE_ATTRIBUTES)) {
+    if (managedSettingsDifferences(settings).length > 0) {
       throw new ReindexRunError('import_task_failed', 'staging_settings_mismatch');
     }
   }

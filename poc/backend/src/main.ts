@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule } from '@nestjs/swagger';
-import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from './http.js';
 import { disabledIntegrationNames, type AppConfig } from './config.js';
 import { createOpenApiDocument } from './openapi-document.js';
@@ -10,6 +9,8 @@ import { publicRateLimit } from './rate-limit.js';
 import { identityBoundary } from './identity/identity.boundary.js';
 import { TokenVerifier } from './identity/token-verifier.js';
 import { startupFailure } from './startup-failure.js';
+import { APP_LOGGER } from './observability/logger.js';
+import type { Logger } from 'pino';
 
 async function bootstrap() {
   // Dynamic import keeps config/module evaluation inside the sanitized error boundary.
@@ -17,7 +18,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: false, abortOnError: false, bodyParser: false });
   app.enableShutdownHooks();
   const config = app.get(ConfigService);
-  const log = pino({ level: config.getOrThrow<string>('LOG_LEVEL') });
+  const log = app.get<Logger>(APP_LOGGER);
   const identityOn = config.getOrThrow<string>('FEATURE_IDENTITY') === 'on';
   app.use(requestBoundary(log, { blockAdmin: !identityOn }));
   // BE-F1 S1: the public edge limit runs before token verification, so a flood

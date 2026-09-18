@@ -3,8 +3,10 @@
 NestJS moduláris monolit. Jelen állapot: **M0 alap + M1 tranzakciós CMS + M2 L1
 identity + M3 outbox→JetStream relay + M4 kétindexes kereső + M5 helyreállítási
 vezérlősík implementálva**,
-valódi PostgreSQL, NATS JetStream és két külön Meilisearch példány elleni futási
-bizonyítékkal. Az M2 L2 (valódi Authentik tokenek) és a média (M6) nyitott.
+valódi PostgreSQL, NATS JetStream, két külön Meilisearch példány és Authentik
+elleni futási bizonyítékkal. A valódi PKCE login, három szerep, reload és logout
+W4-ben bizonyított; a W5 release-kapu hosszú, valódi 5 perces tokenmegújítási és
+silent-recovery mérése az integrált frontend ággal zárható. A média (M6) nyitott.
 
 A terv és a döntések: [../README.md](../README.md), [../DECISIONS.md](../DECISIONS.md),
 [../M0-IMPLEMENTATION.md](../M0-IMPLEMENTATION.md), [../M1-IMPLEMENTATION.md](../M1-IMPLEMENTATION.md),
@@ -59,7 +61,8 @@ open http://localhost:3000/docs
 | `npm start` | A lefordított alkalmazás indítása |
 | `npm run lint` | oxlint a `src`, `scripts` és `test` fákon |
 | `npm test` | Teljes Vitest futás (alap + integrációs próbák) |
-| `npm run verify` | Build + lint + OpenAPI drift + teljes tesztkapu |
+| `npm run test:coverage` | Teljes Vitest futás V8 coverage baseline- és regressziós küszöbbel |
+| `npm run verify` | Build + lint + OpenAPI drift + egyetlen teljes, coverage-es tesztkapu |
 | `npm run test:integration:m1` | M1 T01–T23 integrációs próbák |
 | `npm run test:integration:m2` | M2 L1 identity próbák (mock JWKS + TEST_DATABASE_URL) |
 | `npm run test:integration:m3` | M3 T01–T20 relay próbák (NATS_URL + TEST_DATABASE_URL) |
@@ -70,7 +73,8 @@ open http://localhost:3000/docs
 | `npm run db:reset` | **Csak** a `TEST_DATABASE_URL` eldobható adatbázisának újraépítése |
 | `npm run contracts:emit` | A v1 esemény JSON Schema újragenerálása |
 | `npm run smoke:m0` | Az M0 core smoke (izolált Compose-projekt, saját childok) |
-| `npm run smoke:full` | Identity + NATS + kétindexes kereső smoke; az Authentik L2 pending marad |
+| `npm run smoke:full` | Identity + NATS + kétindexes kereső smoke; a valódi böngészős Authentik gate külön fut |
+| `npm run authentik:release:preflight` | Valódi discovery/JWKS/provider/lifetime/strict redirect/három identitás fail-closed ellenőrzése |
 | `npm run demo:m1` | Az M1 mintafolyamat HTTP-listener nélkül |
 | `npm run demo:m2` | Bearer tokenes admin út (`OIDC_ACCESS_TOKEN` + `OIDC_ISSUER_URL`) |
 | `npm run demo:m3` | Outbox → publish ACK → kézbesítés, relay stop/start mellett |
@@ -452,11 +456,33 @@ vizsgálatnak. Csoportnevek → szerepek: `poc-viewer` / `poc-editor` /
 
 Az M1 tesztek saját összeállítást használnak (`test/support/test-app.ts`),
 amelybe az actort a teszt injektálja. Az M2 L1 próbák mock JWKS-sel futnak
-(`test/support/oidc-mock.ts`); a valódi Authentik (L2) a full Compose blueprinttel
-és `demo:m2` / `authentik-login.mjs` scripteken keresztül jön, E01–E05 után.
+(`test/support/oidc-mock.ts`); a valódi Authentik (L2) a full Compose blueprinttel,
+a böngészős E2E suite-tal és az `authentik:release:preflight` paranccsal fut.
+A preflight hiányzó környezetet, providert, identitást vagy redirectet hibával
+zár; release-környezetben nincs csendes skip.
 A blueprint public PKCE kliensének strict redirect allowlistje a meglévő CLI
-callback mellett a frontend `http://127.0.0.1:5173/auth/callback` és
+callback mellett a frontend `http://127.0.0.1:5173/auth/callback`,
+`http://127.0.0.1:5173/auth/silent-callback` és
 `http://127.0.0.1:5173/login` post-logout URL-t tartalmazza; wildcard nincs.
+Az access token élettartama 5 perc, a refresh sessioné 1 óra.
+
+### Coverage-kapu
+
+A V8 mérés minden `src/**/*.ts` production fájlt bevon; a CLI entrypointok és
+bootstrap fájlok sincsenek kényelmi okból kizárva. A 299 tesztes, teljes élő
+stack baseline: statements 79,42%, branches 70,16%, functions 78,98%, lines
+82,86%. A commitolt globális minimumok rendre 79%, 70%, 78% és 82%; a
+`verify` egyszer futtatja a teljes suite-ot coverage-dzsel.
+
+### Naplózási bekötés
+
+A production kód egyetlen Pino-konstrukciós pontot használ az
+`observability/logger.ts` modulban. A bootstrap, HTTP boundary, relay, search,
+reindex és identity komponensek ugyanazon root logger child példányait kapják.
+A központi, rekurzív sanitization policy az Authorization/cookie, access/ID/
+refresh token, jelszó/secret/API key és credentialt tartalmazó DSN mezőket a
+serializer előtt redaktálja; nyers request/response/error objektumot továbbra
+sem szabad logolni.
 
 ## Hibaformátum
 

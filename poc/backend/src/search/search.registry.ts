@@ -22,6 +22,8 @@ import { SearchProjectionWorker, type SearchWorkerOptions } from './projection.w
 import { resolveSearchConfig, type SearchConfig } from './search.config.js';
 import { SearchState } from './worker.state.js';
 import { ReindexControlRepository } from './reindex/control.repository.js';
+import type { Logger } from 'pino';
+import { APP_LOGGER, componentLogger, createAppLogger } from '../observability/logger.js';
 
 /** DI token for the search stack's own broker connection. */
 export const SEARCH_BROKER = 'SEARCH_BROKER';
@@ -43,6 +45,7 @@ export class SearchRegistry implements OnModuleInit, OnApplicationShutdown {
     @Inject(ContentRepository) private readonly repository: ContentRepository,
     @Inject(ReindexControlRepository) private readonly control: ReindexControlRepository,
     @Optional() @Inject(SEARCH_WORKER_OPTIONS) private readonly workerOptions: SearchWorkerOptions | null = null,
+    @Optional() @Inject(APP_LOGGER) rootLogger: Logger | null = null,
   ) {
     this.names = topologyNames(
       configService.get<string>('NATS_STREAM') ?? NATS_STREAM,
@@ -53,6 +56,7 @@ export class SearchRegistry implements OnModuleInit, OnApplicationShutdown {
 
     if (!this.config.enabled) return;
     const logLevel = configService.get<string>('LOG_LEVEL') ?? 'info';
+    const logger = componentLogger(rootLogger ?? createAppLogger(logLevel), 'search-registry');
     for (const alias of SEARCH_INDEX_ALIASES) {
       const instance = this.config.instances[alias];
       const adapter = new MeiliIndexAdapter(instance, {
@@ -72,7 +76,7 @@ export class SearchRegistry implements OnModuleInit, OnApplicationShutdown {
         this.names,
         this.database,
         this.repository,
-        { workingMs: this.config.workingMs, logLevel, ...this.workerOptions },
+        { workingMs: this.config.workingMs, logLevel, ...this.workerOptions, logger },
         this.control,
       ));
     }

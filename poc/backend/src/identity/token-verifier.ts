@@ -9,8 +9,8 @@ import {
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Logger } from 'pino';
-import { pino } from 'pino';
 import { ApiError } from '../contracts/errors.js';
+import { APP_LOGGER, componentLogger, createAppLogger } from '../observability/logger.js';
 import type { Actor } from './actor.js';
 import { OidcDiscovery, OidcDiscoveryError } from './oidc.js';
 import { rolesFromTokenClaims } from './roles.js';
@@ -109,8 +109,12 @@ export class TokenVerifier {
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(OidcDiscovery) private readonly discovery: OidcDiscovery,
     @Optional() @Inject(TOKEN_VERIFIER_OPTIONS) private readonly options: TokenVerifierOptions | null = null,
+    @Optional() @Inject(APP_LOGGER) rootLogger: Logger | null = null,
   ) {
-    this.log = pino({ level: this.config.getOrThrow<string>('LOG_LEVEL') });
+    this.log = componentLogger(
+      rootLogger ?? createAppLogger(this.config.getOrThrow<string>('LOG_LEVEL')),
+      'token-verifier',
+    );
   }
 
   /** Test-only: override JWKS cache/cooldown without Nest testing utilities. */

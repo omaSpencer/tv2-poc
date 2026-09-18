@@ -7,9 +7,12 @@
  */
 import { Inject, Injectable, OnApplicationShutdown, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { pino, type Logger } from 'pino';
+import type { Logger } from 'pino';
+import { raceDeadline } from '../common/deadline.js';
+import { D08_RETRY_DELAYS_MS, retryDelayMs } from '../common/retry.js';
 import { contentEventV1Schema, MAX_EVENT_BYTES } from '../contracts/events.js';
 import { DatabaseService } from '../database.js';
+import { APP_LOGGER, componentLogger, createAppLogger } from '../observability/logger.js';
 import { envelopeFromRow, OutboxRepository } from '../outbox/outbox.repository.js';
 import { OutboxWake } from '../outbox/outbox.wake.js';
 import { classifyBrokerError, JetStreamAdapter } from './jetstream.adapter.js';
@@ -25,28 +28,9 @@ export type RelayTestHooks = {
 
 export const RELAY_TEST_HOOKS = 'RELAY_TEST_HOOKS';
 
-const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16_000, 30_000] as const;
 const SHUTDOWN_GRACE_MS = 5000;
 /** After the grace period the broker is aborted; the loop gets this long to unwind. */
 const ABORT_SETTLE_MS = 500;
-
-/**
- * Races `work` against a deadline and always clears the timer, so a fast stop
- * never leaves a multi-second timer holding the event loop open.
- * Resolves true when `work` won.
- */
-async function raceDeadline(work: Promise<void>, ms: number): Promise<void> {
-  if (ms <= 0) return;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      work,
-      new Promise<void>(resolve => { timer = setTimeout(resolve, ms); }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
 
 export class RelayHaltError extends Error {
   constructor(readonly code: string, message: string) {
@@ -75,8 +59,12 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
     @Inject(OutboxWake) private readonly wake: OutboxWake,
     @Inject(RelayState) readonly status: RelayState,
     @Optional() @Inject(RELAY_TEST_HOOKS) hooks: RelayTestHooks | null = null,
+    @Optional() @Inject(APP_LOGGER) rootLogger: Logger | null = null,
   ) {
-    this.log = pino({ level: this.config.getOrThrow<string>('LOG_LEVEL') });
+    this.log = componentLogger(
+      rootLogger ?? createAppLogger(this.config.getOrThrow<string>('LOG_LEVEL')),
+      'outbox-relay',
+    );
     this.hooks = hooks ?? {};
   }
 
@@ -298,10 +286,8 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
   }
 
   private nextDelayMs(): number {
-    const index = Math.min(this.attempt, RETRY_DELAYS_MS.length - 1);
+    const delay = retryDelayMs(this.attempt, D08_RETRY_DELAYS_MS);
     this.attempt += 1;
-    const base = RETRY_DELAYS_MS[index]!;
-    const jitter = base * 0.2 * (Math.random() * 2 - 1);
-    return Math.max(0, Math.round(base + jitter));
+    return delay;
   }
 }

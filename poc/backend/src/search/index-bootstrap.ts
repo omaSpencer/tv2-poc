@@ -9,45 +9,11 @@
  * Only an index created by this bootstrap may have its settings changed.
  * A retained session resumes accepted tasks after transient poll failures.
  */
-import {
-  SEARCH_DISPLAYED_ATTRIBUTES, SEARCH_FILTERABLE_ATTRIBUTES, SEARCH_PRIMARY_KEY,
-  SEARCH_SEARCHABLE_ATTRIBUTES, SEARCH_SORTABLE_ATTRIBUTES,
-} from '../contracts/search.js';
+import { SEARCH_PRIMARY_KEY } from '../contracts/search.js';
 import {
   IndexConfigMismatchError, MeiliTaskFailedError, type MeiliIndexAdapter,
 } from './meili.adapter.js';
-
-type ManagedSettings = {
-  searchableAttributes: string[];
-  filterableAttributes: string[];
-  displayedAttributes: string[];
-  sortableAttributes: string[];
-};
-
-const sameSequence = (left: readonly string[], right: readonly string[]): boolean =>
-  left.length === right.length && left.every((value, index) => value === right[index]);
-
-const sameSet = (left: readonly string[], right: readonly string[]): boolean =>
-  sameSequence([...left].sort(), [...right].sort());
-
-/** Field names only; the comparison never echoes an operator's own values. */
-function differences(settings: ManagedSettings): string[] {
-  const fields: string[] = [];
-  // Searchable order is the D08 importance order, so it is compared as a sequence.
-  if (!sameSequence(settings.searchableAttributes, SEARCH_SEARCHABLE_ATTRIBUTES)) {
-    fields.push('searchableAttributes');
-  }
-  if (!sameSet(settings.filterableAttributes, SEARCH_FILTERABLE_ATTRIBUTES)) {
-    fields.push('filterableAttributes');
-  }
-  if (!sameSet(settings.displayedAttributes, SEARCH_DISPLAYED_ATTRIBUTES)) {
-    fields.push('displayedAttributes');
-  }
-  if (!sameSet(settings.sortableAttributes, SEARCH_SORTABLE_ATTRIBUTES)) {
-    fields.push('sortableAttributes');
-  }
-  return fields;
-}
+import { managedSettingsDifferences } from './managed-settings.js';
 
 export type BootstrapOutcome = {
   created: boolean;
@@ -93,13 +59,13 @@ export async function bootstrapIndex(adapter: MeiliIndexAdapter): Promise<Bootst
     if (await adapter.primaryKey() !== SEARCH_PRIMARY_KEY) {
       throw new IndexConfigMismatchError(adapter.alias, ['primaryKey']);
     }
-    const fields = differences(await adapter.managedSettings());
+    const fields = managedSettingsDifferences(await adapter.managedSettings());
     if (fields.length > 0 || session.settingsTask !== undefined) {
       if (!session.created) throw new IndexConfigMismatchError(adapter.alias, fields);
       session.settingsTask ??= await adapter.applyManagedSettings();
       await awaitSucceeded(adapter, session.settingsTask);
       outcome.settingsApplied = true;
-      const applied = differences(await adapter.managedSettings());
+      const applied = managedSettingsDifferences(await adapter.managedSettings());
       if (applied.length > 0) throw new IndexConfigMismatchError(adapter.alias, applied);
     }
     sessions.delete(adapter);

@@ -18,9 +18,13 @@
  * - a crash between a successful index write and the ACK replays the operation,
  *   which is safe because upsert and delete are both idempotent.
  */
-import { pino, type Logger } from 'pino';
+import type { Logger } from 'pino';
 import type { JsMsg } from '@nats-io/jetstream';
 import type { Consumer } from '@nats-io/jetstream';
+import { raceDeadline } from '../common/deadline.js';
+import {
+  D08_RETRY_DELAYS_MS, D08_RETRY_JITTER, peekRetryDelayMs, retryDelayMs,
+} from '../common/retry.js';
 import { contentEventV1Schema, type ContentEventV1 } from '../contracts/events.js';
 import type { SearchIndexAlias } from '../contracts/search.js';
 import type { DatabaseService } from '../database.js';
@@ -37,25 +41,12 @@ import { projectionFor } from './projection.js';
 import { buildQuarantine, quarantineMsgId, recoverEventId } from './quarantine.js';
 import type { SearchIndexState } from './worker.state.js';
 import type { ReindexControlRepository } from './reindex/control.repository.js';
+import { componentLogger, createAppLogger } from '../observability/logger.js';
 
 /** D08 backoff ladder. The last value repeats for every further attempt. */
-export const SEARCH_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16_000, 30_000] as const;
-export const SEARCH_RETRY_JITTER = 0.2;
-
-/**
- * Pure so the ladder and the ±20% jitter can be asserted exactly, without
- * spending a minute of wall clock waiting for the real delays.
- */
-export function retryDelayMs(
-  attempt: number,
-  delays: readonly number[] = SEARCH_RETRY_DELAYS_MS,
-  random: () => number = Math.random,
-): number {
-  const index = Math.min(Math.max(attempt, 0), delays.length - 1);
-  const base = delays[index]!;
-  const jitter = base * SEARCH_RETRY_JITTER * (random() * 2 - 1);
-  return Math.max(0, Math.round(base + jitter));
-}
+export const SEARCH_RETRY_DELAYS_MS = D08_RETRY_DELAYS_MS;
+export const SEARCH_RETRY_JITTER = D08_RETRY_JITTER;
+export { retryDelayMs };
 
 /** How long a halted worker waits before re-reading its own state. */
 const HALT_POLL_MS = 1000;
@@ -76,6 +67,7 @@ export type SearchWorkerOptions = {
   retryDelaysMs?: readonly number[];
   workingMs?: number;
   logLevel?: string;
+  logger?: Logger;
 };
 
 /** Interruption points for integration tests. Never installed in production. */
@@ -83,16 +75,6 @@ export type SearchWorkerHooks = {
   afterTaskSucceeded?: (eventId: string) => Promise<void> | void;
   beforeSubmit?: (eventId: string) => Promise<void> | void;
 };
-
-async function raceDeadline(work: Promise<void>, ms: number): Promise<void> {
-  if (ms <= 0) return;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([work, new Promise<void>(resolve => { timer = setTimeout(resolve, ms); })]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
 
 export class SearchProjectionWorker {
   private readonly log: Logger;
@@ -130,7 +112,10 @@ export class SearchProjectionWorker {
     options: SearchWorkerOptions = {},
     private readonly control: ReindexControlRepository | null = null,
   ) {
-    this.log = pino({ level: options.logLevel ?? 'info' });
+    this.log = componentLogger(
+      options.logger ?? createAppLogger(options.logLevel ?? 'info'),
+      `search-worker-${alias}`,
+    );
     this.retryDelays = options.retryDelaysMs ?? SEARCH_RETRY_DELAYS_MS;
     this.workingMs = options.workingMs ?? 10_000;
     this.state.durable = durable;
@@ -560,8 +545,7 @@ export class SearchProjectionWorker {
   }
 
   private peekDelayMs(): number {
-    const index = Math.min(this.attempt, this.retryDelays.length - 1);
-    return this.retryDelays[index]!;
+    return peekRetryDelayMs(this.attempt, this.retryDelays);
   }
 
   private nextDelayMs(): number {

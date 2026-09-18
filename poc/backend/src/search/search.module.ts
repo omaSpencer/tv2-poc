@@ -10,6 +10,7 @@ import { ReindexControlRepository } from './reindex/control.repository.js';
 import { ReindexCoordinator } from './reindex/coordinator.js';
 import { ContentRepairService } from './content-repair.service.js';
 import { QuarantineService } from './quarantine.service.js';
+import { ObservabilityModule } from '../observability/logger.js';
 
 /**
  * The search stack gets its own JetStream connection rather than sharing the
@@ -18,7 +19,7 @@ import { QuarantineService } from './quarantine.service.js';
  * side's shutdown abort the other's in-flight operation.
  */
 @Module({
-  imports: [ContentModule],
+  imports: [ContentModule, ObservabilityModule],
   controllers: [CatalogSearchController],
   providers: [
     SearchState,

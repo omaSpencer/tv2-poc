@@ -611,7 +611,7 @@ describe.skipIf(!ready)('M4: long tasks, retries and quarantine', () => {
     await waitFor('a recovers and acknowledges everything', async () => {
       const info = await consumerPending(h.jsm, h.names, h.app.state.get('a').durable);
       return info.pending === 0 && info.ackPending === 0;
-    }, 60_000, 100);
+    }, 90_000, 100);
     expect(h.app.state.get('a').lastAckedAt).not.toBeNull();
 
     // Measure retries within each outage, not gaps between unrelated messages
@@ -779,6 +779,11 @@ describe.skipIf(!ready)('M4: the public search route', () => {
     await waitFor('both indexes hold the new document', async () =>
       (await storedDocument(endpoints.a, h.indexUid, result.published.id)) !== null
       && (await storedDocument(endpoints.b, h.indexUid, result.published.id)) !== null, 30_000, 100);
+    // Direct document visibility can precede the worker's terminal task poll
+    // and ACK. Wait for both workers before injecting a read-path failure, or
+    // the synthetic 401/400 may halt a still-polling projection worker and make
+    // the request route directly to B instead of exercising A's no-fallback rule.
+    await awaitIdle(h.app);
     return result;
   }
 

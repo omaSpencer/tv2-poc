@@ -519,3 +519,116 @@ saját maga által létrehozott adatbázist törölte.
 | `npm run verify` | **exit 0**, Node 24.20.0, **28 fájl, 289/289 pass** |
 
 Frontend-fájl és OpenAPI contract nem változott ebben a fázisban.
+
+---
+
+## BE-F5 – Közös infrastruktúra és minőségkapu
+
+### A1 – Közös deadline, retry és managed-settings util · **lezárva**
+
+A relay és a projection worker ugyanazt a `common/deadline.ts` deadline-versenyt
+és `common/retry.ts` D08 létrát használja. A létra sorrendje és plafonja változatlan
+(1/2/4/8/16/30 másodperc, az utolsó ismétlődik), a jitter továbbra is ±20%, az
+attempt state komponensenként külön maradt. A nulla/negatív deadline nem vár, a
+gyors resolve és reject ág minden esetben törli a timert.
+
+A bootstrap és a staging importer most ugyanabból a
+`search/managed-settings.ts` összehasonlításból dolgozik. A
+`searchableAttributes` sorrendérzékeny, a filter/display/sort mezők halmazként
+egyeznek. Az újabb Meilisearch objektumos attribútumbejegyzése nem vész el és nem
+válik hamis egyezéssé, hanem látható mismatch marad.
+
+Megőrzött invariánsok: shutdown grace/abort sorrend, retry attempt resetpont,
+CMS wake által nem rövidíthető backoff és a bootstrap tulajdonjogi szabályai.
+
+### A2 – Közös logger és fail-closed redakció · **lezárva**
+
+A production `src/**` fájljaiban a Pino konstrukció kizárólag az
+`observability/logger.ts` modulban maradt. A bootstrap, HTTP boundary, relay,
+search registry/worker/service, reindex és token verifier ugyanazon DI-ből kapott
+root logger komponens-childját használja; az `APP_LOGGER` token tesztben
+felülírható.
+
+A logger a serializer előtt rekurzívan redaktálja az Authorization/cookie,
+access/ID/refresh token, password/secret/API key és DSN/database URL credential
+mezőket, továbbá a Bearer- és URL-userinfo mintákat mély objektumban és Error
+ágon is. A sentinel teszt öt komponensnévvel igazolja, hogy a titok nem kerül a
+kimenetbe. Nyers request/response/error objektum továbbra sem része a production
+mezőszerződésnek.
+
+### A3 – Production kommentnyelv · **lezárva**
+
+Az inventory két magyar production kommentblokkot talált és fordított angolra:
+
+- `src/ops/processing-status.controller.ts`: Meilisearch reachability indoklás;
+- `src/schema.ts`: operator mutation phase leírás.
+
+A magyar fixture-adat, runtime felhasználói szöveg, tesztleírás és operátori
+dokumentáció szándékosan változatlan. Természetes nyelvet találgató regex-kapu
+nem került a buildbe.
+
+### T1 – V8 coverage regressziós kapu · **lezárva**
+
+Az egymással pontosan egyező `vitest@4.1.11` és
+`@vitest/coverage-v8@4.1.11` verzió commitolt. A mérés minden `src/**/*.ts`
+production fájlt bevon; CLI/bootstrap fájl sincs kizárva. A teljes élő
+PostgreSQL/NATS/Meilisearch stacken mért baseline:
+
+| Metrika | Baseline | Commitolt minimum |
+| --- | ---: | ---: |
+| Statements | 79,42% (2474/3115) | 79% |
+| Branches | 70,16% (1263/1800) | 70% |
+| Functions | 78,98% (466/590) | 78% |
+| Lines | 82,86% (2235/2697) | 82% |
+
+A `verify` a teljes suite-ot egyszer, coverage-dzsel futtatja; nincs előtte
+duplikált `npm test`. Negatív kontrollként csak a W5 unit fájl futtatása mind a
+négy globális küszöb alatt **exit 1** eredményt adott.
+
+A coverage overhead egy korábbi search tesztversenyt is láthatóvá tett: a
+dokumentum már olvasható volt, miközben a worker még a terminal task poll/ACK
+előtt állt, így a read-pathhoz injektált 401 a projection workert érhette. Az
+`indexOne` most mindkét worker `idle` állapotát megvárja a fault injection előtt;
+az érintett T09/T15–T19 szelet 6/6 zöld. A többször egymás után terhelt teljes
+stack futások közül volt PostgreSQL connection-timeoutos ismétlés; az elfogadott
+core verify idejére csak a tesztek által nem használt Authentik server/workert
+állítottuk le, majd mindkettőt healthy állapotba visszaindítottuk.
+
+### T2 – Valódi Authentik release gate · **backend kész, integrációs gate pending**
+
+A blueprint megtartja a per-provider issuert, a `poc-backend-api` audience
+mappinget, az 5 perces access és 1 órás refresh élettartamot, és strict
+allowlistre felveszi a `/auth/silent-callback` URI-t. A production Compose a
+rögzített, kizárólag publikus `VITE_*` build-arg szerződést adja át; manual token
+productionben fixen `false`.
+
+Az új `authentik:release:preflight` valódi discoveryt és RSA JWKS-t kér le,
+ellenőrzi a public clientet, issuer módot, élettartamokat, a teljes strict
+redirectlistát és a három aktív, megfelelő csoportú tesztidentitást. Hiányzó env,
+provider, kulcs, user vagy eltérő redirect hard failure; skip ág nincs.
+
+A jelenleg futó, még W4 blueprintet használó Authentik provider valós lekérése
+5 perc / 1 óra élettartamot adott, de a silent redirectet még nem tartalmazta;
+az új preflight helyesen `redirect_contract_mismatch` hibával blokkolt. A W4
+valódi Chromium evidence már bizonyítja a három szerepet, backend tokenelfogadást,
+403-at, reloadot és logoutot. A teljes T2 csak a backend blueprint integrálása és
+a Cursor FE-F5 ág valódi 5 perces renewal + memória-only reload-silent recovery +
+logout futása után jelölhető lezártnak; token vagy credential nem került logba.
+
+## BE-F5 – futtatott kapuk
+
+| Parancs | Eredmény |
+| --- | --- |
+| Célzott A1/A2/T2 + lifecycle regresszió | **5 fájl, 43/43 pass** |
+| Search fault-injection stabilitási szelet | **6/6 pass** |
+| Teljes `test:coverage`, Node 24.20.0 | **29 fájl, 300/300 pass**, 0 skip |
+| Coverage negatív kontroll | **exit 1**, mind a négy threshold blokkolt |
+| `npm run build` | pass |
+| `npm run lint` | pass – 0 warning, 0 error |
+| `npm run openapi:check` | pass – contract drift nincs |
+| `npm run verify` | **exit 0**, Node 24.20.0, **29 fájl, 300/300 pass**; Authentik server/worker a tőlük független core mérés idejére állt, utána healthy állapotba visszaindult |
+| Authentik provider élő preflight a W4 runtime-on | **várt fail** – `redirect_contract_mismatch`; az új blueprint integrációja szükséges |
+
+Frontend forrás, frontend lockfile, OpenAPI/generated contract és közös workflow
+nem változott ezen az ágon. A backend implementáció átadható; T2 teljes lezárása
+szándékosan az integrált W5 kapuban marad.

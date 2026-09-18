@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { PoolClient } from 'pg';
-import { pino, type Logger } from 'pino';
+import type { Logger } from 'pino';
 import type { SearchIndexAlias } from '../../contracts/search.js';
 import { ADVISORY_LOCK_CLASS, ADVISORY_LOCK_OBJECT, type ReindexErrorCode } from '../../contracts/reindex.js';
 import { DatabaseService } from '../../database.js';
@@ -14,6 +14,7 @@ import { ReindexControlRepository } from './control.repository.js';
 import { ReindexRunError, StagingImporter } from './importer.js';
 import { SnapshotReader } from './snapshot-reader.js';
 import { ReindexVerifier, type VerificationResult } from './verifier.js';
+import { APP_LOGGER, componentLogger, createAppLogger } from '../../observability/logger.js';
 
 const POLL_MS = 100;
 
@@ -71,8 +72,12 @@ export class ReindexCoordinator {
     @Inject(SearchState) private readonly state: SearchState,
     @Inject('SEARCH_BROKER') private readonly broker: JetStreamAdapter,
     @Optional() @Inject(REINDEX_TEST_HOOKS) private readonly hooks: ReindexTestHooks | null = null,
+    @Optional() @Inject(APP_LOGGER) rootLogger: Logger | null = null,
   ) {
-    this.log = pino({ level: this.config.get<string>('LOG_LEVEL') ?? 'info' });
+    this.log = componentLogger(
+      rootLogger ?? createAppLogger(this.config.get<string>('LOG_LEVEL') ?? 'info'),
+      'reindex-coordinator',
+    );
   }
 
   async preflight(index: SearchIndexAlias, allowSearchOutage: boolean): Promise<ReindexPreflight> {

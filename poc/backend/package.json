@@ -12,6 +12,7 @@
     "start:dev": "tsc -p tsconfig.json --watch",
     "lint": "oxlint src scripts test",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:integration:m1": "vitest run test/integration/schema.test.ts test/integration/lifecycle.test.ts test/integration/concurrency.test.ts test/integration/rollback.test.ts test/integration/http.test.ts test/integration/contracts.test.ts",
     "test:integration:m2": "vitest run test/integration/identity.test.ts",
     "test:integration:m3": "vitest run test/integration/relay.test.ts",
@@ -38,9 +39,10 @@
     "evidence:migration-upgrade": "node scripts/verify-w4-migration-upgrade.mjs",
     "demo:m5": "npm run build && node scripts/demo-m5.mjs",
     "e2e:seed-quarantine": "node scripts/e2e-seed-quarantine.mjs",
+    "authentik:release:preflight": "node scripts/authentik-release-preflight.mjs",
     "smoke:m0": "node scripts/smoke-m0.mjs",
     "smoke:full": "npm run build && node scripts/smoke-full.mjs",
-    "verify": "npm run build && npm run lint && npm run openapi:check && npm test"
+    "verify": "npm run build && npm run lint && npm run openapi:check && npm run test:coverage"
   },
   "dependencies": {
     "@nats-io/jetstream": "3.4.0",
@@ -65,6 +67,7 @@
     "@types/express": "5.0.6",
     "@types/node": "24.13.4",
     "@types/pg": "8.23.1",
+    "@vitest/coverage-v8": "4.1.11",
     "drizzle-kit": "0.31.10",
     "oxlint": "1.42.0",
     "typescript": "6.0.3",

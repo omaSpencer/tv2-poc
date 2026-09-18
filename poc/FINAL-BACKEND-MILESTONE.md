@@ -2,7 +2,8 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; BE-F1–BE-F4 lezárva.** Ez a milestone a final audit mind a **25 backend
+**Státusz: folyamatban; BE-F1–BE-F4 lezárva, BE-F5 backend-része elkészült,
+az integrált Authentik lifecycle gate pending.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 
@@ -182,27 +183,30 @@ csendben.
 **Cél:** a duplikált cross-cutting kód rendezése, majd mérhető teszt- és identity
 release gate kialakítása.
 
-- [ ] **A1 – Közös backoff/deadline util.** A relay és projection worker
+- [x] **A1 – Közös backoff/deadline util.** A relay és projection worker
   `raceDeadline`, retry-ladder, jitter és settings-normalizálás duplikációja
   közös, tisztán tesztelhető modulba kerüljön. A viselkedés ne változzon rejtetten.
-- [ ] **A2 – Egyetlen logger bekötési pont.** A független pino-példányokat közös
+- [x] **A2 – Egyetlen logger bekötési pont.** A független pino-példányokat közös
   DI/factory váltsa, egységes redakcióval és mezőszerződéssel. Indulás előtti
   kódhoz is ugyanaz a sanitization policy tartozzon.
-- [ ] **A3 – Forrásnyelv konzisztencia.** A production forrás kommentjei legyenek
+- [x] **A3 – Forrásnyelv konzisztencia.** A production forrás kommentjei legyenek
   angolul; a magyar operátori/user dokumentáció maradhat magyar.
-- [ ] **T1 – Backend coverage gate.** Kerüljön be `@vitest/coverage-v8`, commitolt
+- [x] **T1 – Backend coverage gate.** Kerüljön be `@vitest/coverage-v8`, commitolt
   konfiguráció és fokozatos, a jelenlegi baseline-hoz kötött küszöb. A küszöb ne
   ösztönözzön értéktelen tesztekre, de regressziót ne engedjen.
 - [ ] **T2 – Valódi Authentik L2 release gate.** A mock JWKS mellett legyen
   reprodukálható, dokumentált valódi-tokenes suite legalább issuer, audience,
   refresh/session és jogosultság ellenőrzéssel. Ha nem fut minden PR-on, a release
   gate-ben kötelező és evidence-szel igazolt legyen.
+  A backend blueprint, strict silent redirect, provider-preflight és fail-closed
+  futtatás kész; az 5 perces böngészős renewal/reload/logout bizonyíték az
+  integrált Cursor frontend ágra vár.
 
 ### BE-F5 lezárási kapu
 
-- [ ] A közös util és logger saját unit tesztekkel rendelkezik.
-- [ ] A log-redakció teljes suite-ja zöld.
-- [ ] Typecheck, lint és coverage-küszöb zöld.
+- [x] A közös util és logger saját unit tesztekkel rendelkezik.
+- [x] A log-redakció teljes suite-ja zöld.
+- [x] Typecheck, lint és coverage-küszöb zöld.
 - [ ] A teljes integrációs stack és a valódi Authentik L2 gate zöld.
 - [ ] `FINAL-BACKEND-EVIDENCE.md` mind a 25 audit-ID-t eredménnyel felsorolja.
 

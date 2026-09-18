@@ -8,6 +8,7 @@ import { MessagingModule } from './messaging/messaging.module.js';
 import { OpsModule } from './ops/ops.module.js';
 import { SearchModule } from './search/search.module.js';
 import { IdentityModule } from './identity/identity.module.js';
+import { ObservabilityModule } from './observability/logger.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { IdentityModule } from './identity/identity.module.js';
       envFilePath: environmentFile(process.env),
       validate: validateConfig,
     }),
+    ObservabilityModule,
     DatabaseModule,
     IdentityModule,
     ContentModule,

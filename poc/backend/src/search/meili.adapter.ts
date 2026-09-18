@@ -20,6 +20,7 @@ import {
   SEARCH_SEARCHABLE_ATTRIBUTES, SEARCH_SORTABLE_ATTRIBUTES,
   type SearchProjectionV1,
 } from '../contracts/search.js';
+import { normalizeManagedAttributeNames } from './managed-settings.js';
 import type { SearchInstanceConfig } from './search.config.js';
 
 export type MeiliTaskState = 'enqueued' | 'processing' | 'succeeded' | 'failed' | 'canceled';
@@ -192,13 +193,11 @@ export class MeiliIndexAdapter {
     // `filterableAttributes` can carry object entries in newer Meilisearch
     // versions; M4 only ever sets plain names, so anything else is recorded as
     // a difference rather than coerced into looking equal.
-    const names = (values: unknown): string[] =>
-      Array.isArray(values) ? values.map(value => (typeof value === 'string' ? value : JSON.stringify(value))) : [];
     return {
-      searchableAttributes: names(settings.searchableAttributes),
-      filterableAttributes: names(settings.filterableAttributes),
-      displayedAttributes: names(settings.displayedAttributes),
-      sortableAttributes: names(settings.sortableAttributes),
+      searchableAttributes: normalizeManagedAttributeNames(settings.searchableAttributes),
+      filterableAttributes: normalizeManagedAttributeNames(settings.filterableAttributes),
+      displayedAttributes: normalizeManagedAttributeNames(settings.displayedAttributes),
+      sortableAttributes: normalizeManagedAttributeNames(settings.sortableAttributes),
     };
   }
 
@@ -255,13 +254,11 @@ export class MeiliIndexAdapter {
 
   async managedSettingsOf(uid: string): ReturnType<MeiliIndexAdapter['managedSettings']> {
     const settings = await this.index(uid).getSettings();
-    const names = (values: unknown): string[] =>
-      Array.isArray(values) ? values.map(value => (typeof value === 'string' ? value : JSON.stringify(value))) : [];
     return {
-      searchableAttributes: names(settings.searchableAttributes),
-      filterableAttributes: names(settings.filterableAttributes),
-      displayedAttributes: names(settings.displayedAttributes),
-      sortableAttributes: names(settings.sortableAttributes),
+      searchableAttributes: normalizeManagedAttributeNames(settings.searchableAttributes),
+      filterableAttributes: normalizeManagedAttributeNames(settings.filterableAttributes),
+      displayedAttributes: normalizeManagedAttributeNames(settings.displayedAttributes),
+      sortableAttributes: normalizeManagedAttributeNames(settings.sortableAttributes),
     };
   }
 

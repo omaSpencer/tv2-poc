@@ -282,7 +282,7 @@ export const searchIndexControl = pgTable(
 );
 
 /**
- * Fázis 5 – durable admission, audit and terminal state for operator mutations.
+ * Phase 5 – durable admission, audit and terminal state for operator mutations.
  * Only allowlisted target/result projections are written by the repository;
  * request bodies, credentials and exception text never belong in this table.
  */

@@ -154,10 +154,10 @@ export class ProcessingStatusController {
           startedAt: row?.startedAt?.toISOString() ?? null,
           updatedAt: row?.updatedAt?.toISOString() ?? null,
           completedAt: row?.completedAt?.toISOString() ?? null,
-          // Egy leállt Meilisearch nem tud forgalmat fogadni, hiába `idle` a
-          // worker: forgalom híján sosem lépne hibaállapotba, és az operátor
-          // teljes A/B rendelkezésre állást látna egy kiesés közben. A `null`
-          // (még nem szondázott) állapotot nem tekintjük kiesésnek.
+          // An unavailable Meilisearch instance cannot serve traffic even when
+          // its worker is `idle`: without traffic the worker would never enter
+          // an error state and operators would see false A/B availability. A
+          // `null` (not probed yet) state is not treated as an outage.
           routeEligible: row?.phase === 'ready' && runtimeRoutable && current.reachable !== false,
         };
       };

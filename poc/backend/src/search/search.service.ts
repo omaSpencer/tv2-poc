@@ -14,7 +14,7 @@
  * behind a working B would leave a broken instance broken and unnoticed.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { pino, type Logger } from 'pino';
+import type { Logger } from 'pino';
 import { ConfigService } from '@nestjs/config';
 import { ApiError } from '../contracts/errors.js';
 import { toPublicView, type PublicContentView } from '../contracts/http.js';
@@ -26,6 +26,7 @@ import { SearchRegistry } from './search.registry.js';
 import { SearchState, runtimeStateIsRoutable } from './worker.state.js';
 import { ReindexControlRepository } from './reindex/control.repository.js';
 import { phaseIsRoutable } from '../contracts/reindex.js';
+import { APP_LOGGER, componentLogger, createAppLogger } from '../observability/logger.js';
 
 const searchUnavailable = () =>
   new ApiError('search_unavailable', 'The search index is currently unavailable.');
@@ -41,8 +42,12 @@ export class SearchService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(ContentRepository) private readonly repository: ContentRepository,
     @Optional() @Inject(ReindexControlRepository) private readonly control: ReindexControlRepository | null = null,
+    @Optional() @Inject(APP_LOGGER) rootLogger: Logger | null = null,
   ) {
-    this.log = pino({ level: config.get<string>('LOG_LEVEL') ?? 'info' });
+    this.log = componentLogger(
+      rootLogger ?? createAppLogger(config.get<string>('LOG_LEVEL') ?? 'info'),
+      'search-service',
+    );
   }
 
   async search(query: CatalogSearchQuery): Promise<CatalogSearchView> {

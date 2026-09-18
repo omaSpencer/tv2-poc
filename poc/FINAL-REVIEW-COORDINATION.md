@@ -1,0 +1,79 @@
+# Final review – több-agent koordináció
+
+2026-09-18 · Koordinátor: Codex fő agent.
+
+Ez a dokumentum a [backend](FINAL-BACKEND-MILESTONE.md) és
+[frontend](FINAL-FRONTEND-MILESTONE.md) final milestone párhuzamos
+végrehajtásának közös állapottáblája. A milestone-dokumentumok a scope és a
+Definition of Done forrásai; ez a fájl kizárólag az agent-tulajdonlást, az
+átadást és az integrációs sorrendet rögzíti.
+
+## Szabályok
+
+- Egy implementációs fázisnak pontosan egy író agentje van.
+- Minden író agent külön branchben és worktree-ben dolgozik.
+- Backend és frontend fázis futhat párhuzamosan; ugyanazon milestone következő
+  fázisa csak az előző integrálása és zöld kapuja után indul.
+- Az agent nem merge-el `main`-re és nem módosít más agent worktree-jében.
+- Az agent a saját evidence fájlját frissíti, és egyetlen, review-zható commitot
+  vagy világosan felsorolt kis commitsort ad át.
+- Merge előtt a koordinátor scope-review-t és célzott teszteket futtat. A két
+  ág integrálása után közös contract/build/test kapu következik.
+- Konfliktus, bizonytalan architekturális döntés vagy scope-bővülés esetén az
+  agent megáll és döntési kérdést ad át; nem választ önkényesen új topológiát.
+
+## Aktuális hullám – W1
+
+| Szerep | Tulajdon | Branch | Worktree | Állapot |
+| --- | --- | --- | --- | --- |
+| Claude | Backend BE-F1: S1, S2, S4, S7, O1 | `codex/final-be-f1` | `/private/tmp/tv2-poc-be-f1` | kiadható |
+| Cursor | Frontend FE-F1: M1, L7, L8, L11 | `codex/final-fe-f1` | `/private/tmp/tv2-poc-fe-f1` | kiadható |
+| Codex fő agent | koordináció, baseline, integráció, közös kapu | `main` | repository checkout | folyamatban |
+| Codex reviewer | W1 átfedés-, contract- és tesztterv audit | nincs írás | megosztott olvasás | folyamatban |
+
+Kiadandó feladatlapok: [Claude / backend BE-F1](agent-prompts/W1-CLAUDE-BACKEND.md)
+és [Cursor / frontend FE-F1](agent-prompts/W1-CURSOR-FRONTEND.md).
+
+## Kötelező agent-átadás
+
+Minden implementáló agent válasza tartalmazza:
+
+1. branch és commit SHA;
+2. lezárt audit-ID-k;
+3. módosított fájlok és viselkedés röviden;
+4. futtatott parancsok és pontos eredmények;
+5. nem futtatott kapuk és az ok;
+6. nyitott döntés, kockázat vagy következő fázist érintő megjegyzés;
+7. annak kijelentése, hogy nem merge-elt és nem módosított a scope-on kívül.
+
+## Koordinátori integrációs kapu
+
+- [ ] Az agent commitja csak a kiosztott audit-ID-ket és szükséges teszteket érinti.
+- [ ] A milestone checklist és a megfelelő evidence minden lezárt ID-re frissült.
+- [ ] Nincs elveszett vagy gyengített korábbi teszt/invariáns.
+- [ ] Backend contractváltozás esetén az OpenAPI snapshot és a frontend generated
+  contract drift ellenőrzött.
+- [ ] A branch saját typecheck/lint/teszt kapuja zöld.
+- [ ] A két W1 branch együtt, tiszta integrációs állapotban is zöld.
+- [ ] Csak ezután jelölhető a fázis késznek és osztható ki BE-F2/FE-F2.
+
+## Hullámok
+
+| Hullám | Backend | Frontend | Indítás feltétele |
+| --- | --- | --- | --- |
+| W1 | BE-F1 | FE-F1 | baseline commit kész |
+| W2 | BE-F2 | FE-F2 | W1 integrált és zöld |
+| W3 | BE-F3 | FE-F3 | W2 integrált és zöld |
+| W4 | BE-F4 | FE-F4 | W3 integrált és zöld |
+| W5 | BE-F5 | FE-F5 | W4 integrált és zöld |
+| Final | teljes backend evidence | teljes frontend evidence | W5 integrált és zöld |
+
+## Végső közös kapu
+
+- [ ] Backend 25/25 és frontend 21/21 audit-ID lezárt evidence-szel.
+- [ ] Backend build/typecheck/lint/OpenAPI/coverage/integráció/Auth L2 zöld.
+- [ ] Frontend build/typecheck/lint/contracts/coverage/unit/component/axe/E2E zöld.
+- [ ] Friss checkout runbook és production-topológia döntések konzisztensen
+  dokumentáltak.
+- [ ] Független final diff review nem talál scope-regressziót vagy elhallgatott
+  elfogadást.

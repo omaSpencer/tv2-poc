@@ -6,6 +6,12 @@ Státusz: **M0 és M1 implementálva** (lásd [M0–M1 futtatási jegyzőkönyv]
 
 A fázisok működési forgatókönyvei, döntési pontjai és részletes elfogadási feltételei: [Részletes fázisterv](PHASES.md).
 
+A 2026-09-18-i final code review 46 nem blokkoló hardening találatának külön,
+fázisos lezárási terve: [Final backend milestone](FINAL-BACKEND-MILESTONE.md)
+(25 tétel) és [Final frontend milestone](FINAL-FRONTEND-MILESTONE.md) (21 tétel).
+Ezek az M0–M5 és a frontend Fázis 0–7 eredményeire épülő utólagos záró
+milestone-ok; nem írják át a már teljesített PoC release gate-ek bizonyítékát.
+
 Az M0 feladatszintű lebontása, technológiai verziópinnel és smoke-check
 listával: [M0 implementációs terv](M0-IMPLEMENTATION.md). A további részletes
 tervek: [M1 – Tranzakciós CMS-életciklus](M1-IMPLEMENTATION.md),

@@ -109,6 +109,74 @@ Feladatlapok: [Cursor / frontend FE-F2](agent-prompts/W2-CURSOR-FRONTEND.md) és
 - Integrációs sorrend: backend review+merge, frontend review+merge, contract
   drift ellenőrzés, backend teljes verify, frontend verify+E2E typecheck.
 
+## Tervezett hullám – W3
+
+A W3-ban csak két szereplő vesz részt: Codex és Cursor. Claude nem kap
+tulajdont, review-feladatot vagy kapuszerepet. A hullám **nem indulhat el**, amíg
+a W2 mindkét ága nincs integrálva, és a közös W2 kapu nem zöld. Mindkét W3
+worktree ugyanarról, a W2 utáni tiszta `main` commitról készül.
+
+| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| --- | --- | --- | --- | --- |
+| Codex | Backend BE-F3: C1, C6, C7, C8, D2; frontend review és integráció | `codex/final-be-f3` | `/private/tmp/tv2-poc-be-f3` | W2 közös kapuja után |
+| Cursor | Frontend FE-F3: L2, L6, L10, I2; backend read-only review | `codex/final-fe-f3` | `/private/tmp/tv2-poc-fe-f3` | W2 közös kapuja után |
+
+Feladatlapok: [Codex / backend BE-F3](agent-prompts/W3-CODEX-BACKEND.md) és
+[Cursor / frontend FE-F3](agent-prompts/W3-CURSOR-FRONTEND.md).
+
+### W3 döntések és határok
+
+- A backend megtartja a jelenlegi HTTP/OpenAPI alakot. A karanténkurzor
+  jelentése pontosodik, de a `nextCursor` mező és a kódolás formája nem
+  változik.
+- A `capacity` broker-hiba külön kategória marad, mert operátori beavatkozást
+  jelez; a W3 ezt a retry logban és a processing statusban bizonyíthatóan
+  megkülönbözteti a `transient` hibától. Új publikus hibakód nem készül.
+- A frontend health hívásai mindig anonimak. A StatusBar nem használ
+  modul-globális, versenyző „utolsó correlation ID” állapotot; a kijelzett
+  azonosító egy név szerint megjelölt health válaszhoz tartozik.
+- A reindex preflight és a health polling külön policy. Mindkettő megáll
+  rejtett lapon, visszatéréskor frissít, és egyik sem indít második kérést
+  aktív fetch mellé.
+- A backend ág csak backend forrást, tesztet, recovery/ADR dokumentációt és
+  backend evidence-et ír. A frontend ág csak frontend forrást, tesztet és
+  frontend evidence-et ír. Mindkét agent csak a saját F3 checklistjét
+  frissítheti; a milestone összesített státusza és a koordinációs dokumentum
+  a koordinátor tulajdona.
+
+### W3 review- és integrációs sorrend
+
+1. Codex és Cursor párhuzamosan implementál a közös W2 utáni baseline-ról.
+2. Cursor átadja az FE-F3 commitot; Codex scope-, timer-, auth-header- és
+   request-verseny review-t futtat rajta.
+3. Codex átadja a BE-F3 commitot; Cursor az FE-F3 lezárása után, írás nélkül
+   ellenőrzi a kurzor-kontraktust, az audit fail-closed ágat és a
+   dokumentáció reprodukálhatóságát.
+4. Találatot mindig az eredeti ág tulajdonosa javít; keresztágas írás nincs.
+5. Integrációs sorrend: BE-F3, majd FE-F3; ezután contract drift, backend
+   teljes verify, frontend verify és E2E typecheck.
+6. W4 csak akkor osztható ki, ha a két evidence fájl teljes, nincs nyitott
+   review-találat, és a W3 közös kapuja zöld.
+
+### W3 közös kapu
+
+- [ ] BE-F3 mind az öt, FE-F3 mind a négy audit-ID-je evidence-szel lezárt.
+- [ ] A ritka, 2000-nél nagyobb karanténrés lapozása nem hagy ki üzenetet és
+  végesen eléri a stream elejét.
+- [ ] Ismeretlen audit action belső hibát ad; korlátlan audit repository út
+  nincs.
+- [ ] A `capacity` és `transient` broker-hiba megfigyelhetően különbözik, a
+  forward-only migrációs recovery policy reprodukálható.
+- [ ] Health kérés nem hordoz Bearer headert; tartó outage alatt a polling
+  ritkul, recovery után 10 másodpercre áll vissza.
+- [ ] A reindex preflight látható lapon friss, rejtett lapon szünetel, és a
+  submit döntés nem korlátlanul elavult adatra épül.
+- [ ] Párhuzamos requestek mellett a StatusBar correlation ID-ja nem
+  last-write-wins globális állapotból származik.
+- [ ] Backend `npm run verify`, frontend `npm run verify` és
+  `npm run e2e:typecheck` Node 24.20.0-n zöld; OpenAPI/generated contract drift
+  nincs.
+
 ## W1 baseline – 2026-09-18
 
 Runtime: Node `24.20.0`. A dependency stack a Compose healthcheckek szerint

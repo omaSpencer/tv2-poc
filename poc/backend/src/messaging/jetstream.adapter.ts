@@ -45,6 +45,49 @@ export type ConsumerProgress = {
 export type StoredMessage = { subject: string; sequence: number; data: Uint8Array };
 export type StreamBounds = { firstSequence: number; lastSequence: number; messages: number };
 
+export type SequenceRangeState = {
+  messages: number;
+  first_seq: number;
+  last_seq: number;
+  num_deleted: number;
+  deleted?: number[];
+  lost?: { msgs: number[] | null; bytes: number };
+};
+
+/**
+ * Limits retention removes an old prefix, so stream bounds prove a range only
+ * when the server also supplies a complete account of every interior hole.
+ * Any incomplete delete/loss metadata fails closed instead of accepting a
+ * catch-up interval that can no longer be replayed.
+ */
+export function streamStateHasSequenceRange(
+  state: SequenceRangeState,
+  first: number,
+  last: number,
+): boolean {
+  if (last < first) return true;
+  if (state.messages === 0 || state.first_seq > first || state.last_seq < last) return false;
+
+  const deleted = state.deleted ?? [];
+  if (state.num_deleted !== deleted.length) return false;
+  const lost = state.lost?.msgs;
+  if ((state.lost?.bytes ?? 0) > 0 && lost === null) return false;
+
+  const knownHoles = new Set<number>();
+  for (const sequence of deleted) knownHoles.add(sequence);
+  for (const sequence of lost ?? []) knownHoles.add(sequence);
+
+  const streamSpan = state.last_seq - state.first_seq + 1;
+  const holesInsideBounds = [...knownHoles]
+    .filter(sequence => sequence >= state.first_seq && sequence <= state.last_seq).length;
+  if (streamSpan - holesInsideBounds !== state.messages) return false;
+
+  for (const sequence of knownHoles) {
+    if (sequence >= first && sequence <= last) return false;
+  }
+  return true;
+}
+
 export const JETSTREAM_TOPOLOGY_LIMITS = 'JETSTREAM_TOPOLOGY_LIMITS';
 
 @Injectable()
@@ -205,13 +248,8 @@ export class JetStreamAdapter {
     if (last < first) return true;
     await this.ensureConnected();
     if (!this.jsm) throw new Error('JetStream manager is not connected.');
-    const info = await this.jsm.streams.info(this.names.stream);
-    if (info.state.messages === 0 || info.state.first_seq > first || info.state.last_seq < last) return false;
-    for (let sequence = first; sequence <= last; sequence += 1) {
-      const message = await this.jsm.streams.getMessage(this.names.stream, { seq: sequence });
-      if (message === null) return false;
-    }
-    return true;
+    const info = await this.jsm.streams.info(this.names.stream, { deleted_details: true });
+    return streamStateHasSequenceRange(info.state, first, last);
   }
 
   async storedMessage(stream: string, sequence: number): Promise<StoredMessage | null> {

@@ -52,9 +52,33 @@ describe('T01 migration and database constraints', () => {
     ]);
   });
 
-  it('recorded all six migrations once and did not apply them twice', async () => {
+  it('recorded all seven migrations once and did not apply them twice', async () => {
     const applied = await query<{ count: number }>('select count(*)::int as count from drizzle.__drizzle_migrations', [], url);
-    expect(applied[0].count).toBe(6);
+    expect(applied[0].count).toBe(7);
+  });
+
+  it('D1 installs pg_trgm and both admin substring indexes', async () => {
+    const extension = await query<{ present: boolean }>(
+      `select exists(select 1 from pg_extension where extname = 'pg_trgm') as present`,
+      [],
+      url,
+    );
+    expect(extension[0]?.present).toBe(true);
+    const indexes = await query<{ indexname: string; indexdef: string }>(`
+      select indexname, indexdef
+      from pg_indexes
+      where schemaname = 'public'
+        and indexname in ('content_admin_title_trgm_idx', 'content_admin_slug_trgm_idx')
+      order by indexname
+    `, [], url);
+    expect(indexes.map(row => row.indexname)).toEqual([
+      'content_admin_slug_trgm_idx',
+      'content_admin_title_trgm_idx',
+    ]);
+    for (const row of indexes) {
+      expect(row.indexdef).toContain('USING gin');
+      expect(row.indexdef).toContain('gin_trgm_ops');
+    }
   });
 
   it('rejects a disallowed status or category', async () => {

@@ -149,31 +149,31 @@ csendben.
 **Cél:** az implicit megbízhatósági invariánsok legyenek explicit szerződések,
 és a nagyobb adathalmaznál jelentkező lineáris költségek legyenek kezelve.
 
-- [ ] **C3 – At-least-once és consumer-idempotencia contract.** Az event contract
+- [x] **C3 – At-least-once és consumer-idempotencia contract.** Az event contract
   mondja ki, hogy a relay a dedupe-ablakon túl is duplikálhat, a consumernek
   eventId/aktuális aggregátum alapján konvergálnia kell. Legyen a 2 perces ablakon
   túli redeliveryt bizonyító teszt vagy determinisztikus harness.
-- [ ] **C4 – `hasSequenceRange` round-tripok megszüntetése.** Limits retention
+- [x] **C4 – `hasSequenceRange` round-tripok megszüntetése.** Limits retention
   mellett bounds-check vagy igazoltan korlátos mintavételezés váltsa az
   üzenetenkénti lekérdezést. A hiányos retention-ág továbbra is fail-closed legyen.
-- [ ] **C5 – Reindex verifier memória- és freeze-ablak.** Rögzíteni kell a
+- [x] **C5 – Reindex verifier memória- és freeze-ablak.** Rögzíteni kell a
   támogatott katalógusplafont, majd az afölötti út legyen keysetes sorted
   merge-join vagy más korlátos memóriájú összehasonlítás. A write-barrier idejét
   mérje teszt/evidence.
-- [ ] **C9 – Relay orphaned-loop guard.** A fast-path stop ellenőrizze az aktív
+- [x] **C9 – Relay orphaned-loop guard.** A fast-path stop ellenőrizze az aktív
   loop állapotát is; restart/stop versenyhelyzetre legyen determinisztikus teszt.
-- [ ] **D1 – Admin keresés indexstratégia.** Production profilhoz `pg_trgm` GIN
+- [x] **D1 – Admin keresés indexstratégia.** Production profilhoz `pg_trgm` GIN
   index és mért `EXPLAIN` evidence készüljön reális adatmennyiséggel. Ha a
   production scope ezt későbbre teszi, legyen számszerű aktiválási küszöb és
   külön követett feladat.
 
 ### BE-F4 lezárási kapu
 
-- [ ] A relay/consumer duplikációs invariáns szerződésben és tesztben is látszik.
-- [ ] A retention check hálózati round-tripja nem nő lineárisan a range hosszával.
-- [ ] A verifier memóriahasználata és write-freeze ideje dokumentált mérésből ismert.
-- [ ] Relay stop/start versenyteszt ismételhetően zöld.
-- [ ] Az admin keresés query planje vagy az elfogadott aktiválási küszöb evidence-ben szerepel.
+- [x] A relay/consumer duplikációs invariáns szerződésben és tesztben is látszik.
+- [x] A retention check hálózati round-tripja nem nő lineárisan a range hosszával.
+- [x] A verifier memóriahasználata és write-freeze ideje dokumentált mérésből ismert.
+- [x] Relay stop/start versenyteszt ismételhetően zöld.
+- [x] Az admin keresés query planje vagy az elfogadott aktiválási küszöb evidence-ben szerepel.
 
 ---
 

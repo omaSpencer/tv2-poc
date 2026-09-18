@@ -285,12 +285,14 @@ export class ReindexCoordinator {
     const deadline = Date.now() + timeout;
     await this.control.setPhase(alias, 'verifying');
     await client.query('begin');
+    let freezeStarted = 0;
     try {
       await client.query(localTimeoutStatement('lock_timeout', timeout));
       await client.query(localTimeoutStatement('statement_timeout', timeout));
       await client.query('select pg_advisory_xact_lock($1, $2)', [
         ADVISORY_LOCK_CLASS.writeBarrier, ADVISORY_LOCK_OBJECT.writeBarrier,
       ]);
+      freezeStarted = Date.now();
       const highWaterResult = await client.query<{ value: string }>(
         'select coalesce(max(outbox_sequence), 0)::text as value from outbox_event',
       );
@@ -317,7 +319,18 @@ export class ReindexCoordinator {
         where index_alias = $1
       `, [alias, now]);
       await client.query('commit');
-      return result;
+      const verification = { ...result, writeFreezeMs: Date.now() - freezeStarted };
+      this.log.info({
+        event: 'reindex_verified',
+        runId,
+        index: alias,
+        expected: verification.expected,
+        actual: verification.actual,
+        maxBatchDocuments: verification.maxBatchDocuments,
+        verificationDurationMs: verification.verificationDurationMs,
+        writeFreezeMs: verification.writeFreezeMs,
+      });
+      return verification;
     } catch (error) {
       await client.query('rollback').catch(() => undefined);
       if (['55P03', '57014'].includes((error as { code?: string }).code ?? '')) throw new ReindexRunError('verify_timeout');

@@ -292,6 +292,20 @@ export class MeiliIndexAdapter {
     return result.results.map(document => ({ id: document.id, aggregateVersion: document.aggregateVersion }));
   }
 
+  /** Bounded verifier lookup: at most the caller's keyset page is materialised. */
+  async projectionsByIds(
+    uid: string,
+    ids: readonly string[],
+  ): Promise<Array<{ id: string; aggregateVersion: number }>> {
+    if (ids.length === 0) return [];
+    const result = await this.index(uid).getDocuments<{ id: string; aggregateVersion: number }>({
+      ids: [...ids],
+      limit: ids.length,
+      fields: ['id', 'aggregateVersion'],
+    });
+    return result.results.map(document => ({ id: document.id, aggregateVersion: document.aggregateVersion }));
+  }
+
   async documentVersion(id: string): Promise<number | null> {
     try {
       const document = await this.index().getDocument<{ id: string; aggregateVersion: number }>(id, {

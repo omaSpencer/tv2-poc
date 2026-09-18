@@ -5,6 +5,12 @@
  * under `contracts/events.v1.schema.json` is generated from this Zod schema, so
  * the TypeScript type, the runtime validator and the schema cannot drift apart.
  * No token, e-mail address or media key may appear in an event.
+ *
+ * Delivery is at-least-once. JetStream's two-minute msgID duplicate window is
+ * only a publish optimisation: after it expires the same eventId may occupy a
+ * second stream sequence. Consumers must therefore converge from eventId plus
+ * the aggregate's current source-of-truth state, never treat the window as an
+ * exactly-once guarantee.
  */
 import { z } from 'zod';
 import { EVENT_TYPES, LIMITS } from '../schema.js';

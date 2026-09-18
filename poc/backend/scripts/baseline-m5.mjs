@@ -181,7 +181,7 @@ try {
 
   for (const alias of ['a', 'b']) {
     const startedAt = performance.now();
-    const result = await coordinator.run({ index: alias });
+    const result = await coordinator.run({ runId: randomUUID(), index: alias });
     raw.reindex[alias] = { durationMs: performance.now() - startedAt, ...result };
   }
 

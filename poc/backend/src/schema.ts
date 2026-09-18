@@ -105,6 +105,10 @@ export const content = pgTable(
     // PostgreSQL scans this ascending btree backwards for the required
     // `updated_at DESC, id DESC` order. Both columns are NOT NULL.
     index('content_admin_updated_id_idx').on(table.updatedAt, table.id),
+    // Admin substring search uses ILIKE on title OR slug. Separate trigram GIN
+    // indexes let PostgreSQL combine selective predicates with a BitmapOr.
+    index('content_admin_title_trgm_idx').using('gin', table.title.op('gin_trgm_ops')),
+    index('content_admin_slug_trgm_idx').using('gin', table.slug.op('gin_trgm_ops')),
     // A nullable slug leaves the name free; the unique constraint is the final
     // arbiter of a concurrent publish race, not a prior existence check.
     unique(CONSTRAINTS.contentSlugUnique).on(table.slug),

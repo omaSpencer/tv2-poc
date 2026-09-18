@@ -7,7 +7,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { connect } from '@nats-io/transport-node';
-import { jetstreamManager, DiscardPolicy, RetentionPolicy, StorageType } from '@nats-io/jetstream';
+import { jetstream, jetstreamManager, DiscardPolicy, RetentionPolicy, StorageType } from '@nats-io/jetstream';
 import { nanos } from '@nats-io/transport-node';
 import {
   context, createServices, query, testDatabaseUrl, truncateAll,
@@ -104,6 +104,31 @@ describe.skipIf(!run)('M3 topology', () => {
       }
       const info = await jsm.streams.info(names.stream);
       expect(info.config.discard).toBe('old');
+    } finally {
+      await destroyTopology(jsm, names);
+      await nc.close();
+    }
+  });
+
+  it('C3: the same msgID becomes a second stream sequence after the dedupe window', async () => {
+    const names = isolatedTopology('C3');
+    const nc = await connect({ servers: natsUrl() });
+    const jsm = await jetstreamManager(nc);
+    try {
+      await ensureTopology(jsm, names, { duplicateWindowMs: 100 });
+      const js = jetstream(nc);
+      const msgID = randomUUID();
+      const payload = new TextEncoder().encode('{"contract":"at-least-once"}');
+      const first = await js.publish(names.subject, payload, { msgID });
+      const inside = await js.publish(names.subject, payload, { msgID });
+      expect(inside.duplicate).toBe(true);
+      expect(inside.seq).toBe(first.seq);
+
+      await new Promise(resolve => setTimeout(resolve, 250));
+      const after = await js.publish(names.subject, payload, { msgID });
+      expect(after.duplicate).toBe(false);
+      expect(after.seq).toBeGreaterThan(first.seq);
+      expect((await jsm.streams.info(names.stream)).state.messages).toBe(2);
     } finally {
       await destroyTopology(jsm, names);
       await nc.close();

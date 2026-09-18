@@ -126,7 +126,10 @@ Kezdeti topológia:
 - PoC retention: 7 nap; 1 GiB és 1 000 000 üzenet, új publikálás elutasítása kapacitáskorlátnál; további alapértékek a DECISIONS D08-ban. A hosszabb távú újraépítés PostgreSQL-ből történik.
 - Durable pull consumer: `search-a-v1` és `search-b-v1`, ugyanarra a subjectre, példányonként külön előrehaladással.
 - Explicit ACK: csak sikeres indexművelet és a Meilisearch task sikeres befejezése után.
-- Stabil `eventId` a publish deduplikációhoz; a deduplikációs időablak nem helyettesíti az idempotens fogyasztót.
+- Stabil `eventId` a publish deduplikációhoz; a kétperces deduplikációs ablak
+  csak optimalizáció, nem exactly-once garancia. Az ablak után ugyanaz az
+  `eventId` új stream sequence-ként ismét megjelenhet, ezért nem helyettesíti az
+  idempotens fogyasztót.
 
 Tervezett eseményszerződés, példányértékekkel:
 
@@ -143,7 +146,7 @@ Tervezett eseményszerződés, példányértékekkel:
 }
 ```
 
-A subject a változási csatorna, az `eventType` a művelet. A PoC-ban a keresési fogyasztó az aggregate azonosítójával a PostgreSQL aktuális állapotát olvassa. Ezzel a régi eseményből is a jelenlegi állapotot projektálja. Ez szándékos read-model egyszerűsítés; nem általános történeti event sourcing. Az eseménybe nem kerül token, e-mail vagy médiakulcs.
+A subject a változási csatorna, az `eventType` a művelet. A PoC-ban a keresési fogyasztó minden kézbesítéskor az aggregate azonosítójával a PostgreSQL aktuális állapotát olvassa. Ezzel a régi vagy duplikált eseményből is a jelenlegi állapotot és verziót projektálja; az envelope `aggregateVersion` megfigyelési adat, nem írhat vissza elavult projekciót. Ez szándékos read-model egyszerűsítés; nem általános történeti event sourcing. Az eseménybe nem kerül token, e-mail vagy médiakulcs.
 
 Az outbox relay csak a JetStream publish ACK után jelöl kézbesítettnek. Ha az ACK és a jelölés között leáll, ugyanazt az eseményt újra küldheti. A relay kezdetben egyetlen példány; a több relayhez szükséges rekordfoglalás külön bővítés.
 

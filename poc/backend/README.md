@@ -81,7 +81,37 @@ open http://localhost:3000/docs
 | `npm run search:quarantine:replay -- --sequence=N --reason=...` | Validált eredeti esemény célzott replaye |
 | `npm run search:repair-content -- --id=UUID --index=a\|b\|both` | Aktuális DB-projekció célzott javítása |
 | `npm run baseline:m5 -- --output=DIR` | 1000 tartalom + 100 ciklus raw JSON/Markdown baseline |
+| `npm run evidence:reindex-verifier -- --output=/tmp/w4-verifier.json` | Izolált, alapértelmezetten 1000 publikált dokumentumos korlátos verifier-mérés |
+| `npm run evidence:admin-search` | Eldobható `*_test` DB-ben 100 000 soros, production alakú admin `ILIKE` EXPLAIN |
+| `npm run evidence:migration-upgrade` | Eldobható DB-ben `0005` → `0006` forward upgrade, adatmegőrzés és repeat no-op |
 | `npm run demo:m5` | M4 üzleti demó, majd A és B teljes reindexe |
+
+A BE-F4 korlátos verifier mérése frissen migrált, üres `*_test` adatbázist,
+valamint elkülönített stream- és indexnevet követel:
+
+```bash
+NATS_STREAM=W4_VERIFY_LOCAL NATS_SUBJECT=poc.w4.verify.local \
+MEILI_INDEX_UID=w4_verifier_local FEATURE_OUTBOX_RELAY=off \
+npm run evidence:reindex-verifier -- --count=1000 --output=/tmp/w4-verifier.json
+```
+
+Ez csak a C5 teljes reindex/verify, batch- és write-freeze bizonyítéka. A mérés
+után a saját Meilisearch indexeit, NATS streamjeit és szintetikus DB-sorait
+eltávolítja; nem helyettesíti a külön, továbbra is nyitott 1000+100 M5
+kapacitásbaseline-t.
+
+A mért és támogatott verifier-plafon ebben a PoC-fázisban **1000 publikált
+dokumentum**, `REINDEX_BATCH_SIZE=500` mellett. A 2026-09-18-i izolált mérésben
+az A/B teljes reindex 4,730/4,200 ms, a verifier 41/91 ms, a write-freeze
+264/935 ms volt; mindkét index 1000/1000 egyezést adott, legfeljebb 500
+dokumentumos rezidens batch-csel. A keysetes út ennél nagyobb katalógusnál is
+korlátos memóriájú, de a nagyobb méret e fázisban nem minősített kapacitás.
+
+Az admin `ILIKE` keresésnél 10 000 szintetikus sornál a PostgreSQL még a gyorsabb
+szekvenciális scant választotta (5,145 ms). 100 000 sornál a production alakú
+query mindkét trigram GIN indexet `BitmapOr` tervben használta; a mért planning
+3,281 ms, az execution 36,621 ms volt. Így az indexek aktív tervhasználata és a
+méretfüggő planner-küszöb is evidence-ben rögzített.
 
 ## Migráció
 
@@ -96,9 +126,18 @@ alkalmazásoldali migrációs napló. A migráció előrefelé alkalmazott; ált
   `outbox_event` a korlátaikkal és egyediségeikkel.
 - `migrations/0002_reindex_control.sql` – M5: monoton outbox high-water,
   PubAck stream sequence és a két tartós `search_index_control` sor.
+- `migrations/0006_parallel_warbird.sql` – BE-F4: `pg_trgm`, valamint a title és
+  slug admin részszövegkeresés külön GIN trigram indexei.
 
 Séma módosításakor `src/schema.ts` változik, majd `npm run db:generate` állítja
 elő a következő fájlt. A már alkalmazott fájlt nem írjuk át.
+
+A `0006` migráció `CREATE EXTENSION IF NOT EXISTS pg_trgm` lépése productionben
+extension-létrehozási jogosultságot igényel. Ha az alkalmazás migrációs szerepe
+ezt nem kaphatja meg, a platform/DBA a release előtt preprovisionálja az
+extensiont; az alkalmazás ezután ugyanazt a forward-only migrációt futtatja. A
+jogosultsági hiba nem kerülhető meg index nélküli indulással: restore vagy
+jóváhagyott forward-fix szükséges a recovery runbook szerint.
 
 A restore/forward-fix döntés, a felelősségek, a release előtti backup és a
 kötelező negyedéves rehearsal lépései a

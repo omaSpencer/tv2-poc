@@ -1,7 +1,7 @@
 # Final backend evidence
 
 2026-09-18 · A `FINAL-BACKEND-MILESTONE.md` fázisainak bizonyítékai.
-Fázisonként bővül; jelenleg a **BE-F1–BE-F3** zárása szerepel benne.
+Fázisonként bővül; jelenleg a **BE-F1–BE-F4** zárása szerepel benne.
 
 ## Futtatókörnyezet és annak korlátai
 
@@ -419,3 +419,103 @@ CPU-magot foglalt, ami széles PostgreSQL/NATS/Meilisearch connection timeoutot
 okozott. Az Authentik ideiglenes leállítása és a core stack adatvesztés nélküli
 restartja után a teljes verify tisztán zöld lett; az Authentik szolgáltatásokat a
 mérés után visszaindítottuk. Frontend/OpenAPI contract nem változott.
+
+---
+
+## BE-F4 – Eseményút, reindex és skálázás
+
+### C3 – Explicit at-least-once contract · **lezárva**
+
+Az eseményszerződés és a PoC leírás most kimondja, hogy a JetStream kétperces
+`msgID` dedupe-ablaka csak optimalizáció. Ugyanaz az esemény az ablak után új
+stream sequence-ként ismét megjelenhet, ezért a consumer minden kézbesítéskor a
+PostgreSQL aktuális aggregate állapotából és verziójából konvergál.
+
+Az élő NATS topológiateszt 100 ms-os dedupe-ablakkal igazolja, hogy az ablakon
+belüli azonos `msgID` ugyanazt a sequence-t adja és duplicate, 250 ms után viszont
+új sequence keletkezik. A meglévő M4-T06 ugyanazt a régi publish envelope-ot a
+withdrawal után friss broker-azonosítóval visszajátssza; mindkét index törölt,
+aktuális DB-állapotra konvergál.
+
+### C4 – Konstans round-trip retention proof · **lezárva**
+
+A `JetStreamAdapter.hasSequenceRange` a korábbi sequence-enkénti
+`getMessage` ciklus helyett egyetlen, `deleted_details` opciós stream-info
+kérést végez. A helper a retained bounds, a teljes delete-lista, a lost metadata
+és a stream-span konzisztenciáját együtt ellenőrzi. Hiányos vagy ellentmondó
+metadata esetén fail-closed eredményt ad.
+
+Az adapterteszt 100 000 sequence hosszú logikai range-nél pontosan egy info
+hívást és nulla üzenetenkénti lekérdezést vár; külön lefedi a prefix retentiont,
+belső delete/lost lyukat és a csonkolt metadata ágakat.
+
+### C5 – Korlátos verifier és mért write-freeze · **lezárva**
+
+A verifier UUID keyset lapokban olvassa a publikált DB-sorokat, oldalanként
+Meilisearch `ids` lookupot használ, és csak egy lapot plusz három, legfeljebb
+20 elemű diagnosztikai mintát tart memóriában. A missing, extra és version
+mismatch darabszám ettől függetlenül egzakt. A koordinátor külön méri a verifier
+idejét, a legnagyobb batch-et és az advisory write lock megszerzésétől a commitig
+tartó freeze-ablakot.
+
+Az izolált evidence runner frissen migrált, üres `*_test` adatbázist, saját NATS
+streamet és saját Meilisearch UID-t követel, majd a futás végén csak ezeket a
+szintetikus erőforrásokat takarítja. A mért és e fázisban támogatott plafon
+**1000 publikált dokumentum**, `REINDEX_BATCH_SIZE=500` mellett:
+
+| Index | Egyezés | Reindex | Verifier | Write-freeze | Max batch |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A | 1000/1000 | 4 730 ms | 41 ms | 264 ms | 500 |
+| B | 1000/1000 | 4 200 ms | 91 ms | 935 ms | 500 |
+
+Mindkét oldalon `missingCount=0`, `extraCount=0`,
+`versionMismatchCount=0`. A keysetes algoritmus nagyobb katalógusnál is
+korlátos memóriájú, de 1000 fölött e fázis nem vállal mért kapacitásgaranciát.
+A külön M5 1000+100 latency baseline továbbra sem ennek a mérésnek a része.
+
+### C9 – Relay orphaned-loop lifecycle guard · **lezárva**
+
+Grace-timeout után a még futó relay loop megtartja a broker tulajdonjogát és a
+státusz nem vált hamisan `off` állapotra. Ismételt stop nem zárja le alóla a
+kapcsolatot, start nem indít második loopot; a tényleges settle után pontosan egy
+broker close történik, majd a restart ismét engedélyezett. A determinisztikus,
+fake-timeres teszt mindegyik átmenetet ellenőrzi, a teljes relay integrációs
+csomag pedig a korábbi lifecycle invariánsokat is zölden tartja.
+
+### D1 – Trigram admin keresési terv és forward upgrade · **lezárva**
+
+A `pg_trgm` extensiont létrehozó forward-only `0006_parallel_warbird.sql`
+migráció külön GIN `gin_trgm_ops` indexet ad a `title` és `slug` mezőhöz. A
+schema integrációs teszt az extensiont és mindkét indexdefiníciót ellenőrzi. A
+production alkalmazásszerep extension-jogosultságának vagy DBA
+preprovisioningjának követelménye a backend README-ben szerepel.
+
+A production alakú query (`status`, `category`, title/slug `ILIKE`, keyset
+cursor, rendezés és limit) 10 000 szintetikus sornál még 5,145 ms-os Seq Scant
+kapott. 100 000 sornál a planner mindkét trigram indexet `BitmapOr` alatt
+használta: planning 3,281 ms, execution 36,621 ms. Ez egyszerre bizonyítja az
+index aktiválását és azt, hogy kis lokális adathalmaznál a Seq Scan lehet a
+helyesebb terv.
+
+A külön upgrade harness egy garantáltan új, véletlen `_test` adatbázisban
+először csak a `0000`–`0005` migrációkat alkalmazta, survivor sort írt, majd a
+teljes készlettel `0006`-ra lépett. Eredmény: 6 → 7 migráció, repeat no-op,
+extension és két index jelen, a korábbi sor megmaradt. A harness kizárólag a
+saját maga által létrehozott adatbázist törölte.
+
+## BE-F4 – futtatott kapuk
+
+| Parancs | Eredmény |
+| --- | --- |
+| C4/C5/C9 célzott unit tesztek + backend audit | **4 fájl, 15/15 pass** |
+| Teljes relay integráció, benne C3 | **1 fájl, 18/18 pass** |
+| Search + schema élő integráció | **2 fájl, 45/45 pass** |
+| Izolált 1000 dokumentumos C5 mérés | **A/B 1000/1000**, max batch 500 |
+| 100 000 soros admin EXPLAIN | **BitmapOr**, mindkét trigram GIN index |
+| `0005` → `0006` upgrade + repeat | **pass**, adatmegőrzés igazolva |
+| `npm run build` | pass |
+| `npm run lint` | pass – 0 warning, 0 error (131 fájl) |
+| `npm run openapi:check` | pass – contract drift nincs |
+| `npm run verify` | **exit 0**, Node 24.20.0, **28 fájl, 289/289 pass** |
+
+Frontend-fájl és OpenAPI contract nem változott ebben a fázisban.

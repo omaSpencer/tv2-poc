@@ -138,9 +138,13 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
     if (this.stopping) return this.stopping;
     const wasEnabled = this.status.enabled || this.running || this.loop !== null;
     if (!this.running && !this.loop) {
-      await this.broker.close();
-      this.status.setState('off');
-      if (wasEnabled) this.log.info({ event: 'relay_stopped' });
+      if (this.orphanedLoop) {
+        // The timed-out cycle still owns the broker. A repeated stop must not
+        // close that shared connection or report `off` while work is unwinding.
+        this.log.warn({ event: 'relay_stop_deferred', reason: 'previous_loop_still_running' });
+        return;
+      }
+      await this.finishStop(wasEnabled);
       return;
     }
     this.stopping = (async () => {
@@ -169,20 +173,31 @@ export class OutboxRelay implements OnModuleInit, OnApplicationShutdown {
 
       if (settled) {
         this.orphanedLoop = null;
+        await this.finishStop(true);
       } else {
-        // Still unwinding. Keep a handle so `start()` refuses a second loop.
-        const orphan = drained.finally(() => {
-          if (this.orphanedLoop === orphan) this.orphanedLoop = null;
+        // Still unwinding. Keep the broker and observable state owned by this
+        // loop until it really settles; start() and stop() both refuse a second
+        // lifecycle beside it.
+        this.status.setState('retrying');
+        const orphan = drained.finally(async () => {
+          try {
+            await this.finishStop(true);
+          } finally {
+            if (this.orphanedLoop === orphan) this.orphanedLoop = null;
+          }
         });
         this.orphanedLoop = orphan;
+        this.log.warn({ event: 'relay_stop_deferred', reason: 'previous_loop_still_running' });
       }
-
-      await this.broker.close();
-      this.status.setState('off');
-      this.log.info({ event: 'relay_stopped' });
       this.stopping = null;
     })();
     return this.stopping;
+  }
+
+  private async finishStop(logStopped: boolean): Promise<void> {
+    await this.broker.close();
+    this.status.setState('off');
+    if (logStopped) this.log.info({ event: 'relay_stopped' });
   }
 
   private async runLoop(): Promise<void> {

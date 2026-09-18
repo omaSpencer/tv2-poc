@@ -4,7 +4,7 @@ import { CONTENT_CATEGORIES } from '../schema.js';
 import {
   normalizeCatalogSearchQuery, SEARCH_QUERY_LIMITS, type CatalogSearchView,
 } from '../contracts/search.js';
-import { jsonResponse, problemResponse } from '../contracts/openapi.js';
+import { jsonResponse, problemResponse, rateLimitedResponse } from '../contracts/openapi.js';
 import { SearchService } from './search.service.js';
 
 /**
@@ -66,6 +66,7 @@ export class CatalogSearchController {
   })
   @ApiResponse({ status: 401, ...problemResponse('unauthenticated: a present Authorization header failed verification') })
   @ApiResponse({ status: 422, ...problemResponse('validation_failed with the offending query parameter names') })
+  @ApiResponse({ status: 429, ...rateLimitedResponse() })
   @ApiResponse({ status: 503, ...problemResponse('search_unavailable, or dependency_unavailable when the database is down') })
   async search(@Query() query: unknown): Promise<CatalogSearchView> {
     return this.service.search(normalizeCatalogSearchQuery(query));

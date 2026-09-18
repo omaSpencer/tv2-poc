@@ -2,7 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: tervezett.** Ez a milestone a final audit mind a **25 backend
+**Státusz: BE-F1 folyamatban lezárás alatt, BE-F2–BE-F5 tervezett.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 
@@ -41,7 +41,7 @@ hardening és a technikai adósság rendezése.
 **Cél:** a publikus HTTP-felület és a helyi/production futtatás biztonsági
 alapállapotának egyértelművé tétele.
 
-- [ ] **S1 – Rate limiting a publikus végpontokon.** Kerüljön mérhető limit a
+- [x] **S1 – Rate limiting a publikus végpontokon.** Kerüljön mérhető limit a
   `GET /catalog/search` és `GET /catalog/contents/:id` route-okra. A választott
   hely (NestJS vagy reverse proxy) legyen dokumentálva; legyen teszt a limitre,
   a `429` válaszra és arra, hogy normál forgalom nem sérül.
@@ -49,23 +49,33 @@ alapállapotának egyértelművé tétele.
   browser-topológiát. Cross-origin SPA esetén szűk origin-, method- és
   header-allowlist szükséges; same-origin proxy esetén az API maradjon CORS
   nélkül, és ezt a runbook bizonyítsa. Wildcard origin nem elfogadott.
-- [ ] **S4 – Dependency-portok loopbackre kötése.** A fejlesztői Compose-ban a
+  **Részleges:** a döntés és a backend CORS-negatív contract tesztelt, de a
+  production ingress konfiguráció és a same-origin `/api` smoke még hiányzik.
+- [x] **S4 – Dependency-portok loopbackre kötése.** A fejlesztői Compose-ban a
   PostgreSQL, NATS, mindkét Meilisearch és Authentik host-portja alapból csak
   `127.0.0.1`-en legyen elérhető. A konténerek közti hálózat maradjon működőképes.
-- [ ] **S7 – Meilisearch production posture.** A fejlesztői `MEILI_ENV` maradhat
+- [x] **S7 – Meilisearch production posture.** A fejlesztői `MEILI_ENV` maradhat
   dokumentáltan `development`, de a production példa/profil használjon
   `production` módot és kötelező, nem repóban tárolt kulcsot.
-- [ ] **O1 – Alkalmazás image.** Készüljön reprodukálható, nem rootként futó,
+  Bizonyíték: `FINAL-BACKEND-EVIDENCE.md` → BE-F1/S7.
+- [x] **O1 – Alkalmazás image.** Készüljön reprodukálható, nem rootként futó,
   production dependency-ket tartalmazó backend image és dokumentált indítás.
   A healthcheck és a konfigurációs hibaút konténerből is működjön.
+  A build, a `USER node`, a Docker `healthy`, a live/ready és a hiányzó
+  `DATABASE_URL` hibaút valódi konténerből bizonyított. Bizonyíték:
+  `FINAL-BACKEND-EVIDENCE.md` → BE-F1/O1.
 
 ### BE-F1 lezárási kapu
 
-- [ ] A publikus route-ok limitje automatikus tesztben bizonyított.
-- [ ] A browser-topológia és CORS-döntés a README/runbook része.
-- [ ] A hostról a dependency-k csak loopbacken érhetők el.
-- [ ] A backend image buildel, nem rootként indul, és a live/ready ellenőrzés zöld.
-- [ ] Backend typecheck, lint, unit/integrációs tesztek és OpenAPI check zöld.
+- [x] A publikus route-ok limitje automatikus tesztben bizonyított.
+- [x] A browser-topológia és CORS-döntés a README/runbook része.
+- [ ] A hostról a dependency-k csak loopbacken érhetők el. *(A renderelt Compose
+  konfiguráció mind a hat portra `host_ip: 127.0.0.1`-et ad; a jelenleg futó,
+  korábbi konfigurációból létrehozott konténereket merge után kontrolláltan újra
+  kell létrehozni, majd host-oldali port-próbával ellenőrizni.)*
+- [x] A backend image buildel, nem rootként indul, és a live/ready ellenőrzés zöld.
+- [x] Backend typecheck, lint, unit/integrációs tesztek és OpenAPI check zöld.
+  *(Node 24.20.0, 24 tesztfájl, 264/264 pass, 0 skip.)*
 
 ---
 

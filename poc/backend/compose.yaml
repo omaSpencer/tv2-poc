@@ -9,6 +9,16 @@
 #
 # Every image is referenced through a variable so an exact tag or digest can be
 # pinned in the env file without editing this file. See VERSIONS.md.
+#
+# BE-F1 S4 – every published port is bound to ${HOST_BIND_ADDRESS:-127.0.0.1}.
+# These are development dependencies with development credentials; they must not
+# be reachable from the local network just because Compose published a port.
+# Only the host publication is loopback-bound: containers keep reaching each
+# other by service name on the Compose network, unchanged.
+#
+# BE-F1 S7 – MEILI_ENV is a variable that defaults to `development` for exactly
+# this local profile. The production posture (MEILI_ENV=production with a
+# mandatory master key) lives in compose.prod.yaml, never here.
 
 name: ${COMPOSE_PROJECT_NAME:-indaplay-poc}
 
@@ -26,7 +36,7 @@ services:
       - -c
       - max_connections=100
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -46,8 +56,8 @@ services:
       - "-m"
       - "8222"
     ports:
-      - "${NATS_PORT:-4222}:4222"
-      - "${NATS_MONITOR_PORT:-8222}:8222"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${NATS_PORT:-4222}:4222"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${NATS_MONITOR_PORT:-8222}:8222"
     volumes:
       - nats-data:/data
     healthcheck:
@@ -66,10 +76,10 @@ services:
     profiles: ["full"]
     environment:
       MEILI_MASTER_KEY: ${MEILI_A_KEY:?set MEILI_A_KEY in the env file}
-      MEILI_ENV: development
+      MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_NO_ANALYTICS: "true"
     ports:
-      - "${MEILI_A_PORT:-7700}:7700"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${MEILI_A_PORT:-7700}:7700"
     volumes:
       - meili-a-data:/meili_data
     healthcheck:
@@ -83,10 +93,10 @@ services:
     <<: *meilisearch
     environment:
       MEILI_MASTER_KEY: ${MEILI_B_KEY:?set MEILI_B_KEY in the env file}
-      MEILI_ENV: development
+      MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_NO_ANALYTICS: "true"
     ports:
-      - "${MEILI_B_PORT:-7701}:7700"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${MEILI_B_PORT:-7701}:7700"
     volumes:
       - meili-b-data:/meili_data
 
@@ -135,7 +145,7 @@ services:
       AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:?set AUTHENTIK_BOOTSTRAP_TOKEN in the env file}
       AUTHENTIK_POC_USER_PASSWORD: ${AUTHENTIK_POC_USER_PASSWORD:?set AUTHENTIK_POC_USER_PASSWORD in the env file}
     ports:
-      - "${AUTHENTIK_PORT:-9000}:9000"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${AUTHENTIK_PORT:-9000}:9000"
     volumes:
       - ./authentik/blueprints/poc.yaml:/blueprints/poc.yaml:ro
     depends_on:

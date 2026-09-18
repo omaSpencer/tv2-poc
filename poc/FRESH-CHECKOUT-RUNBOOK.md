@@ -53,6 +53,49 @@ E2E_DOCKER_CONTROL=true npm run e2e
 Az Authentik L2 hiánya release blocker, nem skipelt siker. A fault-injection
 tesztek a konténereket `afterEach` helyreállítással kezelik.
 
+## Publikus perem és futtatási posture (BE-F1)
+
+A böngésző-topológia célállapota **same-origin**: a böngésző relatív `/api/...`
+útra kér, azt fejlesztésben a Vite dev proxy továbbítja a backendnek az `/api`
+prefix levágásával. Productionben ugyanez a kötelező ingress-szerződés, de a
+reverse proxy konfigurációja és smoke-ja még nincs a repóban, ezért ez nem
+tekinthető bizonyított production útvonalnak. A backend CORS nélkül fut, és
+preflightra sem válaszol; wildcard origin nem elfogadott. A teljes szerződés és
+a külön-originű opció feltételei:
+[backend/README.md](backend/README.md) „Böngésző-topológia és CORS".
+
+A publikus catalog route-ok alkalmazásszintű limitet kapnak
+(`RATE_LIMIT_PUBLIC*`), a túllépés `429` + `rate_limited` + `Retry-After`.
+Fordított proxy mögött a megbízható hopok számát a
+`RATE_LIMIT_TRUSTED_PROXY_HOPS` írja le; nulla hop mellett az
+`X-Forwarded-For` figyelmen kívül marad.
+
+A Compose-függőségek host-portjai alapból csak loopbacken érhetők el:
+
+```bash
+cd poc/backend
+docker compose --profile full up -d --wait
+docker compose --profile full ps --format '{{.Service}} {{.Publishers}}'   # 127.0.0.1 minden soron
+```
+
+Az alkalmazás image és a production posture külön overlay és külön `app` profil,
+nem a CI által használt `full` profil:
+
+```bash
+cd poc/backend
+cp .env.production.example .env.production      # majd írd át minden REPLACE_ME értéket
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app --profile full up -d --wait
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app ps
+curl -s 127.0.0.1:3000/health/live
+curl -s 127.0.0.1:3000/health/ready
+```
+
+Az overlay mindkét Meilisearch példányt `MEILI_ENV=production` módban, kötelező
+és nem repóban tárolt master kulccsal indítja. A konténer nem rootként fut, és
+`HEALTHCHECK`-ként a saját `/health/live` végpontját kérdezi.
+
 ## Release artifactok
 
 - contract snapshot: `poc/contracts/backend.openapi.json`;
@@ -60,4 +103,3 @@ tesztek a konténereket `afterEach` helyreállítással kezelik.
 - Playwright HTML/JSON/trace: `poc/frontend/e2e/.report`, `.artifacts`;
 - release evidence: `poc/PHASE-7-EVIDENCE.md`;
 - állapot-, capability- és security-mátrix: a `poc/` gyökérben.
-

@@ -168,6 +168,121 @@ Minden image változón keresztül hivatkozott, így pontos tag vagy digest a
 környezeti fájlból jön. Lásd [VERSIONS.md](VERSIONS.md) és
 [docs/external-access.md](docs/external-access.md).
 
+A backend alkalmazás konténere szándékosan **nincs** ebben a fájlban: az a
+`compose.prod.yaml` overlay `app` profilja. A `full` profil a CI
+dependency-profilja, ahol a backend a hoston fut; egy backend konténer ott
+portütközést okozna. Lásd „Production image és profil”.
+
+## Böngésző-topológia és CORS (BE-F1 S2)
+
+A támogatott topológia **same-origin**. A böngésző mindig relatív `/api/...`
+útra kér, és a böngésző soha nem beszél közvetlenül a backend originnel. A
+backend ezért **CORS nélkül fut**: nincs `enableCors`, nincs
+`Access-Control-Allow-Origin`, és preflightra sem válaszol. Wildcard origin
+sosem volt és nem is lehet opció.
+
+| Környezet | Ki továbbít | Szerződés |
+| --- | --- | --- |
+| Fejlesztés | Vite dev proxy (`poc/frontend/vite.config.ts`) | A böngésző `http://127.0.0.1:5173/api/...` útra kér; a proxy levágja az `/api` prefixet és a `VITE_BACKEND_ORIGIN` (alap: `http://127.0.0.1:3000`) felé továbbít |
+| Production (célállapot; még nincs repóban implementálva) | Reverse proxy / ingress | Egy origin szolgálja ki az SPA-t és az API-t. Az `/api/*` útvonal a backendre megy, az `/api` prefix levágásával, a `Host`, `X-Forwarded-For` és `X-Forwarded-Proto` headerök továbbításával. Minden más út az SPA-ra megy |
+
+Az ingress-szerződés kötelező elemei:
+
+- **Prefix.** A böngésző `/api/<útvonal>` alakot lát, a backend `<útvonal>`-at
+  kap. A frontend `VITE_API_BASE` alapértéke `/api`; abszolút URL-re állítva
+  megszűnik a same-origin feltétel, tehát nem támogatott.
+- **Kliens IP.** A proxy írja a saját `X-Forwarded-For` bejegyzését, és a
+  backend `RATE_LIMIT_TRUSTED_PROXY_HOPS` értéke pontosan ennyi megbízható
+  hopot engedélyez (production overlay: `1`). Lásd lent.
+- **TLS.** A TLS a proxyn terminál; a backend továbbra is `127.0.0.1`-en
+  publikált HTTP listener.
+
+Külön-originű (cross-origin) deployment **nem a jelenlegi döntés**. Ha valaha
+mégis kell, az nem ennek a fájlnak a felpuhítása, hanem külön, explicit
+allowlist: zárt origin-, method- és header-lista, `Access-Control-Max-Age`,
+credentials nélkül. A regressziót a `test/integration/public-edge.test.ts`
+`S2 same-origin contract` esetei őrzik: cross-origin kérésre nem jön CORS
+header, preflightra nincs válasz, és a shipped bootstrap nem tartalmaz
+`enableCors` hívást.
+
+## Publikus perem rate limit (BE-F1 S1)
+
+`GET /catalog/search` és `GET /catalog/contents/:id` – a route matrix két
+publikusan elérhető útvonala – alkalmazásszintű limitet kap. A limiter a
+request boundary után, de a tokenellenőrzés és a controller **előtt** fut, így
+egy publikus útvonal elárasztása nem tud JWKS- vagy adatbázis-munkát elkölteni.
+Health és `/admin` soha nem limitált: egy readiness próbát nem lehet kizárni a
+saját ellenőrzéséből, az admin pedig identity-döntés, nem forgalmi.
+
+| Kulcs | Alap | Jelentés |
+| --- | --- | --- |
+| `RATE_LIMIT_PUBLIC` | `on` | A limiter be/ki. Kikapcsolva a publikus perem korlátlan |
+| `RATE_LIMIT_PUBLIC_MAX` | `120` | Kérés / ablak / route / kliens |
+| `RATE_LIMIT_PUBLIC_WINDOW_MS` | `60000` | Fix ablak hossza |
+| `RATE_LIMIT_TRUSTED_PROXY_HOPS` | `0` | Hány `X-Forwarded-For` bejegyzés származik megbízható proxytól |
+
+**Proxy/IP feltételezés.** Alapértelmezésben az `X-Forwarded-For` **teljesen
+figyelmen kívül marad**, és a transport peer címe számít: ezt a kliens nem
+tudja hamisítani. Csak `RATE_LIMIT_TRUSTED_PROXY_HOPS > 0` esetén olvassuk a
+headert, és akkor is jobbról a megadott számú bejegyzést visszaszámolva – azt a
+címet, amit a legkülső megbízható proxy látott. A vártnál rövidebb lánc nem
+részleges bizalom, hanem visszaesés a peer címre.
+
+**Szerződés.** Limittúllépéskor `429`, `application/problem+json`,
+`code: rate_limited`, `type: urn:indaplay:poc:error:rate_limited`, valamint
+`Retry-After` egész másodpercben. A `rate_limited` stabil külső kód: az
+`ERROR_CODES` része, és az exception filter a `429`-et is erre képezi, nem
+`500 internal_error`-ra. Mindkét route OpenAPI-ban is `429`-et hirdet a
+`Retry-After` headerrel.
+
+**Korlát.** A számláló ebben a processzben él. Két alkalmazáspéldány együtt a
+konfigurált limit kétszeresét engedi át. A nyilvántartott kliens-kulcsok száma
+felülről korlátos (`10 000`); telítettségnél az új kulcsok a legrégebbi aktív
+ablak lejártáig `429` választ kapnak. Aktív számláló nem esik ki, a lejárt
+ablakok takarítása amortizált O(1). Több példánynál az ingress tegyen rá saját
+peremlimitet, vagy kerüljön a számláló megosztott tárolóba.
+
+## Production image és profil (BE-F1 O1, S7)
+
+A backend image `Dockerfile`-ból épül: három stage (build, production
+dependency, runtime), `npm ci` a commitolt lockfile-ból, és a base image
+`NODE_IMAGE` build argumentum, hogy pontos tag vagy digest kívülről jöjjön
+(digest pinelés az E01 registry-hozzáférésig nyitott). A runtime stage a
+`node` felhasználóként (uid 1000) fut, a futtatott fájlokat nem birtokolja,
+migrációt nem tartalmaz, és `HEALTHCHECK`-ként a saját `/health/live`
+végpontját kérdezi (`scripts/container-healthcheck.mjs`). Secret nem kerül
+build argumentumba, `ENV`-be vagy image layerbe; a `.dockerignore` a
+`.env*` fájlokat már a build contextből kizárja.
+
+Az indítás külön overlay és külön `app` profil – **nem** a CI által
+dependency-khez használt `full` profil, ahol a hoston futó backenddel
+portütközést okozna:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app --profile full up -d --wait
+docker compose -f compose.yaml -f compose.prod.yaml \
+  --env-file .env.production --profile app ps
+curl -s 127.0.0.1:3000/health/live
+curl -s 127.0.0.1:3000/health/ready
+```
+
+Az overlay egyben a Meilisearch production posture (S7): mindkét példány
+`MEILI_ENV=production`, kötelező, nem repóban tárolt master kulccsal. A helyi
+`compose.yaml` tudatosan marad `MEILI_ENV=${MEILI_ENV:-development}`. Minta:
+[.env.production.example](.env.production.example) – csupa `REPLACE_ME`, valós
+érték nélkül.
+
+## Host-kitettség (BE-F1 S4)
+
+A `compose.yaml` minden publikált portja `${HOST_BIND_ADDRESS:-127.0.0.1}`-re
+kötődik: PostgreSQL, NATS (kliens és monitor), mindkét Meilisearch és az
+Authentik. Ezek fejlesztői hitelesítő adatokkal futó függőségek, amiket nem
+tesz elérhetővé a helyi hálózat felé az, hogy a Compose portot publikált. A
+konténerek közti feloldás változatlanul service néven megy a Compose hálózaton,
+tehát a belső service discovery nem sérült. A bind cím szándékos tágítása
+(`HOST_BIND_ADDRESS=0.0.0.0`) explicit döntés, nem alapállapot.
+
 ## Modulhatárok
 
 ```text
@@ -289,6 +404,10 @@ callback mellett a frontend `http://127.0.0.1:5173/auth/callback` és
 `detail`, `instance`, `correlationId`; verzióütközésnél `expectedVersion` és
 `actualVersion`, validációs hibánál a `fields` mezőnévlista is. A health-válasz
 dokumentált kivétel, a Terminus alakját követi.
+
+A publikus perem limitje `429 rate_limited` problem dokumentumot ad
+`Retry-After` headerrel; a `429`-et az exception filter sem képezheti
+`500 internal_error`-ra. Lásd „Publikus perem rate limit”.
 
 Bejövő `X-Correlation-Id` csak `[A-Za-z0-9._-]{1,128}` alakban használható, egyébként
 a szerver UUID-t generál. A log soha nem tartalmaz tokent, jelszót vagy teljes

@@ -8,7 +8,18 @@ import type { INestApplication } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { pino } from 'pino';
 import { ApiExceptionFilter, jsonBody, jsonBodyErrors, requestBoundary } from '../../src/http.js';
+import { publicRateLimit, type RateLimitSettings } from '../../src/rate-limit.js';
 import type { Actor } from '../../src/identity/actor.js';
+
+/**
+ * BE-F1 S1: the assembly installs the same public-edge limiter the shipped
+ * bootstrap installs, with the same defaults, so integration cases run against
+ * the limited edge instead of a friendlier one. A case that wants to observe
+ * the limit passes its own, smaller settings.
+ */
+export const TEST_RATE_LIMIT: RateLimitSettings = { max: 120, windowMs: 60_000, trustedProxyHops: 0 };
+
+export type TestAppOptions = { rateLimit?: RateLimitSettings | false };
 
 export type TestApp = {
   url: string;
@@ -22,7 +33,10 @@ const silent = pino({ level: 'silent' });
  * The actor is injected by this assembly, not read from an untrusted header by
  * the application: the middleware below lives in the test build only.
  */
-export async function createTestApp(defaultActor: Actor | null = null): Promise<TestApp> {
+export async function createTestApp(
+  defaultActor: Actor | null = null,
+  options: TestAppOptions = {},
+): Promise<TestApp> {
   // The test assembly must never inherit the application's normal database
   // when CI supplies both URLs. db:reset migrates TEST_DATABASE_URL only.
   if (process.env.TEST_DATABASE_URL) {
@@ -40,6 +54,8 @@ export async function createTestApp(defaultActor: Actor | null = null): Promise<
   const { AppModule } = await import('../../src/app.module.js');
   const app: INestApplication = await NestFactory.create(AppModule, { logger: false, abortOnError: false, bodyParser: false });
   app.use(requestBoundary(silent, { blockAdmin: false }));
+  const rateLimit = options.rateLimit === undefined ? TEST_RATE_LIMIT : options.rateLimit;
+  if (rateLimit !== false) app.use(publicRateLimit(rateLimit));
   app.use((req: Request, res: Response, next: NextFunction) => {
     const header = req.headers['x-test-actor'];
     if (typeof header === 'string' && header.length > 0) {

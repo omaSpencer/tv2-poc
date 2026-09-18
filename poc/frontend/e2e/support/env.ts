@@ -8,6 +8,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { AppPermission, AppRole } from '../../src/api/types';
+import { ROLE_PERMISSIONS } from '../../src/auth/permissions';
 
 export const E2E_IDENTITIES = ['poc-viewer', 'poc-editor', 'poc-publisher'] as const;
 export type E2eIdentity = (typeof E2E_IDENTITIES)[number];
@@ -15,22 +17,22 @@ export type E2eIdentity = (typeof E2E_IDENTITIES)[number];
 export type E2eIdentityProfile = {
   identity: E2eIdentity;
   /** A backend `/me` válaszában várt szerepek. */
-  roles: readonly string[];
+  roles: readonly AppRole[];
   /** A backend `/me` válaszában várt permissionök (ROLE_PERMISSIONS, backend contract). */
-  permissions: readonly string[];
+  permissions: readonly AppPermission[];
 };
 
 export const IDENTITY_PROFILES: Readonly<Record<E2eIdentity, E2eIdentityProfile>> = {
-  'poc-viewer': { identity: 'poc-viewer', roles: ['viewer'], permissions: [] },
+  'poc-viewer': { identity: 'poc-viewer', roles: ['viewer'], permissions: ROLE_PERMISSIONS.viewer },
   'poc-editor': {
     identity: 'poc-editor',
     roles: ['editor'],
-    permissions: ['content:read', 'content:write'],
+    permissions: ROLE_PERMISSIONS.editor,
   },
   'poc-publisher': {
     identity: 'poc-publisher',
     roles: ['publisher'],
-    permissions: ['content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write'],
+    permissions: ROLE_PERMISSIONS.publisher,
   },
 };
 

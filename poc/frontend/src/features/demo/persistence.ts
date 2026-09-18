@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UUID_PATTERN } from '../../lib/uuid';
 import { getScenario } from './registry';
 import { markIdentityMismatch } from './engine';
 import type { SafeRunContext } from './types';
@@ -17,11 +18,11 @@ const stepSchema = z.object({
 
 const runSchema = z.object({
   schemaVersion: z.literal(1), scenarioId: z.enum(['S01', 'S02', 'S03', 'S04', 'S05']), scenarioVersion: z.literal(1),
-  runId: z.string().uuid(), subjectHash: z.string().regex(/^[a-f0-9]{64}$/),
+  runId: z.string().regex(UUID_PATTERN), subjectHash: z.string().regex(/^[a-f0-9]{64}$/),
   roles: z.array(z.enum(['viewer', 'editor', 'publisher'])),
   permissions: z.array(z.enum(['content:read', 'content:write', 'content:publish', 'ops:read', 'ops:write'])),
   status: z.enum(['running', 'waiting_manual', 'passed', 'failed', 'cancelled', 'inconclusive']),
-  currentStepIndex: z.number().int().nonnegative(), contentId: z.string().uuid().nullable(),
+  currentStepIndex: z.number().int().nonnegative(), contentId: z.string().regex(UUID_PATTERN).nullable(),
   contentVersion: z.number().int().positive().nullable(), contentStatus: z.enum(['draft', 'published', 'withdrawn']).nullable(),
   contentTitle: z.string().nullable(), startedAt: z.string(), completedAt: z.string().nullable(),
   preflight: z.array(assertionSchema), steps: z.array(stepSchema),

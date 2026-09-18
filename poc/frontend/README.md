@@ -45,10 +45,11 @@ A Vite a `/api/*` hívásokat a backend originre továbbítja (`/api` prefix né
 | `/operations` | Processing dashboard, `ops:read` guarddal | M3 |
 | `/demo` | Életciklus lépésenként + negatív esetek | M2+ |
 
-Az aktív content UUID a demó screenek között megmarad. Az OIDC sessiont az
-`oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a React
-komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen forrása a
-backend `GET /me` válasza.
+A vezetett `/demo` futás a saját, verziózott run-state-jében őrzi meg a hozzá
+tartozó content UUID-t; nincs alkalmazásszintű „aktív content” session. Az OIDC
+sessiont az `oidc-client-ts` kezeli `sessionStorage`-ban; a raw access tokent a
+React komponensek nem kapják meg és nem renderelik. A jogosultság egyetlen
+forrása a backend `GET /me` válasza.
 
 ## Parancsok
 
@@ -89,7 +90,7 @@ A tartalomlista nem mutat félrevezető összesített találatszámot: stabil
 verziókonfliktus pedig explicit szerververzió-betöltést vagy kézi újraalkalmazást
 kér; automatikus overwrite és mutation retry nincs.
 A Search és Processing API M3/M4 óta implementált. Kikapcsolt feature vagy
-elérhetetlen függőség esetén a problem+json / MilestoneGate üzenet jelenik meg.
+elérhetetlen függőség esetén a problem+json üzenet jelenik meg.
 A publikus keresés teljes `q/category/limit/offset` állapota bookmarkolható
 URL-ben él. A lista az index becslését és az oldal tényleges találatait külön
 mutatja, a publikus detail pedig nem renderel adminmezőket. Publish/withdraw után

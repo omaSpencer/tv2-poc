@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { startContentRepair } from '../../../api/operations';
 import { ProblemPanel } from '../../../components/ProblemPanel';
+import { isUuid } from '../../../lib/uuid';
 import { OperationsNav } from '../components/OperationsNav';
 import { OperatorActionPanel } from '../components/OperatorActionPanel';
 import { activeActionStorageKey, createIdempotencyKey } from '../idempotency';
@@ -23,7 +24,7 @@ export function RepairPage() {
       void queryClient.invalidateQueries({ queryKey: operationsKeys.status() });
     },
   });
-  const canSubmit = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(contentId.trim())
+  const canSubmit = isUuid(contentId.trim())
     && reason.trim().length >= 3 && !mutation.isPending;
   return (
     <div className="stack-pages operations-page">

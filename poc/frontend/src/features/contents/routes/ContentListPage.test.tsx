@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MeResponse } from '../../../api/types';
+import { ROLE_PERMISSIONS } from '../../../auth/permissions';
 import type { AuthContextValue } from '../../../auth/authTypes';
 import { AuthContext } from '../../../auth/authContext';
 
@@ -13,7 +14,7 @@ import { ContentListPage } from './ContentListPage';
 
 const me: MeResponse = {
   sub: 'publisher', roles: ['publisher'],
-  permissions: ['content:read', 'content:write', 'content:publish', 'ops:read'],
+  permissions: [...ROLE_PERMISSIONS.publisher],
   expiresAt: '2030-01-01T00:00:00.000Z',
 };
 const auth: AuthContextValue = {

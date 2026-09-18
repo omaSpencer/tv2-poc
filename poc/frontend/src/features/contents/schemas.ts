@@ -9,9 +9,9 @@ export const CONTENT_FORM_LIMITS = {
   tagLength: 40,
 } as const;
 
-export const CONTENT_CATEGORIES: readonly ContentCategory[] = [
+export const CONTENT_CATEGORIES = [
   'film', 'sorozat', 'hir', 'sport', 'szorakozas', 'egyeb',
-];
+] as const satisfies readonly ContentCategory[];
 
 export type ContentFormValues = {
   title: string;

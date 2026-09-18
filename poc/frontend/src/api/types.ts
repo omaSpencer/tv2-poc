@@ -69,10 +69,3 @@ export function isApiProblemError(error: unknown): error is ApiProblemError {
     && 'correlationId' in error && typeof error.correlationId === 'string',
   );
 }
-
-export function hasPermission(
-  permissions: readonly string[] | undefined,
-  required: AppPermission,
-): boolean {
-  return (permissions ?? []).includes(required);
-}

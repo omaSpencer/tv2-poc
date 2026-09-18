@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import type { ContentCategory } from '../../../api/types';
 import { searchCatalog } from '../../../api/search';
-import { CONTENT_CATEGORIES } from '../../../data/demoFixture';
+import { CONTENT_CATEGORIES } from '../../contents/schemas';
 import { CatalogSearchError } from '../components/CatalogSearchError';
 import { PublicContentCard } from '../components/PublicContentCard';
 import { CATEGORY_LABELS } from '../format';

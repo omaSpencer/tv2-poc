@@ -12,15 +12,25 @@ implementáld kizárólag a **FE-F1 – Holtkód és szerződéskonszolidáció*
 - L8 – egységes UUID-validálás;
 - L11 – duplikációk és nem használt exportok konszolidálása.
 
+Koordinátori döntések ehhez a hullámhoz:
+
+- A `/editorial` route maradjon egy release-ciklusig dokumentált kompatibilitási
+  redirectként `/contents` felé, routerteszttel; maga a holtkód-lánc törlendő.
+- A permissiontípus forrása a generált backend contract legyen, a role→permission
+  mátrix pedig egyetlen frontend modulban maradjon.
+- A `features/contents/schemas.ts` legyen a kategóriák egyetlen runtime
+  igazságforrása; a catalog/demo kód innen importáljon.
+- Az UUID helper fogadja el a backend által támogatott v1–v8 variant UUID-ket,
+  és utasítsa el a hibás, illetve nil UUID-t. Legyen v7 pozitív regressziós teszt.
+
 Követelmények:
 
 1. Törlés előtt keresd végig az importokat, route-okat, storage key-eket, query
    key-eket és teszteket. Az `EditorialPage`, `PhasePlaceholderPage`,
    `ContentIdBar` és `content/activeContent` láncból ne maradjon árva export vagy
    sessionStorage mellékhatás.
-2. A `/editorial` redirectet csak akkor tartsd meg, ha dokumentált bookmark
-   kompatibilitásként van értelme; egyébként a projekt router-konvenciójával
-   összhangban távolítsd el. A döntést rögzítsd az evidence-ben.
+2. A `/editorial` redirectet a fenti kompatibilitási döntés szerint tartsd meg,
+   dokumentáld és védd routerteszttel.
 3. L7-nél a publisher `ops:write` fixture egyezzen az E2E szerződéssel, és ne
    maradjon duplikált lokális `AppPermission` típus.
 4. L8-nál minden megmaradó UUID input közös, backend-kompatibilis szabályt

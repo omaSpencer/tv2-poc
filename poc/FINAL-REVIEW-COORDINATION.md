@@ -34,6 +34,20 @@ Definition of Done forrásai; ez a fájl kizárólag az agent-tulajdonlást, az
 Kiadandó feladatlapok: [Claude / backend BE-F1](agent-prompts/W1-CLAUDE-BACKEND.md)
 és [Cursor / frontend FE-F1](agent-prompts/W1-CURSOR-FRONTEND.md).
 
+### W1 koordinátori döntések
+
+- Production browser/API topológia: same-origin ingress, relatív `/api` proxy;
+  backend CORS alapból kikapcsolva.
+- Publikus limiter: alkalmazásoldali, route-szintű; stabil `rate_limited` 429,
+  `Retry-After`, OpenAPI contract és dokumentált proxy/IP policy.
+- Backend application image: külön production Compose overlay/profil, nem a
+  dependency-khez használt meglévő `full` profil része.
+- `/editorial`: egy release-ciklusig dokumentált redirect marad, a mögöttes
+  holtkód teljesen törlendő.
+- Frontend runtime igazságforrások: generált permissiontípus, egyetlen lokális
+  role-mátrix, kategóriák gazdája `features/contents/schemas.ts`, közös UUID
+  helper v1–v8 támogatással és nil elutasítással.
+
 ## Kötelező agent-átadás
 
 Minden implementáló agent válasza tartalmazza:

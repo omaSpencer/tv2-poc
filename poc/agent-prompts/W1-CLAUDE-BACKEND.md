@@ -13,12 +13,26 @@ implementáld kizárólag a **BE-F1 – Publikus perem és futtatási hardening*
 - S7 – Meilisearch production posture;
 - O1 – reprodukálható, nem root backend application image.
 
+Koordinátori döntések ehhez a hullámhoz:
+
+- **S2:** a cél production topológia same-origin ingress: a böngésző relatív
+  `/api` útját a reverse proxy továbbítja a backendhez. A backend alapból marad
+  CORS nélkül. A dev Vite proxy és a production ingress-szerződés legyen
+  dokumentálva; külön-origin deployment csak későbbi, explicit allowlistes
+  opcióként szerepelhet.
+- **S1:** route-szintű alkalmazáslimiter készüljön, konfigurálható limittel és
+  dokumentált proxy/IP feltételezéssel. Legyen stabil `rate_limited` problem code,
+  HTTP `429`, `Retry-After` és OpenAPI response; a jelenlegi exception filter nem
+  képezheti ezt `500 internal_error`-ra.
+- **O1:** az application image/production szolgáltatás külön Compose
+  overlay/profil legyen; ne kerüljön a CI által dependency-khez használt meglévő
+  `full` profilba, ahol hoston futó backenddel portütközést okozhat.
+
 Követelmények:
 
 1. Először vizsgáld meg a jelenlegi browser/API topológiát, Vite proxy/env
-   beállításokat, Nest bootstrapot és Compose konfigurációt. S2-nél ne találj ki
-   új deployment topológiát: a repository jelenlegi szerződéséből indulj ki, az
-   ellentmondást egyetlen explicit megoldással zárd le.
+   beállításokat, Nest bootstrapot és Compose konfigurációt. S2-t a fenti
+   same-origin döntés szerint zárd le.
 2. S1-nél a limit legyen tesztelhető és konfigurálható, a két publikus route-ra
    vonatkozzon, normál forgalmat ne törjön. A `429` contractot dokumentáld.
 3. S4-nél csak a host publikálás változzon; a Compose belső service discovery ne

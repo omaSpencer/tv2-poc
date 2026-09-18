@@ -301,6 +301,103 @@ implementáció külön ágról, a rögzített BE-F4 → FE-F4 sorrendben kerül
 `main`-re; a koordinátori review-javítás után minden kapu az integrált állapoton
 is megismétlődött.
 
+## Tervezett hullám – W5
+
+A W5 a final audit utolsó implementációs hulláma. Kizárólag Codex és Cursor
+vesz részt benne; a közös tiszta baseline a W4 integrációs commitja:
+`8dfcfd8`. A két implementáció külön worktree-ben, párhuzamosan készül.
+
+| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| --- | --- | --- | --- | --- |
+| Codex | Backend BE-F5: A1, A2, A3, T1, T2; integráció és közös gate | `codex/final-be-f5` | `/private/tmp/tv2-poc-be-f5` | `8dfcfd8`-ről indítható |
+| Cursor | Frontend FE-F5: L1, L14, I3, I4 | `codex/final-fe-f5` | `/private/tmp/tv2-poc-fe-f5` | `8dfcfd8`-ről indítható |
+
+Feladatlapok: [Codex / backend BE-F5](agent-prompts/W5-CODEX-BACKEND.md) és
+[Cursor / frontend FE-F5](agent-prompts/W5-CURSOR-FRONTEND.md).
+
+### W5 rögzített architekturális döntések
+
+- A kliens SPA marad; a final hardening nem vezet be új BFF-et. Production
+  OIDC user/access/ID/refresh token kizárólag memóriában él. A teljes oldalas
+  redirecthez szükséges egyszer használatos PKCE state/verifier külön,
+  prefixelt sessionStorage-ban maradhat, de token nem.
+- Oldal-újratöltés után a memóriában elveszett sessiont az Authentik meglévő
+  SSO munkamenete `prompt=none` silent flow-val állítja helyre az új
+  `/auth/silent-callback` route-on. Az IdP-session hiánya anonim állapot, nem
+  redirect-loop.
+- A manual token csak explicit nem-production fejlesztési escape hatch;
+  production `VITE_ALLOW_MANUAL_TOKEN=true` fail-closed konfigurációs hiba.
+- A production browser/API topológia továbbra is same-origin `/api` ingress.
+  `VITE_BACKEND_ORIGIN` kizárólag a Vite fejlesztői proxy publikus célértéke;
+  production runtime link nem képződhet belőle és localhost fallback nincs.
+- A production Nginx válasz tesztelt CSP-t, Referrer-Policyt és nosniff
+  headert ad. Script wildcard/`unsafe-eval` nincs; a connect/frame policy csak
+  same-origin és az explicit publikus OIDC origin felé nyit.
+- Node pontosan 24.20.0; a package manager deklarált és engine-strict. Backend
+  és frontend a saját Vitest-verziójához illeszkedő V8 coverage providert és
+  mért baseline-ból képzett regressziós thresholdot kap. A standard `verify`
+  ugyanazt a suite-ot egyszer, coverage-del futtatja.
+
+### W5 fájltulajdon és cross-stack szerződés
+
+- Codex kizárólag backend forrást/tesztet/package-et, backend docs/evidence-et,
+  a backend Authentik blueprintet és a backendben lévő production Compose
+  overlayt írja.
+- Cursor kizárólag frontend forrást/tesztet/E2E-t/package-et, frontend
+  Docker/Nginx/configot, frontend docs/evidence-et, valamint a közös
+  `FRONTEND-IDENTITY-AND-API-DECISIONS.md` és `SECURITY-REVIEW.md` fájlokat
+  írja.
+- A közös `.github/workflows/release-gates.yml`, a koordinációs dokumentum
+  és a milestone-összesítés a koordinátor tulajdona. A workflow csak akkor
+  változik, ha a `verify` és a meglévő full-stack `npm run e2e` nem tudja
+  automatikusan felvenni az új coverage/Auth L2 kapukat.
+- A production web build publikus argumentumnevei rögzítettek:
+  `VITE_API_BASE`, `VITE_OIDC_ISSUER_URL`, `VITE_OIDC_CLIENT_ID`,
+  `VITE_OIDC_REDIRECT_URI`, `VITE_OIDC_POST_LOGOUT_REDIRECT_URI`,
+  `VITE_OIDC_SILENT_REDIRECT_URI`, `VITE_ALLOW_MANUAL_TOKEN`. Cursor a
+  Dockerfile/config oldalt, Codex a Compose bekötést valósítja meg; titok egyik
+  build argban sem lehet.
+- A valódi Authentik L2 gate megosztott kimenet: Codex adja a provider/backend
+  oldalt, Cursor a Playwright token-lifecycle utat. T2 és L1 csak az integrált
+  full-stack futás után zárható teljesen.
+
+### W5 review- és integrációs sorrend
+
+1. Mindkét ág a `8dfcfd8` baseline-ról indul; merge/rebase nincs.
+2. Cursor átadja az FE-F5 commitot; Codex threat-model, storage, silent-flow,
+   CSP, config, runtime-pin, coverage include/exclude és E2E review-t futtat.
+3. Codex BE-F5 ága célzott util/logger/redaction, teljes verify/coverage és
+   Authentik blueprint smoke bizonyítékkal adható át.
+4. Integrációs sorrend: BE-F5, majd FE-F5, mert a frontend valódi silent-flow
+   tesztje az új Authentik redirect szerződésre épül.
+5. Ezután a koordinátor köti be vagy ellenőrzi a közös workflow-t, futtatja a
+   production image/header/config smoke-ot, majd a valódi, soros full-stack
+   Authentik login/renew/reload/logout kaput.
+6. A milestone-ok csak akkor kapnak teljes DoD jelölést, ha a backend 25/25,
+   frontend 21/21 ID evidence-szel lezárt, és a final közös kapu is zöld.
+
+### W5 közös kapu
+
+- [ ] A1 közös deadline/backoff/settings util minden korábbi lifecycle
+  invariánst megőriz, saját fake-clock unit tesztekkel.
+- [ ] A2 után production backend kódban egy logger bekötési pont van; a teljes
+  redakciós sentinel suite titokmentes.
+- [ ] A3 production `src/**` kommentjei angolok, runtime copy/szerződés nem
+  változott.
+- [ ] Backend és frontend V8 coverage baseline/threshold evidence-ben van;
+  threshold alatti kontroll nem nulla exit, normál `verify` zöld.
+- [ ] Production auth után token nincs browser storage-ban; PKCE state csak
+  átmeneti; manual token productionben fail-closed.
+- [ ] Valódi Authentik: issuer/audience, három role, 401, 5 perces renewal,
+  reload silent recovery és logout bizonyított.
+- [ ] Production Nginx CSP/security headerei tényleges response-on zöldek,
+  OIDC/API forgalom CSP violation nélkül működik.
+- [ ] Production bundle/docs link same-origin; nincs `127.0.0.1:3000` fallback,
+  a publikus `VITE_*` policy dokumentált és validált.
+- [ ] Node 24.20.0/npm toolchain helyben és CI-ban fail-fast módon pinelt.
+- [ ] Backend `verify`, frontend `verify`, E2E typecheck, OpenAPI/generated
+  contract drift, production image smoke, axe és teljes böngészős E2E zöld.
+
 ## W1 baseline – 2026-09-18
 
 Runtime: Node `24.20.0`. A dependency stack a Compose healthcheckek szerint

@@ -13,7 +13,9 @@
 - GET 401 után legfeljebb egy kontrollált session recovery történhet. Mutation
   401, timeout vagy elveszett válasz után nincs automatikus újraküldés. Renewal
   failure törli a Bearer tokent; logout törli a memória-usert és a privát
-  Query cache-t.
+  Query cache-t. Az explicit logout egy nem titkos `sessionStorage` jelzővel a
+  következő kézi loginig tiltja a silent restore-t, így az élő IdP SSO-session
+  sem lépteti vissza azonnal a felhasználót.
 - Bootstrap: memória-user, hiányában silent Authentik `prompt=none` a
   `/auth/silent-callback` route-on. `login_required` anonim, dependency hiba
   `identity_unavailable`; a login oldal nem indít redirect-loopot.
@@ -46,10 +48,12 @@ ott `frame-ancestors 'self'` + `X-Frame-Options: SAMEORIGIN` szükséges, mert a
 OIDC `prompt=none` választ a saját SPA hidden iframe-je dolgozza fel. Más route
 nem örökli ezt a kivételt.
 
-A valódi silent-recovery/renew Playwright kapu a BE-F5 Authentik redirect
-bővítés után az integrációs gate-en fut. Ezen az ágon unit/component/build
-bizonyíték van, a böngészős token-életciklus `E2E_AUTHENTIK_SILENT_REDIRECT=true`
-mögött pending.
+A valódi silent-recovery/renew Playwright kapu az integrált BE-F5 Authentik
+redirecttel zöld: valódi 5 perces token, storage-mentes megújítás, reload utáni
+silent restore és explicit logout utáni anonim állapot. A release workflow ezt
+`E2E_AUTHENTIK_SILENT_REDIRECT=true` értékkel kötelezően bekapcsolja; skip nem
+adhat release passt. A lifecycle spec trace-e ki van kapcsolva, mert a
+Playwright trace request headereket és így Bearer tokent őrizhetne meg.
 
 ## Deployment-határ
 

@@ -52,6 +52,13 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
   });
 
   test('a publisher minden Release A felületet elér és a reload megtartja a munkamenetet', async ({ page }) => {
+    const cspViolations: string[] = [];
+    page.on('console', (message) => {
+      const text = message.text();
+      if (/content security policy|violates.*directive|refused to (connect|frame|load|execute)/i.test(text)) {
+        cspViolations.push(text);
+      }
+    });
     await loginAs(page, 'poc-publisher');
 
     await expect(nav(page).getByRole('link', { name: 'Tartalmak' })).toBeVisible();
@@ -64,6 +71,7 @@ test.describe('PKCE belépés és jogosultsági határok', () => {
     await expect(profileLink(page)).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'Operációs áttekintő' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Nincs jogosultság' })).toHaveCount(0);
+    expect(cspViolations).toEqual([]);
   });
 
   test('a védett route returnTo-val visszavezet a belépés után', async ({ page }) => {

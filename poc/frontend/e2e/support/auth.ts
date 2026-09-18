@@ -167,6 +167,22 @@ export type LoginOptions = {
 
 const BEARER = /^Bearer\s+(\S+)$/i;
 
+async function waitForLoginEntry(page: Page, timeout = 15_000): Promise<'authenticated' | 'login'> {
+  const deadline = Date.now() + timeout;
+  const loginButton = page.getByRole('button', { name: 'Belépés Authentikkal' });
+
+  while (Date.now() < deadline) {
+    if (await profileLink(page).isVisible().catch(() => false)) return 'authenticated';
+    if (
+      await loginButton.isVisible().catch(() => false)
+      && await loginButton.isEnabled().catch(() => false)
+    ) return 'login';
+    await page.waitForTimeout(100);
+  }
+
+  throw new Error(`A belépési oldal ${timeout} ms alatt sem állt készen (utolsó URL: ${page.url()}).`);
+}
+
 function observeAccessToken(page: Page, sink: { token?: string }): () => void {
   const onRequest = (request: { url: () => string; headers: () => Record<string, string> }) => {
     if (!request.url().includes('/api/')) return;
@@ -200,10 +216,11 @@ export async function loginAs(
     }
 
     const loginButton = page.getByRole('button', { name: 'Belépés Authentikkal' });
-    await expect(loginButton).toBeEnabled({ timeout: 15_000 });
-    await loginButton.click();
-
-    await completeAuthentikForm(page, identity);
+    const entry = await waitForLoginEntry(page);
+    if (entry === 'login') {
+      await loginButton.click();
+      await completeAuthentikForm(page, identity);
+    }
 
     await expect(profileLink(page)).toBeVisible({ timeout: 20_000 });
 
@@ -227,5 +244,10 @@ export async function logout(page: Page): Promise<void> {
   const logoutButton = page.getByRole('button', { name: 'Kijelentkezés' });
   await expect(logoutButton).toBeVisible({ timeout: 15_000 });
   await logoutButton.click();
+  // Authentik may end on its RP-logout confirmation page instead of following
+  // post_logout_redirect_uri automatically. Return to the SPA explicitly; the
+  // non-secret logout marker must prevent prompt=none from signing back in.
+  await page.waitForLoadState('domcontentloaded');
+  if (!isAtApplication(page)) await page.goto('/login');
   await expect(loginLink(page)).toBeVisible({ timeout: 20_000 });
 }

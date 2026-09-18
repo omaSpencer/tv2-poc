@@ -54,7 +54,7 @@ test.describe('Backend restart recovery @backend-restart', () => {
     const recovered = await waitForState(page, interruptedRunId, token, 'failed', 30_000);
     expect(recovered.errorCode).toBe('aborted');
     await page.reload();
-    await expect(page.locator('.operator-action-panel .ops-status')).toContainText('failed');
+    expect(await waitForTerminalStatus(page.locator('.operator-action-panel .ops-status'))).toBe('failed');
     await expect(page.getByText('Hibakód').locator('xpath=following-sibling::dd[1]')).toHaveText('aborted');
 
     await page.getByRole('link', { name: 'Új teljes futás' }).click();

@@ -301,16 +301,16 @@ implementáció külön ágról, a rögzített BE-F4 → FE-F4 sorrendben kerül
 `main`-re; a koordinátori review-javítás után minden kapu az integrált állapoton
 is megismétlődött.
 
-## Tervezett hullám – W5
+## Lezárt hullám – W5
 
-A W5 a final audit utolsó implementációs hulláma. Kizárólag Codex és Cursor
-vesz részt benne; a közös tiszta baseline a W4 integrációs commitja:
-`8dfcfd8`. A két implementáció külön worktree-ben, párhuzamosan készül.
+A W5 a final audit utolsó implementációs hulláma volt. Kizárólag Codex és
+Cursor vett részt benne; a közös tiszta baseline a W4 integrációs commitja:
+`8dfcfd8`. A két implementáció külön worktree-ben, párhuzamosan készült.
 
-| Szerep | Tulajdon | Branch | Worktree | Indítási állapot |
+| Szerep | Tulajdon | Branch | Worktree | Állapot |
 | --- | --- | --- | --- | --- |
-| Codex | Backend BE-F5: A1, A2, A3, T1, T2; integráció és közös gate | `codex/final-be-f5` | `/private/tmp/tv2-poc-be-f5` | `8dfcfd8`-ről indítható |
-| Cursor | Frontend FE-F5: L1, L14, I3, I4 | `codex/final-fe-f5` | `/private/tmp/tv2-poc-fe-f5` | `8dfcfd8`-ről indítható |
+| Codex | Backend BE-F5: A1, A2, A3, T1, T2; integráció és közös gate | `codex/final-be-f5` | `/private/tmp/tv2-poc-be-f5` | integrálva (`7d45239`) |
+| Cursor | Frontend FE-F5: L1, L14, I3, I4 | `codex/final-fe-f5` | `/private/tmp/tv2-poc-fe-f5` | integrálva (`a9f40ba`, review `a19d1fe`) |
 
 Feladatlapok: [Codex / backend BE-F5](agent-prompts/W5-CODEX-BACKEND.md) és
 [Cursor / frontend FE-F5](agent-prompts/W5-CURSOR-FRONTEND.md).
@@ -378,25 +378,46 @@ Feladatlapok: [Codex / backend BE-F5](agent-prompts/W5-CODEX-BACKEND.md) és
 
 ### W5 közös kapu
 
-- [ ] A1 közös deadline/backoff/settings util minden korábbi lifecycle
+- [x] A1 közös deadline/backoff/settings util minden korábbi lifecycle
   invariánst megőriz, saját fake-clock unit tesztekkel.
-- [ ] A2 után production backend kódban egy logger bekötési pont van; a teljes
+- [x] A2 után production backend kódban egy logger bekötési pont van; a teljes
   redakciós sentinel suite titokmentes.
-- [ ] A3 production `src/**` kommentjei angolok, runtime copy/szerződés nem
+- [x] A3 production `src/**` kommentjei angolok, runtime copy/szerződés nem
   változott.
-- [ ] Backend és frontend V8 coverage baseline/threshold evidence-ben van;
+- [x] Backend és frontend V8 coverage baseline/threshold evidence-ben van;
   threshold alatti kontroll nem nulla exit, normál `verify` zöld.
-- [ ] Production auth után token nincs browser storage-ban; PKCE state csak
+- [x] Production auth után token nincs browser storage-ban; PKCE state csak
   átmeneti; manual token productionben fail-closed.
-- [ ] Valódi Authentik: issuer/audience, három role, 401, 5 perces renewal,
+- [x] Valódi Authentik: issuer/audience, három role, 401, 5 perces renewal,
   reload silent recovery és logout bizonyított.
-- [ ] Production Nginx CSP/security headerei tényleges response-on zöldek,
+- [x] Production Nginx CSP/security headerei tényleges response-on zöldek,
   OIDC/API forgalom CSP violation nélkül működik.
-- [ ] Production bundle/docs link same-origin; nincs `127.0.0.1:3000` fallback,
+- [x] Production bundle/docs link same-origin; nincs `127.0.0.1:3000` fallback,
   a publikus `VITE_*` policy dokumentált és validált.
-- [ ] Node 24.20.0/npm toolchain helyben és CI-ban fail-fast módon pinelt.
-- [ ] Backend `verify`, frontend `verify`, E2E typecheck, OpenAPI/generated
+- [x] Node 24.20.0/npm toolchain helyben és CI-ban fail-fast módon pinelt.
+- [x] Backend `verify`, frontend `verify`, E2E typecheck, OpenAPI/generated
   contract drift, production image smoke, axe és teljes böngészős E2E zöld.
+
+### W5 integrációs eredmény – 2026-09-18
+
+| Kapu | Eredmény |
+| --- | --- |
+| Backend teljes verify, Node 24.20.0 | PASS – 29 fájl, 300/300 teszt, coverage 79/70/78/82 felett |
+| Frontend teljes verify, Node 24.20.0 | PASS – 52 fájl, 251/251 teszt, coverage 69/66/68/71 felett |
+| OpenAPI → frontend generated contract | PASS – drift nincs |
+| Authentik release preflight | PASS – RSA JWKS, issuer/audience, 5 perc/1 óra, 4 redirect, 3 identity |
+| Valódi token-életciklus | PASS – 1/1, 4,6 perc; renew, reload-silent recovery, logout |
+| Teljes normál Playwright | PASS – 40 pass; a restart spec a dedikált hámban fut |
+| Dedikált backend crash/restart Playwright | PASS – 1/1; aborted recovery + új sikeres reindex |
+| Axe, responsive és cross-browser | PASS – a teljes normál Playwright-kör része |
+| Production web image/header smoke | PASS – általános route DENY, silent callback SAMEORIGIN, CSP/nosniff |
+| Production Nginx böngészős OIDC/API/CSP smoke | PASS – 1/1; publisher login, same-origin API, reload-silent recovery, 0 CSP violation |
+| Node/npm negatív runtime kontroll | PASS – eltérő Node és npm verzió exit 1 |
+
+A W5 közös kapuja zöld. A backend és frontend a rögzített BE-F5 → FE-F5
+sorrendben került `main`-re; a koordinátori threat-model és production-header
+review után talált silent-iframe, StrictMode renew, logout-loop és dev-only env
+hibák javítva, célzott és teljes kapukkal újraellenőrizve.
 
 ## W1 baseline – 2026-09-18
 
@@ -432,10 +453,10 @@ futási bizonyíték alapján állapítható meg.
 
 ## Végső közös kapu
 
-- [ ] Backend 25/25 és frontend 21/21 audit-ID lezárt evidence-szel.
-- [ ] Backend build/typecheck/lint/OpenAPI/coverage/integráció/Auth L2 zöld.
-- [ ] Frontend build/typecheck/lint/contracts/coverage/unit/component/axe/E2E zöld.
-- [ ] Friss checkout runbook és production-topológia döntések konzisztensen
+- [x] Backend 25/25 és frontend 21/21 audit-ID lezárt evidence-szel.
+- [x] Backend build/typecheck/lint/OpenAPI/coverage/integráció/Auth L2 zöld.
+- [x] Frontend build/typecheck/lint/contracts/coverage/unit/component/axe/E2E zöld.
+- [x] Friss checkout runbook és production-topológia döntések konzisztensen
   dokumentáltak.
-- [ ] Független final diff review nem talál scope-regressziót vagy elhallgatott
+- [x] Független final diff review nem talál scope-regressziót vagy elhallgatott
   elfogadást.

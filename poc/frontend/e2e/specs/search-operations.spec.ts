@@ -110,7 +110,7 @@ test.describe('Operációs áttekintő', () => {
     await expect(page.getByText('Mindkét keresőindex routolható.')).toBeVisible();
 
     await expect(page.getByRole('heading', { level: 2, name: 'Tartós fogyasztók' })).toBeVisible();
-    await expect(page.locator('table').getByRole('columnheader', { name: 'Pending', exact: true })).toBeVisible();
+    await expect(page.locator('table').getByRole('columnheader', { name: 'Függő', exact: true })).toBeVisible();
 
     const refresh = page.getByRole('button', { name: 'Frissítés most' });
     await expect(refresh).toBeEnabled();

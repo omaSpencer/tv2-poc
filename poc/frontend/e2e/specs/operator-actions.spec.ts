@@ -70,7 +70,7 @@ test.describe.serial('Operátori műveletek', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Reindex folyamat' })).toBeVisible();
     const terminal = await waitForTerminalStatus(page.locator('.operator-action-panel .ops-status'), 240_000);
     expect(terminal).toContain('succeeded');
-    await expect(page.locator('.phase-stepper [aria-current="step"]')).toHaveText('ready');
+    await expect(page.locator('.phase-stepper [aria-current="step"]')).toHaveText('Kész');
   });
 
   test('a tartalomjavítás mindkét indexen lefut, és csak biztonságos eredményt mutat', async ({ page }) => {
@@ -115,16 +115,16 @@ test.describe.serial('Operátori műveletek', () => {
     await expect(detail).not.toContainText(draft.summary);
     await expect(detail).not.toContainText(draft.mediaAssetId);
 
-    const replay = page.getByRole('button', { name: 'Replay indítása' });
+    const replay = page.getByRole('button', { name: 'Visszajátszás indítása' });
     await expect(replay).toBeDisabled();
     await page.getByRole('textbox', { name: 'Indoklás' }).fill('Mérgezett esemény kontrollált újrajátszása');
     await expect(replay).toBeEnabled();
     await replay.click();
 
-    const terminal = await waitForTerminalStatus(operatorStatus(page, 'Replay állapota'));
+    const terminal = await waitForTerminalStatus(operatorStatus(page, 'Visszajátszás állapota'));
     expect(terminal).toContain('succeeded');
     await page.getByText('Biztonságos technikai eredmény').click();
-    const resultPanel = page.getByRole('heading', { name: 'Replay állapota' }).locator('xpath=ancestor::section[1]');
+    const resultPanel = page.getByRole('heading', { name: 'Visszajátszás állapota' }).locator('xpath=ancestor::section[1]');
     await expect(resultPanel).toContainText(fixture.quarantineId);
     await expect(resultPanel).toContainText(`"sequence": ${fixture.sequence}`);
     await expect(resultPanel).not.toContainText(title);

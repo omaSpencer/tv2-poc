@@ -36,8 +36,11 @@ export function seedQuarantine(contentId: string): QuarantineFixture {
 }
 
 export async function waitForTerminalStatus(status: Locator, timeout = 180_000): Promise<string> {
-  await expect(status).toContainText(/succeeded|failed/, { timeout });
-  return (await status.innerText()).trim();
+  await expect(status).toContainText(/succeeded|failed|Sikeres|Sikertelen/i, { timeout });
+  const text = (await status.innerText()).trim();
+  if (/Sikertelen|failed/i.test(text)) return 'failed';
+  if (/Sikeres|succeeded/i.test(text)) return 'succeeded';
+  throw new Error(`Ismeretlen terminális operátori állapot: ${text}`);
 }
 
 export function operatorStatus(page: Page, panelHeading: string): Locator {

@@ -2,8 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; FE-F1–FE-F4 lezárva; FE-F5 L14/I3/I4 lezárva, L1
-integrációs gate pending.** Ez a milestone a final audit mind a **21 frontend
+**Státusz: lezárva; FE-F1–FE-F5 és mind a 21 frontend audit-ID kész.** Ez a milestone a final audit mind a **21 frontend
 találatát** lezárja: 2 Medium, 14 Low és 5 Info tételt. A munka öt külön
 fázisban halad; egy fázis végén a frontendnek önmagában kiadható állapotban kell
 maradnia.
@@ -165,12 +164,10 @@ támogatott nyelvi scope-pal összhangban.
 **Cél:** lezárni a production üzembe álláshoz szükséges token-, konfiguráció-,
 runtime- és tesztelési döntéseket.
 
-- [ ] **L1 – OIDC token storage production döntés.** SPA marad, BFF nincs;
+- [x] **L1 – OIDC token storage production döntés.** SPA marad, BFF nincs;
   memória-only OIDC + silent `/auth/silent-callback` + CSP implementálva és
   unit/component/build szinten tesztelve. A valódi Playwright silent-recovery
-  és 5 perces renew gate **integrációs pending** a BE-F5 Authentik redirect
-  allowlistig (`E2E_AUTHENTIK_SILENT_REDIRECT=true`). L1 ettől a feltételtől
-  nem jelölhető késznek.
+  és 5 perces renew gate az integrált BE-F5 Authentik redirect allowlisttel zöld.
 - [x] **L14 – `VITE_BACKEND_ORIGIN` dokumentáció és validáció.** Minden `VITE_*`
   bundle-public. A kulcs csak a Vite dev proxy célja; production same-origin
   `/api` docs link, nincs `127.0.0.1:3000` fallback; explicit hibás URL fail-fast.
@@ -186,25 +183,24 @@ runtime- és tesztelési döntéseket.
 
 - [x] Production profilban a token nem kerül sessionStorage-ba.
 - [x] A választott auth architektúra login, refresh/recovery, logout és 401
-      unit/component tesztje zöld. A böngészős silent/renew gate pending (L1).
+      unit/component, valamint valódi böngészős silent/renew tesztje zöld.
 - [x] Production build hibás/hiányzó origin konfigurációval nem készít félrevezető linket.
 - [x] A támogatott Node-verzió a frontend package-ben és `runtime:check`-kel
       kikényszerített. A közös CI workflow-t a koordinátor köti be.
-- [ ] Typecheck, lint, contract check, coverage, unit/component zöld; a böngészős
-      token-életciklus E2E a BE-F5 redirect után az integrációs kapun fut.
-- [x] `FINAL-FRONTEND-EVIDENCE.md` mind a 21 audit-ID-t eredménnyel felsorolja
-      (L1: integrációs gate pending).
+- [x] Typecheck, lint, contract check, coverage, unit/component és a böngészős
+      token-életciklus E2E zöld.
+- [x] `FINAL-FRONTEND-EVIDENCE.md` mind a 21 audit-ID-t lezárt eredménnyel felsorolja.
 
 ## Milestone Definition of Done
 
-- [ ] FE-F1–FE-F5 minden lezárási kapuja teljes.
-- [ ] Mind a 21 audit-ID pontosan egyszer szerepel az evidence-ben, nyitott vagy
+- [x] FE-F1–FE-F5 minden lezárási kapuja teljes.
+- [x] Mind a 21 audit-ID pontosan egyszer szerepel az evidence-ben, nyitott vagy
   „majd egyszer” státusz nélkül.
-- [ ] A production auth storage és nyelvi scope döntése dokumentált, tesztelt és
+- [x] A production auth storage és nyelvi scope döntése dokumentált, tesztelt és
   összhangban van a deployment topológiával.
-- [ ] Frontend build, typecheck, lint, contract drift, coverage, unit/component,
+- [x] Frontend build, typecheck, lint, contract drift, coverage, unit/component,
   axe és teljes böngészős E2E kapu zöld.
-- [ ] A frontend minden fázis végén önmagában demózható és visszagörgethető
+- [x] A frontend minden fázis végén önmagában demózható és visszagörgethető
   állapotban maradt.
 
 ## Teljességi mátrix

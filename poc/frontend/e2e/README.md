@@ -13,7 +13,7 @@ Authorization Code + PKCE folyamaton megy át, ez adja az M2 L2 bizonyítékot.
 | Spec | Lefedett kötelező ellenőrzés |
 | --- | --- |
 | `specs/auth-role-guard.spec.ts` | viewer/editor/publisher PKCE belépés, `/me` szerinti navigáció, reload utáni session, 403 megtartott munkamenettel, logout, returnTo open-redirect védelem |
-| `specs/auth-token-lifecycle.spec.ts` | release-only: storage-mentes token, 5 perces megújulás, silent reload, logout; `E2E_AUTHENTIK_SILENT_REDIRECT=true` a BE-F5 redirect után |
+| `specs/auth-token-lifecycle.spec.ts` | release-only: storage-mentes token, valódi 5 perces megújulás, silent reload és logout; a közös release workflow kötelezően `E2E_AUTHENTIK_SILENT_REDIRECT=true` értékkel futtatja |
 | `specs/content-lifecycle.spec.ts` | v1 → v6 életciklus UUID másolása nélkül, published read-only, no-op verzió, audit sorrend, katalógus megjelenés és eltűnés, editor tiltott lifecycle |
 | `specs/version-conflict.spec.ts` | két browser context 409-e, helyi/szerver diff, kézi reapply, nincs automatikus újraküldés |
 | `specs/search-operations.spec.ts` | anonymous keresés → szűrés → lapozás → detail → vissza, bookmarkolható URL, `returned` vs `estimatedTotalHits`, operations kártyák, A/B fallback és teljes kiesés (`@outage`) |
@@ -76,7 +76,8 @@ A blueprint a `poc-viewer`, `poc-editor` és `poc-publisher` felhasználót az
 `AUTHENTIK_POC_USER_PASSWORD` jelszóval hozza létre; ugyanezt kell az
 `E2E_USER_PASSWORD` mezőbe írni.
 
-A blueprint a `http://127.0.0.1:5173/auth/callback` és a
+A blueprint a `http://127.0.0.1:5173/auth/callback`,
+`http://127.0.0.1:5173/auth/silent-callback` és
 `http://127.0.0.1:5173/login` redirectet strict módban engedi, ezért a frontendnek
 pontosan ezen az originen kell futnia. A Playwright emiatt `--strictPort --port 5173`
 kapcsolókkal indítja a Vite dev szervert.
@@ -178,9 +179,8 @@ cd poc/backend && ENV_FILE=.env.e2e npm run db:reset
   sem jut el a backendig. Ezt az ágat a `CatalogSearchPage` komponensteszt fedi.
 - A polling háttértab-leállása böngészőből nem determinisztikus; ezt az
   `OperationsPage` komponensteszt bizonyítja.
-- Az access token élettartama 5 perc; a refresh és a silent-reload ág a
-  `auth-token-lifecycle` specre vár, amely a BE-F5 silent redirectig
-  integráció-pending (`E2E_AUTHENTIK_SILENT_REDIRECT`).
+- Az access token élettartama 5 perc; emiatt az `auth-token-lifecycle` release
+  spec szándékosan több perces, és nem használ time travelt vagy mock JWKS-t.
 - A kézi screen-reader smoke négy állomása: login oldal és hibaüzenet; create
   form label/mezőhiba; conflict dialog cím/leírás/fókusz; reindex confirm dialog
   és élő progress. A programozott név, live region és keyboard viselkedés

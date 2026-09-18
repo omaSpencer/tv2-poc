@@ -12,9 +12,9 @@ kérdést:
 1. hogyan jelentkezik be a böngészős frontend a meglévő Authentik providerhez;
 2. milyen read API kell az UUID-másolás nélküli szerkesztői workspace-hez.
 
-A döntések implementációra készek. A valódi Authentik L2 környezet továbbra is
-külső kapu: nélküle az auth kód és a mockolt tesztek elkészíthetők, de a Fázis 1
-nem jelölhető késznek.
+A döntések implementálva és az integrált valódi Authentik L2 kapun igazolva
+vannak. A mockolt tesztek mellett a böngészős login/renew/reload/logout út is
+zöld.
 
 ## 2. Böngészős OIDC / PKCE szerződés
 
@@ -49,10 +49,10 @@ http://127.0.0.1:5173/auth/silent-callback
 
 Az első a meglévő CLI bizonyító kliensé, a második a SPA callbackje, a harmadik a
 post-logout cél, a negyedik a hidden iframe silent restore. A silent URI-t a
-BE-F5 Authentik blueprint adja; e frontend ágon a böngészős silent-recovery
-integrációs gate pending. Wildcard, regex, `localhost` alias és tetszőleges port
-nem engedélyezett. A post-logout viselkedést L2-ben ténylegesen igazolni kell; ha
-az IdP nem redirectel, a frontend a helyi sessiont akkor is azonnal törli.
+BE-F5 Authentik blueprint adja; az integrált böngészős silent-recovery és
+post-logout gate zöld. Wildcard, regex, `localhost` alias és tetszőleges port
+nem engedélyezett. Ha az IdP nem redirectel automatikusan, a frontend a helyi
+sessiont akkor is azonnal törli.
 
 ### 2.2 Frontend env-szerződés
 

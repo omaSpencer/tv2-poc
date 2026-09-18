@@ -24,7 +24,6 @@ export type FrontendConfig = {
 type EnvSource = {
   PROD?: boolean;
   VITE_API_BASE?: string;
-  VITE_BACKEND_ORIGIN?: string;
   VITE_OIDC_ISSUER_URL?: string;
   VITE_OIDC_CLIENT_ID?: string;
   VITE_OIDC_REDIRECT_URI?: string;
@@ -66,11 +65,6 @@ export function loadFrontendConfig(
   browserOrigin = 'http://127.0.0.1:5173',
 ): FrontendConfig {
   const apiBase = resolveApiBase(env);
-  const backendOrigin = trimmed(env.VITE_BACKEND_ORIGIN);
-  if (backendOrigin && !validHttpUrl(backendOrigin)) {
-    throw new Error('VITE_BACKEND_ORIGIN nem érvényes HTTP(S) URL.');
-  }
-
   const allowManualToken = env.VITE_ALLOW_MANUAL_TOKEN === 'true';
   if (env.PROD && allowManualToken) {
     throw new Error('VITE_ALLOW_MANUAL_TOKEN productionben nem engedélyezett.');
@@ -141,4 +135,15 @@ export function loadFrontendConfig(
 
 const browserOrigin = typeof window === 'undefined' ? 'http://127.0.0.1:5173' : window.location.origin;
 
-export const frontendConfig = loadFrontendConfig(import.meta.env, browserOrigin);
+// Explicit browser allowlist: VITE_BACKEND_ORIGIN belongs only to vite.config's
+// development proxy and must never be serialized from a developer .env file.
+export const frontendConfig = loadFrontendConfig({
+  PROD: import.meta.env.PROD,
+  VITE_API_BASE: import.meta.env.VITE_API_BASE,
+  VITE_OIDC_ISSUER_URL: import.meta.env.VITE_OIDC_ISSUER_URL,
+  VITE_OIDC_CLIENT_ID: import.meta.env.VITE_OIDC_CLIENT_ID,
+  VITE_OIDC_REDIRECT_URI: import.meta.env.VITE_OIDC_REDIRECT_URI,
+  VITE_OIDC_POST_LOGOUT_REDIRECT_URI: import.meta.env.VITE_OIDC_POST_LOGOUT_REDIRECT_URI,
+  VITE_OIDC_SILENT_REDIRECT_URI: import.meta.env.VITE_OIDC_SILENT_REDIRECT_URI,
+  VITE_ALLOW_MANUAL_TOKEN: import.meta.env.VITE_ALLOW_MANUAL_TOKEN,
+}, browserOrigin);

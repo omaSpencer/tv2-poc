@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
     signinRedirectCallback: vi.fn(),
     signoutRedirect: vi.fn(),
     removeUser: vi.fn(),
+    startSilentRenew: vi.fn(),
     stopSilentRenew: vi.fn(),
     events: {
       addUserLoaded: vi.fn(),
@@ -100,7 +101,7 @@ function Probe() {
       <p>{state.kind}</p>
       <button type="button" onClick={() => void login('/contents')}>Login</button>
       <button type="button" onClick={() => void logout()}>Logout</button>
-      <button type="button" onClick={() => void completeCallback()}>Callback</button>
+      <button type="button" onClick={() => void completeCallback().catch(() => undefined)}>Callback</button>
     </div>
   );
 }
@@ -117,6 +118,7 @@ function renderAuth() {
 
 describe('AuthProvider', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     mocks.fetchMe.mockResolvedValue(meResponse());
     mocks.manager.events.addUserLoaded.mockImplementation((cb: (user: User) => void) => {
       listeners.loaded.push(cb);
@@ -170,6 +172,17 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(mocks.manager.removeUser).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(queryClient.getQueryData(['private', 'editor-user'])).toBeUndefined());
     expect(mocks.setApiAccessToken).toHaveBeenCalledWith(null);
+    expect(sessionStorage.getItem('indaplay.poc.silentRestoreSuppressed')).toBe('1');
+  });
+
+  it('does not silently restore after an explicit logout intent', async () => {
+    sessionStorage.setItem('indaplay.poc.silentRestoreSuppressed', '1');
+    mocks.manager.getUser.mockResolvedValue(null);
+    renderAuth();
+    await screen.findByText('anonymous');
+    expect(mocks.manager.getUser).not.toHaveBeenCalled();
+    expect(mocks.manager.signinSilent).not.toHaveBeenCalled();
+    expect(mocks.manager.removeUser).toHaveBeenCalled();
   });
 
   it('restores a missing memory user through silent prompt=none', async () => {
@@ -180,6 +193,7 @@ describe('AuthProvider', () => {
     await screen.findByText('authenticated');
     expect(mocks.manager.signinSilent).toHaveBeenCalledTimes(1);
     expect(mocks.setApiAccessToken).toHaveBeenCalledWith('silent-access');
+    expect(mocks.manager.startSilentRenew).toHaveBeenCalled();
   });
 
   it('treats login_required as anonymous and does not start an interactive redirect', async () => {
@@ -222,6 +236,17 @@ describe('AuthProvider', () => {
     expect(mocks.setApiAccessToken).toHaveBeenCalledWith('callback-access');
   });
 
+  it('keeps logout suppression when callback validation fails', async () => {
+    sessionStorage.setItem('indaplay.poc.silentRestoreSuppressed', '1');
+    window.history.pushState({}, '', '/auth/callback?code=stale');
+    mocks.manager.signinRedirectCallback.mockRejectedValue(new ErrorResponse({ error: 'invalid_request' }));
+    renderAuth();
+    await screen.findByText('anonymous');
+    fireEvent.click(screen.getByRole('button', { name: 'Callback' }));
+    await screen.findByText('identity_unavailable');
+    expect(sessionStorage.getItem('indaplay.poc.silentRestoreSuppressed')).toBe('1');
+  });
+
   it('shares a single in-flight 401 recovery', async () => {
     mocks.manager.getUser.mockResolvedValue(oidcUser());
     mocks.fetchMe.mockResolvedValue(meResponse());
@@ -256,6 +281,7 @@ describe('AuthProvider', () => {
   });
 
   it('starts login only from an explicit user action', async () => {
+    sessionStorage.setItem('indaplay.poc.silentRestoreSuppressed', '1');
     mocks.manager.getUser.mockResolvedValue(null);
     mocks.manager.signinSilent.mockRejectedValue(new ErrorResponse({ error: 'login_required' }));
     mocks.manager.signinRedirect.mockResolvedValue(undefined);
@@ -264,5 +290,6 @@ describe('AuthProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Login' }));
     await waitFor(() => expect(mocks.manager.signinRedirect).toHaveBeenCalledTimes(1));
     expect(mocks.manager.signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/contents' } });
+    expect(sessionStorage.getItem('indaplay.poc.silentRestoreSuppressed')).toBeNull();
   });
 });

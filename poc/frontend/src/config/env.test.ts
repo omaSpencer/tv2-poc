@@ -65,8 +65,7 @@ describe('loadFrontendConfig', () => {
     })).toThrow('VITE_ALLOW_MANUAL_TOKEN');
   });
 
-  it('fails fast on an explicit invalid VITE_BACKEND_ORIGIN without using it for docs', () => {
-    expect(() => loadFrontendConfig({ VITE_BACKEND_ORIGIN: 'not a URL' })).toThrow('VITE_BACKEND_ORIGIN');
+  it('never uses the development proxy origin for browser docs links', () => {
     expect(resolveDocsHref('/docs', '/api')).toBe('/api/docs');
     expect(resolveDocsHref('/docs', '/api')).not.toContain('127.0.0.1:3000');
   });

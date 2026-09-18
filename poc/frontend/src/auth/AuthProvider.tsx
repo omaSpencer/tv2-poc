@@ -8,6 +8,7 @@ import { frontendConfig } from '../config/env';
 import { AuthContext } from './authContext';
 import { meFromState, type AuthContextValue, type AuthState } from './authTypes';
 import { readManualToken, writeManualToken } from './manualToken';
+import { allowSilentRestore, silentRestoreSuppressed, suppressSilentRestore } from './silentRestore';
 import {
   completeSigninCallbackOnce,
   createOidcManager,
@@ -170,6 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const bootstrap = useCallback(async (): Promise<void> => {
     if (manager) {
+      if (silentRestoreSuppressed()) {
+        await dropStaleBearer();
+        setState(anonymousState());
+        return;
+      }
       try {
         const user = await manager.getUser();
         if (user && user.expired !== true && await acceptOidcUser(user)) return;
@@ -213,6 +219,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!manager) return undefined;
+    // React StrictMode mounts effects twice in development. The first cleanup
+    // stops oidc-client-ts' constructor-started renew service, so every effect
+    // mount must explicitly (and idempotently) start it again.
+    manager.startSilentRenew();
     const removeLoaded = manager.events.addUserLoaded((user) => {
       void acceptOidcUser(user);
     });
@@ -261,6 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
+    allowSilentRestore();
     setState({ kind: 'authenticating' });
     await manager.signinRedirect({ state: { returnTo: safeReturnTo(returnTo) } });
   }, [manager]);
@@ -282,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [acceptOidcUser, dropStaleBearer, manager]);
 
   const logout = useCallback(async () => {
+    suppressSilentRestore();
     const user = await manager?.getUser().catch(() => null);
     await manager?.removeUser().catch(() => undefined);
     clearLocalSession();
@@ -308,6 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLocalSession();
       return;
     }
+    allowSilentRestore();
     manualModeRef.current = true;
     persistManualToken(token);
     setApiAccessToken(token);

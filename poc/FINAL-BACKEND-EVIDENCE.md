@@ -576,8 +576,8 @@ PostgreSQL/NATS/Meilisearch stacken mért baseline:
 
 | Metrika | Baseline | Commitolt minimum |
 | --- | ---: | ---: |
-| Statements | 79,42% (2474/3115) | 79% |
-| Branches | 70,16% (1263/1800) | 70% |
+| Statements | 79,39% (2473/3115) | 79% |
+| Branches | 70,11% (1262/1800) | 70% |
 | Functions | 78,98% (466/590) | 78% |
 | Lines | 82,86% (2235/2697) | 82% |
 
@@ -594,7 +594,7 @@ stack futások közül volt PostgreSQL connection-timeoutos ismétlés; az elfog
 core verify idejére csak a tesztek által nem használt Authentik server/workert
 állítottuk le, majd mindkettőt healthy állapotba visszaindítottuk.
 
-### T2 – Valódi Authentik release gate · **backend kész, integrációs gate pending**
+### T2 – Valódi Authentik release gate · **lezárva**
 
 A blueprint megtartja a per-provider issuert, a `poc-backend-api` audience
 mappinget, az 5 perces access és 1 órás refresh élettartamot, és strict
@@ -607,13 +607,12 @@ ellenőrzi a public clientet, issuer módot, élettartamokat, a teljes strict
 redirectlistát és a három aktív, megfelelő csoportú tesztidentitást. Hiányzó env,
 provider, kulcs, user vagy eltérő redirect hard failure; skip ág nincs.
 
-A jelenleg futó, még W4 blueprintet használó Authentik provider valós lekérése
-5 perc / 1 óra élettartamot adott, de a silent redirectet még nem tartalmazta;
-az új preflight helyesen `redirect_contract_mismatch` hibával blokkolt. A W4
-valódi Chromium evidence már bizonyítja a három szerepet, backend tokenelfogadást,
-403-at, reloadot és logoutot. A teljes T2 csak a backend blueprint integrálása és
-a Cursor FE-F5 ág valódi 5 perces renewal + memória-only reload-silent recovery +
-logout futása után jelölhető lezártnak; token vagy credential nem került logba.
+Az integráció után az Authentik server/worker az új blueprinttel healthy. A
+valós preflight discovery/JWKS, issuer, audience, 5 perces access token, 1 órás
+refresh token, négy strict redirect és három aktív tesztidentitás ellenőrzésével
+**PASS**. A frontend valódi lifecycle tesztje az 5 perces renewal, memória-only
+reload-silent recovery és logout útját is bizonyította; token vagy credential
+nem került a release evidence-be.
 
 ## BE-F5 – futtatott kapuk
 
@@ -627,8 +626,9 @@ logout futása után jelölhető lezártnak; token vagy credential nem került l
 | `npm run lint` | pass – 0 warning, 0 error |
 | `npm run openapi:check` | pass – contract drift nincs |
 | `npm run verify` | **exit 0**, Node 24.20.0, **29 fájl, 300/300 pass**; Authentik server/worker a tőlük független core mérés idejére állt, utána healthy állapotba visszaindult |
-| Authentik provider élő preflight a W4 runtime-on | **várt fail** – `redirect_contract_mismatch`; az új blueprint integrációja szükséges |
+| Authentik provider élő preflight az integrált blueprinttel | **PASS** – RSA JWKS, issuer/audience, 5 perc/1 óra, 4 redirect, 3 identity |
+| Valódi Authentik böngészős lifecycle | **PASS** – renewal, reload-silent recovery, logout |
 
 Frontend forrás, frontend lockfile, OpenAPI/generated contract és közös workflow
-nem változott ezen az ágon. A backend implementáció átadható; T2 teljes lezárása
-szándékosan az integrált W5 kapuban marad.
+nem változott a backend implementációs ágon. A közös workflow integrációkor
+kapta meg a kötelező preflight- és lifecycle-bekötést.

@@ -2,8 +2,7 @@
 
 2026-09-18 · Végrehajtási terv a Fable final code review alapján.
 
-**Státusz: folyamatban; BE-F1–BE-F4 lezárva, BE-F5 backend-része elkészült,
-az integrált Authentik lifecycle gate pending.** Ez a milestone a final audit mind a **25 backend
+**Státusz: lezárva; BE-F1–BE-F5 és mind a 25 backend audit-ID kész.** Ez a milestone a final audit mind a **25 backend
 találatát** lezárja: 2 Medium, 13 Low és 10 Info tételt. A cél nem egyetlen nagy
 javítócsomag, hanem öt, egymás után végrehajtható és külön ellenőrizhető fázis.
 
@@ -194,32 +193,31 @@ release gate kialakítása.
 - [x] **T1 – Backend coverage gate.** Kerüljön be `@vitest/coverage-v8`, commitolt
   konfiguráció és fokozatos, a jelenlegi baseline-hoz kötött küszöb. A küszöb ne
   ösztönözzön értéktelen tesztekre, de regressziót ne engedjen.
-- [ ] **T2 – Valódi Authentik L2 release gate.** A mock JWKS mellett legyen
+- [x] **T2 – Valódi Authentik L2 release gate.** A mock JWKS mellett legyen
   reprodukálható, dokumentált valódi-tokenes suite legalább issuer, audience,
   refresh/session és jogosultság ellenőrzéssel. Ha nem fut minden PR-on, a release
   gate-ben kötelező és evidence-szel igazolt legyen.
   A backend blueprint, strict silent redirect, provider-preflight és fail-closed
-  futtatás kész; az 5 perces böngészős renewal/reload/logout bizonyíték az
-  integrált Cursor frontend ágra vár.
+  futtatás, valamint az 5 perces böngészős renewal/reload/logout bizonyíték zöld.
 
 ### BE-F5 lezárási kapu
 
 - [x] A közös util és logger saját unit tesztekkel rendelkezik.
 - [x] A log-redakció teljes suite-ja zöld.
 - [x] Typecheck, lint és coverage-küszöb zöld.
-- [ ] A teljes integrációs stack és a valódi Authentik L2 gate zöld.
-- [ ] `FINAL-BACKEND-EVIDENCE.md` mind a 25 audit-ID-t eredménnyel felsorolja.
+- [x] A teljes integrációs stack és a valódi Authentik L2 gate zöld.
+- [x] `FINAL-BACKEND-EVIDENCE.md` mind a 25 audit-ID-t eredménnyel felsorolja.
 
 ## Milestone Definition of Done
 
-- [ ] BE-F1–BE-F5 minden lezárási kapuja teljes.
-- [ ] Mind a 25 audit-ID pontosan egyszer szerepel az evidence-ben, nyitott vagy
+- [x] BE-F1–BE-F5 minden lezárási kapuja teljes.
+- [x] Mind a 25 audit-ID pontosan egyszer szerepel az evidence-ben, nyitott vagy
   „majd egyszer” státusz nélkül.
-- [ ] Minden tudatos elfogadásnak van tulajdonosa, indoka és újraértékelési
+- [x] Minden tudatos elfogadásnak van tulajdonosa, indoka és újraértékelési
   feltétele.
-- [ ] Backend build, typecheck, lint, OpenAPI/contract drift, coverage, teljes
+- [x] Backend build, typecheck, lint, OpenAPI/contract drift, coverage, teljes
   integrációs suite és valódi Authentik L2 gate zöld.
-- [ ] A runbook friss környezetből bizonyítja az image-indítást, a CORS/topológia
+- [x] A runbook friss környezetből bizonyítja az image-indítást, a CORS/topológia
   döntést és a dependency-k biztonságos host-kitettségét.
 
 ## Teljességi mátrix

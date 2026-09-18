@@ -123,6 +123,13 @@ jobs:
           done
           echo "Authentik L2 prerequisite did not become ready; this is a release blocker."
           exit 1
+      - name: Authentik release contract preflight
+        working-directory: poc/backend
+        env:
+          AUTHENTIK_PUBLIC_URL: http://127.0.0.1:9000
+          OIDC_ISSUER_URL: http://127.0.0.1:9000/application/o/poc-backend/
+          OIDC_AUDIENCE: poc-backend-api
+        run: npm run authentik:release:preflight
       - name: Migrate and build backend
         working-directory: poc/backend
         env:
@@ -133,6 +140,83 @@ jobs:
       - name: Start backend
         working-directory: poc/backend
         env:
+          NODE_ENV: test
+          HOST: 0.0.0.0
+          PORT: 3000
+          LOG_LEVEL: info
+          DATABASE_URL: postgresql://poc:ci-poc-password@127.0.0.1:5432/poc
+          FEATURE_IDENTITY: on
+          FEATURE_OUTBOX_RELAY: on
+          FEATURE_SEARCH: on
+          FEATURE_MEDIA: off
+          OIDC_ISSUER_URL: http://127.0.0.1:9000/application/o/poc-backend/
+          OIDC_AUDIENCE: poc-backend-api
+          NATS_URL: nats://127.0.0.1:4222
+          MEILI_A_URL: http://127.0.0.1:7700
+          MEILI_B_URL: http://127.0.0.1:7701
+        run: |
+          node dist/main.js > /tmp/poc-backend.log 2>&1 &
+          echo $! > /tmp/poc-backend.pid
+          for attempt in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:3000/health/ready && exit 0
+            sleep 1
+          done
+          tail -n 100 /tmp/poc-backend.log
+          exit 1
+      - name: Full-stack browser release gate
+        working-directory: poc/frontend
+        env:
+          E2E_USER_PASSWORD: ci-poc-user-password
+          E2E_DOCKER_CONTROL: 'true'
+          E2E_AUTHENTIK_SILENT_REDIRECT: 'true'
+        run: npm run e2e
+      - name: Build production web image
+        working-directory: poc/frontend
+        run: |
+          docker build -t poc-web-release \
+            --build-arg VITE_API_BASE=/api \
+            --build-arg VITE_OIDC_ISSUER_URL=http://127.0.0.1:9000/application/o/poc-backend/ \
+            --build-arg VITE_OIDC_CLIENT_ID=poc-backend \
+            --build-arg VITE_OIDC_REDIRECT_URI=http://127.0.0.1:5173/auth/callback \
+            --build-arg VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/login \
+            --build-arg VITE_OIDC_SILENT_REDIRECT_URI=http://127.0.0.1:5173/auth/silent-callback \
+            --build-arg VITE_ALLOW_MANUAL_TOKEN=false .
+      - name: Start production web image
+        run: |
+          docker run --rm -d --name poc-web-release \
+            --add-host backend:host-gateway \
+            -p 127.0.0.1:5173:8080 poc-web-release
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/ && exit 0
+            sleep 1
+          done
+          exit 1
+      - name: Production Nginx OIDC, API and CSP browser gate
+        working-directory: poc/frontend
+        env:
+          E2E_USER_PASSWORD: ci-poc-user-password
+          E2E_START_FRONTEND: 'false'
+          E2E_AUTHENTIK_SILENT_REDIRECT: 'true'
+        run: npm run e2e -- auth-role-guard.spec.ts --grep "publisher minden" --reporter=list --output=/tmp/poc-production-csp-artifacts
+      - name: Stop production web image
+        if: always()
+        run: docker stop poc-web-release || true
+      - name: Stop shared backend before dedicated restart harness
+        run: |
+          kill "$(cat /tmp/poc-backend.pid)"
+          for attempt in $(seq 1 30); do
+            if ! curl -fsS http://127.0.0.1:3000/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Shared backend did not stop before restart harness."
+          exit 1
+      - name: Backend crash and restart browser gate
+        working-directory: poc/frontend
+        env:
+          E2E_USER_PASSWORD: ci-poc-user-password
+          E2E_BACKEND_PROCESS_CONTROL: 'true'
           NODE_ENV: test
           HOST: 127.0.0.1
           PORT: 3000
@@ -147,13 +231,7 @@ jobs:
           NATS_URL: nats://127.0.0.1:4222
           MEILI_A_URL: http://127.0.0.1:7700
           MEILI_B_URL: http://127.0.0.1:7701
-        run: npm start > /tmp/poc-backend.log 2>&1 &
-      - name: Full-stack browser release gate
-        working-directory: poc/frontend
-        env:
-          E2E_USER_PASSWORD: ci-poc-user-password
-          E2E_DOCKER_CONTROL: 'true'
-        run: npm run e2e
+        run: npm run e2e:backend-restart
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -163,3 +241,6 @@ jobs:
             poc/frontend/e2e/.artifacts
             poc/frontend/e2e/.report
             /tmp/poc-backend.log
+            /tmp/poc-production-csp-artifacts
+            /tmp/tv2-poc-playwright-restart-artifacts
+            /tmp/tv2-poc-playwright-restart-report

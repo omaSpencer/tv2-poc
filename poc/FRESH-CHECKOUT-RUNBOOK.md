@@ -38,20 +38,45 @@ A teljes, titokmentes konfiguráció és hibakeresés:
 
 ```bash
 cd poc/backend
-docker compose --profile full up -d --wait
-ENV_FILE=.env.e2e npm run db:migrate
+cp .env.example .env.e2e
+# Szerkeszd a .env.e2e fájlt: minden REPLACE_ME értéket cserélj le,
+# a DATABASE_URL portja egyezzen a POSTGRES_PORT-tal, és állítsd on értékre:
+# FEATURE_IDENTITY, FEATURE_OUTBOX_RELAY, FEATURE_SEARCH.
+if grep -Eq '^[[:space:]]*[A-Z][A-Z0-9_]*=.*REPLACE_ME' .env.e2e; then
+  echo 'A backend/.env.e2e még placeholdert tartalmaz.'
+  exit 1
+fi
+set -a
+source .env.e2e
+set +a
+docker compose --env-file .env.e2e --profile full up -d --wait
+npm run db:migrate
 npm run build
-ENV_FILE=.env.e2e npm start
+npm run authentik:release:preflight
+npm start
 
 # másik terminál
 cd poc/frontend
 npm ci
 npm run e2e:install
-E2E_DOCKER_CONTROL=true npm run e2e
+E2E_USER_PASSWORD='<a backend AUTHENTIK_POC_USER_PASSWORD értéke>' \
+  E2E_AUTHENTIK_SILENT_REDIRECT=true E2E_DOCKER_CONTROL=true npm run e2e
 ```
 
 Az Authentik L2 hiánya release blocker, nem skipelt siker. A fault-injection
 tesztek a konténereket `afterEach` helyreállítással kezelik.
+
+A normál suite után a futó backendet le kell állítani, majd a processzt birtokló
+crash/restart kaput külön kell futtatni:
+
+```bash
+cd poc/frontend
+E2E_USER_PASSWORD='<a backend AUTHENTIK_POC_USER_PASSWORD értéke>' \
+  E2E_BACKEND_PROCESS_CONTROL=true npm run e2e:backend-restart
+```
+
+A közös release workflow a normál backend PID-jét rögzíti és leállítja, ezért
+ezt a dedikált kaput is automatikusan, portütközés nélkül futtatja.
 
 ## Publikus perem és futtatási posture (BE-F1)
 
